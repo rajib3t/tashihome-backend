@@ -1,0 +1,21 @@
+[project]
+name = "tashihome-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "alembic>=1.18.5",
+    "asyncpg>=0.31.0",
+    "email-validator>=2.3.0",
+    "fastapi>=0.139.2",
+    "greenlet>=3.0.0",
+    "httpx>=0.28.1",
+    "psycopg2-binary>=2.9.12",
+    "pwdlib[argon2]>=0.3.0",
+    "pydantic-settings>=2.14.2",
+    "pyjwt>=2.13.0",
+    "redis>=8.0.1",
+    "user-agents>=2.2.0",
+    "uvicorn>=0.51.0",
+]
