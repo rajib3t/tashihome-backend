@@ -19,7 +19,7 @@ class ProfileController(BaseController):
     
     def _register_routes(self):
         routes = [
-            ("get", "/profile", self._get_profile, {"response_model": UserBasicProfileResponse, "response_model_by_alias": False})
+            ("get", "/", self._get_profile, {"response_model": UserBasicProfileResponse, "response_model_by_alias": False})
         ]
         for method, path, handler, route_kwargs in routes:
             self.router.add_api_route(path, handler, methods=[method.upper()], **route_kwargs)

@@ -63,10 +63,11 @@ class TokenManager:
         if additional_claims:
             to_encode.update(await self._normalize_claims(additional_claims))
 
-        expire = datetime.now(timezone.utc) + timedelta(
+        now = datetime.now(timezone.utc)
+        expire = now + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
-        to_encode.update({"exp": expire, "type": TokenType.REFRESH})
+        to_encode.update({"iat": now, "exp": expire, "type": TokenType.ACCESS})
         return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
 
     async def create_refresh_token(self, data: dict, additional_claims: dict = None) -> str:
@@ -74,24 +75,26 @@ class TokenManager:
         if additional_claims:
             to_encode.update(await self._normalize_claims(additional_claims))
 
-        expire = datetime.now(timezone.utc) + timedelta(
+        now = datetime.now(timezone.utc)
+        expire = now + timedelta(
             days=settings.REFRESH_TOKEN_EXPIRE_DAYS
         )
-        to_encode.update({"exp": expire, "type": TokenType.REFRESH})
+        to_encode.update({"iat": now, "exp": expire, "type": TokenType.REFRESH})
         return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
 
     async def email_verify_token(self, public_id: str) -> str:
         to_encode = await self._normalize_claims({"sub": public_id})
-        expire = datetime.now(timezone.utc) + timedelta(
+        now = datetime.now(timezone.utc)
+        expire = now + timedelta(
             hours=settings.EMAIL_VERIFY_TOKEN_EXPIRE_HOURS
         )
-        to_encode.update({"exp": expire, "type": TokenType.EMAIL_VERIFICATION})
+        to_encode.update({"iat": now, "exp": expire, "type": TokenType.EMAIL_VERIFICATION})
         return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
 
     async def generate_reset_token(self, public_id: int, expires_at: datetime) -> str:
         to_encode = await self._normalize_claims({"sub": public_id})
         expire = expires_at
-        to_encode.update({"exp": expire, "type": TokenType.PASSWORD_RESET})
+        to_encode.update({"iat": datetime.now(timezone.utc), "exp": expire, "type": TokenType.PASSWORD_RESET})
         return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
 
     async def decode_token(self, token: str) -> dict:

@@ -27,6 +27,17 @@ class RefreshTokenUseCase:
         # Validate the refresh token
         token_data = await self.token_manager.decode_token(refresh_token)
         logger.info(f"Decoded token data: {token_data}")
+        exp = token_data.get("exp")
+        iat = token_data.get("iat")
+        if isinstance(exp, (int, float)):
+            exp_dt = datetime.fromtimestamp(exp, tz=timezone.utc)
+            remaining = exp_dt - datetime.now(timezone.utc)
+            logger.info(
+                "Refresh token timestamps: iat=%s exp=%s remaining_seconds=%s",
+                datetime.fromtimestamp(iat, tz=timezone.utc) if isinstance(iat, (int, float)) else iat,
+                exp_dt,
+                int(remaining.total_seconds()),
+            )
         if token_data["type"] != TokenType.REFRESH:
             raise AppException(
                 status_code=400,

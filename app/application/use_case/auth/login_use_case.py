@@ -63,7 +63,6 @@ class LoginUseCase:
         refresh_token = await self.token_manager.create_refresh_token(
             data={"sub": str(user.public_id)},
             additional_claims={
-                "email": user.email,
                 "role": user.role,
             },
         )

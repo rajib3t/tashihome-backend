@@ -12,7 +12,10 @@ from app.models.token_model import TokenType
 from app.schemas.auth_schema import LoginResponse, LoginResponseData, RefreshTokenResponse
 from app.schemas.token_schema import AccessTokenSchema
 from app.utils.exception_decorate import handle_api_exceptions
+from app.core.config import settings
+import logging
 
+logger = logging.getLogger(__name__)
 
 class AuthController(BaseController):
     def __init__(self):
@@ -36,6 +39,16 @@ class AuthController(BaseController):
         for method, path, handler, route_kwargs in routes:
             self.router.add_api_route(path, handler, methods=[method.upper()], **route_kwargs)
 
+    def _set_auth_cookie(self, response: Response, name: str, value: str, max_age: int) -> None:
+        response.set_cookie(
+            name,
+            value,
+            httponly=True,
+            secure=settings.SECURE_COOKIES,
+            samesite=settings.cookie_samesite,
+            max_age=max_age,
+        )
+
 
     @handle_api_exceptions
     async def _login(
@@ -51,22 +64,18 @@ class AuthController(BaseController):
             password=data.password,
             request=request
         )
-        response.set_cookie(
-                TokenType.REFRESH.value,
-                login_data.token.refresh_token,
-                httponly=True,
-                secure=True,
-                samesite="strict",
-                max_age=60 * 60 * 24 * 7,
-            )
+        self._set_auth_cookie(
+            response,
+            TokenType.REFRESH.value,
+            login_data.token.refresh_token,
+            60 * 60 * 24 * 7,
+        )
         if data.rememberMe:
-            response.set_cookie(
+            self._set_auth_cookie(
+                response,
                 TokenType.ACCESS.value,
                 login_data.token.access_token,
-                httponly=True,
-                secure=True,
-                samesite="strict",
-                max_age=60 * 30,
+                60 * 30,
             )
         login_response = LoginResponseData(
             user=login_data.user,
@@ -87,24 +96,21 @@ class AuthController(BaseController):
         # Implement your refresh token logic here
         refresh_token = request.cookies.get(TokenType.REFRESH.value)
         
+        logger.info("Refresh token received: %s", refresh_token)
         
         # Assuming you have a method to validate and refresh the token
         new_tokens = await use_case.execute(refresh_token)
-        response.set_cookie(
+        self._set_auth_cookie(
+            response,
             TokenType.ACCESS.value,
             new_tokens.access_token.token,
-            httponly=True,
-            secure=True,
-            samesite="strict",
-            max_age=60 * 30,
+            60 * 30,
         )
-        response.set_cookie(
+        self._set_auth_cookie(
+            response,
             TokenType.REFRESH.value,
             new_tokens.refresh_token,
-            httponly=True,
-            secure=True,
-            samesite="strict",
-            max_age=60 * 60 * 24 * 7,
+            60 * 60 * 24 * 7,
         )
         response_data = AccessTokenSchema(
             token=new_tokens.access_token.token,

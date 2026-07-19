@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     # Token expiration times in minutes and days
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 5 # Minutes until the access token expires
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1 # Minutes until the access token expires
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Days until the refresh token expires
     # Email verification and password reset token expiration times
     EMAIL_VERIFY_TOKEN_EXPIRE_HOURS: int = 24 # Hours until the email verification token expires
@@ -36,12 +36,22 @@ class Settings(BaseSettings):
         if not self.CORS_ALLOWED_ORIGINS:
             return ["http://localhost:3000", "http://localhost:5173"]
         return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
-    
+
+    @property
+    def cookie_samesite(self) -> str:
+        value = (self.COOKIE_SAMESITE or "").strip().lower()
+        if not value:
+            return "none" if self.SECURE_COOKIES else "lax"
+        if value in {"lax", "strict", "none"}:
+            return value
+        return "lax"
+
     # Environment
     ENV: str = "development"  # production | staging | development
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"
     SECURE_COOKIES: bool = False
+    COOKIE_SAMESITE: Optional[str] = None
     PORT: int = 8020
 
     # S3 configuration 

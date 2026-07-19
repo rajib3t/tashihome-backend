@@ -88,7 +88,7 @@ async def get_current_user(
     
     token_type = payload.get("type")
     logger.info("Token type: %s", token_type)
-    if token_type != TokenType.REFRESH.value:
+    if token_type != TokenType.ACCESS.value:
         logger.warning(
             "Auth failure [%s]: wrong token type '%s'", request.url.path, token_type
         )
