@@ -15,7 +15,7 @@ class TokenSchema(BaseModel):
 
 
 class AccessTokenSchema(BaseModel):
-    type: str = TokenType.ACCESS
+    type: str = TokenType.ACCESS.value
     token: str
 
 class TokenDataSchema(BaseModel):

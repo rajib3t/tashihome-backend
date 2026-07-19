@@ -15,6 +15,7 @@ class AuthDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: EmailStr
     password: str
+    rememberMe: Optional[bool] = False
 
     @field_validator("email", mode="before")
     @classmethod

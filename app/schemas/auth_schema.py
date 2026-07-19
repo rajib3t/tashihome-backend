@@ -18,3 +18,6 @@ class LoginResponse(BaseResponse):
 class LoginData(BaseModel):
     user: UserData
     token: TokenDataSchema
+
+class RefreshTokenResponse(BaseResponse):
+    data: AccessTokenSchema

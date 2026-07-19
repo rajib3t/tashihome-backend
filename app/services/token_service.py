@@ -37,3 +37,17 @@ class TokenService:
             with_relations=with_relations,
             flush=flush
         )
+
+    async def revoke_token(
+            self,
+            token: Token,
+            commit: bool = True
+    ):
+        return await self.token_repository.revoke_token(token, commit=commit)
+
+    async def delete_token(
+            self,
+            token: Token,
+            commit: bool = True
+    ):
+        return await self.token_repository.delete_token(token, commit=commit)

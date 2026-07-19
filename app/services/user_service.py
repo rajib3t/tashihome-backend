@@ -37,3 +37,16 @@ class UserService:
             with_relations=with_relations, 
             flush=flush
         )
+
+    async def get_user_by_id(
+        self,
+        user_id: int,
+        with_relations: Optional[WithRelations] = None, 
+        flush: bool = False
+    ) -> Optional[User]:
+        # This method retrieves a user by their ID, optionally including related data and controlling whether to flush the session.
+        return await self.user_repository.get_by_id(
+            user_id, 
+            with_relations=with_relations, 
+            flush=flush
+        )

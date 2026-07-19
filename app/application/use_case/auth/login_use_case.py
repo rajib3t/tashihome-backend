@@ -35,21 +35,21 @@ class LoginUseCase:
         if not user:
             raise AppException(
                 status_code=404, 
-                detail="User not found with the provided email.",
+                message="User not found with the provided email.",
                 error_code="USER_NOT_FOUND"
             )
         
         if user.status != UserStatus.ACTIVE:
             raise AppException(
                 status_code=403, 
-                detail="User account is not active.",
+                message="User account is not active.",
                 error_code="USER_INACTIVE"
             )
 
         if not await self.password_hasher.verify_password(password, user.password):
             raise AppException(
                 status_code=401, 
-                detail="Invalid password.",
+                message="Invalid password.",
                 error_code="INVALID_PASSWORD"
             )
         
@@ -72,7 +72,7 @@ class LoginUseCase:
         token = Token(
             user_id=user.id,
             token=refresh_token,
-            expires_at=now + timedelta(days=7),
+            expires_at=now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
             type=TokenType.REFRESH
         )
         await self.token_service.create(
@@ -98,6 +98,8 @@ class LoginUseCase:
                 
             }
         )        
+
+    
             
 
         

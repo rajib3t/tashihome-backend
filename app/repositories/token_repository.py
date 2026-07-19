@@ -1,7 +1,8 @@
 from typing import Optional, TypedDict
 
+from sqlalchemy import select
+
 from app.models.token_model import Token
-from select import select
 
 from app.repositories.base_repository import BaseRepository
 

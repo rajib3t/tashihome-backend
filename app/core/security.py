@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.core.config import settings
 from app.core.exceptions import TokenExpiredError, TokenInvalidError
+from app.models.token_model import TokenType
 class PasswordHasher:
     def __init__(self):
         self.hasher = PasswordHash.recommended()
@@ -65,7 +66,7 @@ class TokenManager:
         expire = datetime.now(timezone.utc) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
-        to_encode.update({"exp": expire, "type": "access"})
+        to_encode.update({"exp": expire, "type": TokenType.REFRESH})
         return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
 
     async def create_refresh_token(self, data: dict, additional_claims: dict = None) -> str:
@@ -76,7 +77,7 @@ class TokenManager:
         expire = datetime.now(timezone.utc) + timedelta(
             days=settings.REFRESH_TOKEN_EXPIRE_DAYS
         )
-        to_encode.update({"exp": expire, "type": "refresh"})
+        to_encode.update({"exp": expire, "type": TokenType.REFRESH})
         return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
 
     async def email_verify_token(self, public_id: str) -> str:
@@ -84,13 +85,13 @@ class TokenManager:
         expire = datetime.now(timezone.utc) + timedelta(
             hours=settings.EMAIL_VERIFY_TOKEN_EXPIRE_HOURS
         )
-        to_encode.update({"exp": expire, "type": "email_verify"})
+        to_encode.update({"exp": expire, "type": TokenType.EMAIL_VERIFICATION})
         return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
 
     async def generate_reset_token(self, public_id: int, expires_at: datetime) -> str:
         to_encode = await self._normalize_claims({"sub": public_id})
         expire = expires_at
-        to_encode.update({"exp": expire, "type": "reset_password"})
+        to_encode.update({"exp": expire, "type": TokenType.PASSWORD_RESET})
         return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
 
     async def decode_token(self, token: str) -> dict:
