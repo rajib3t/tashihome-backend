@@ -1,7 +1,16 @@
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
+from typing import Optional
 
 from app.api.base_controller import BaseController
+from app.application.dto.setting import SettingUpdateDTO
+from app.application.use_case.settings.update_setting_use_case import UpdateSettingUseCase
+from app.deps.service import get_setting_service
+from app.deps.settings import get_update_setting_use_case
+from app.schemas.setting_schema import SettingResponseSchema
+from app.services.setting_service import SettingService
 import logging
+
+from app.utils.exception_decorate import handle_api_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +30,51 @@ class SettingsController(BaseController):
     def _register_routes(self):
 
         routes = [
-            ("post", "/", self._save_setting, {"response_model": None, "response_model_by_alias": False}),
+            ("post", "/", self._save_setting, {"response_model":SettingResponseSchema , "response_model_by_alias": False}),
         ]
 
 
         for method, path, handler, route_kwargs in routes:
             self.router.add_api_route(path, handler, methods=[method.upper()], **route_kwargs)
 
-    
+    @handle_api_exceptions
     async  def _save_setting(
             self,
-            app_name:str,
-            app_logo : UploadFile = File(...),
+            app_name: str = Form(...),
+            app_logo: Optional[UploadFile] = File(None),
+            white_logo: Optional[UploadFile] = File(None),
+            app_favicon: Optional[UploadFile] = File(None),
+            app_timezone: Optional[str] = Form("Asia/Kolkata"),
+            app_date_format:Optional[str] = Form("DD/MM/YYYY"),
+            app_time_format: Optional[str] = Form("12h"),
+            is_enabled_coming_soon: Optional[bool] = Form(False),
+            coming_soon_message: Optional[str] = Form(""),
+            coming_background_image: Optional[UploadFile] = File(None),
+            coming_soon_video: Optional[UploadFile] = File(None),
+            setting_service: SettingService = Depends(get_setting_service),
+            use_case: UpdateSettingUseCase = Depends(get_update_setting_use_case)
 
         ):
-        pass
+        settings_payload = SettingUpdateDTO(
+            app_name=app_name,
+            app_logo=app_logo,
+            white_logo=white_logo,
+            app_favicon=app_favicon,
+            app_timezone=app_timezone,
+            app_date_format=app_date_format,
+            app_time_format=app_time_format,
+            is_enabled_coming_soon=is_enabled_coming_soon,
+            coming_soon_message=coming_soon_message,
+            coming_background_image=coming_background_image,
+            coming_soon_video=coming_soon_video,
+        )
+
+        
+        result = await use_case.execute(settings_payload)
+        return self.build_response(
+            "Settings saved successfully",
+            data=result
+        )
 
 controller = SettingsController()
 router = controller.router
