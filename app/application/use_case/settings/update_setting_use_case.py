@@ -22,23 +22,29 @@ class UpdateSettingUseCase:
 
     async def execute(self, setting_update_dto: SettingUpdateDTO) -> List[SettingSchema]:
         payload = dict(setting_update_dto)
+        print(f"Payload keys: {list(payload.keys())}")
+        print(f"Payload values types: {[(k, type(v).__name__) for k, v in payload.items()]}")
         
         if self._is_upload_file(payload.get("app_logo")):
             try:
                 old_setting = await self.setting_service.get_by_key("app_logo")
+                print(f"Old app_logo setting found: {old_setting.value if old_setting else None}")
             except SettingNotFoundError:
                 old_setting = None
-            self._delete_replaced_file(old_setting, payload["app_logo"])
+                print("No old app_logo setting found")
+            await self._delete_replaced_file(old_setting, payload["app_logo"])
             payload["app_logo"] = await self._upload_file(
                 payload["app_logo"], folder="settings", field_name="app_logo"
             )
+        else:
+            print(f"app_logo is not an upload file: {type(payload.get('app_logo'))}")
         
         if self._is_upload_file(payload.get("white_logo")):
             try:
                 old_setting = await self.setting_service.get_by_key("white_logo")
             except SettingNotFoundError:
                 old_setting = None
-            self._delete_replaced_file(old_setting, payload["white_logo"]) 
+            await self._delete_replaced_file(old_setting, payload["white_logo"]) 
             payload["white_logo"] = await self._upload_file(
                 payload["white_logo"], folder="settings", field_name="white_logo"
             )
@@ -48,7 +54,7 @@ class UpdateSettingUseCase:
                 old_setting = await self.setting_service.get_by_key("app_favicon")
             except SettingNotFoundError:
                 old_setting = None
-            self._delete_replaced_file(old_setting, payload["app_favicon"])
+            await self._delete_replaced_file(old_setting, payload["app_favicon"])
             payload["app_favicon"] = await self._upload_file(
                 payload["app_favicon"], folder="settings", field_name="app_favicon"
             )
@@ -58,7 +64,7 @@ class UpdateSettingUseCase:
                 old_setting = await self.setting_service.get_by_key("coming_background_image")
             except SettingNotFoundError:
                 old_setting = None
-            self._delete_replaced_file(old_setting, payload["coming_background_image"])
+            await self._delete_replaced_file(old_setting, payload["coming_background_image"])
             payload["coming_background_image"] = await self._upload_file(
                 payload["coming_background_image"], folder="settings", field_name="coming_background_image"
             )
@@ -69,7 +75,7 @@ class UpdateSettingUseCase:
                 old_setting = await self.setting_service.get_by_key("coming_soon_video")
             except SettingNotFoundError:
                 old_setting = None
-            self._delete_replaced_file(old_setting, payload["coming_soon_video"])
+            await self._delete_replaced_file(old_setting, payload["coming_soon_video"])
             payload["coming_soon_video"] = await self._upload_file(
                 payload["coming_soon_video"], folder="settings", field_name="coming_soon_video"
             )
@@ -151,8 +157,11 @@ class UpdateSettingUseCase:
 
     async def _delete_replaced_file(self, old_setting, new_value):
         old_value = old_setting.value if old_setting else None
-        if isinstance(old_value, str) and old_value and old_value != new_value:
+        if isinstance(old_value, str) and old_value:
             try:
+                print(f"Deleting old file: {old_value}")
                 await self.storage_service.delete_object(old_value)
-            except Exception:
+                print(f"Successfully deleted: {old_value}")
+            except Exception as e:
+                print(f"Failed to delete {old_value}: {e}")
                 pass
