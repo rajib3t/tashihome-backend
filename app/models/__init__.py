@@ -9,3 +9,8 @@ from .user_model import User
 from .token_model import Token
 from .login_log_model import LoginLog
 from .setting_model import Setting
+
+
+from .country_model import Country
+from .city_model import City
+from .location_model import Location

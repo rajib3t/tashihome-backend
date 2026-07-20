@@ -1,8 +1,7 @@
 import enum
 from typing import TYPE_CHECKING, List
 
-from alembic.environment import Column
-from sqlalchemy import UUID, BigInteger, Boolean, DateTime, Enum, Integer, String, func
+from sqlalchemy import UUID, BigInteger, Boolean, Column, DateTime, Enum, String, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
