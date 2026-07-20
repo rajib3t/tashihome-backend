@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from typing import Optional
 
@@ -50,7 +52,7 @@ class SettingsController(BaseController):
             app_date_format:Optional[str] = Form("DD/MM/YYYY"),
             app_time_format: Optional[str] = Form("12h"),
             is_enabled_coming_soon: Optional[bool] = Form(False),
-            launch_date:Optional[str] = Form(None),
+            launch_date:Optional[datetime] = Form(None),
             coming_soon_message: Optional[str] = Form(""),
             coming_background_image: Optional[UploadFile] = File(None),
             coming_soon_video: Optional[UploadFile] = File(None),

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional, Union
 
 from fastapi import UploadFile
@@ -14,7 +15,7 @@ class SettingUpdateDTO(BaseModel):
     app_date_format: Optional[str] = None
     app_time_format: Optional[str] = None
     is_enabled_coming_soon: Optional[str] = None
-    launch_date:Optional[str]=None
+    launch_date:Optional[datetime]=None
     coming_soon_message: Optional[str] = None
     coming_background_image: Optional[Union[str, UploadFile]] = None
     coming_soon_video: Optional[Union[str, UploadFile]] = None
