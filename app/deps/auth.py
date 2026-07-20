@@ -10,6 +10,7 @@ from app.core.exceptions import AppException, TokenExpiredError, TokenInvalidErr
 from app.core.security import TokenManager
 from app.deps.service import get_ip_service, get_login_log_service, get_token_service, get_user_service
 from app.models.token_model import TokenType
+from app.models.user_model import UserRole
 from app.services.ip_service import IpService
 from app.services.login_log_service import LoginLogService
 from app.services.token_service import TokenService
@@ -134,3 +135,55 @@ async def get_current_user(
 
     return CurrentUser(id=user.id, role=role)
 
+
+
+async def require_role(current_user: CurrentUser = Depends(get_current_user), required_roles: list[UserRole] = None):
+    """Dependency that checks if the current user has one of the required roles.
+    
+    Args:
+        current_user: The current authenticated user
+        required_roles: List of allowed roles. If None, allows all authenticated users.
+        
+    Raises:
+        AppException(403): If user doesn't have required role
+    """
+    if required_roles is None:
+        return current_user
+    
+    user_role = current_user.user_type
+    
+    # Convert UserRole enum to string if needed
+    if isinstance(user_role, UserRole):
+        user_role = user_role.value
+    
+    allowed_roles = [role.value if isinstance(role, UserRole) else role for role in required_roles]
+    
+    if user_role not in allowed_roles:
+        logger.warning(
+            "Access denied [%s]: user %s with role '%s' tried to access endpoint requiring roles: %s",
+            "unknown", current_user.public_id, user_role, allowed_roles
+        )
+        raise AppException(
+            403,
+            f"Access denied. Required role: one of {allowed_roles}",
+            error_code="INSUFFICIENT_PERMISSIONS"
+        )
+    
+    return current_user
+
+
+async def require_admin(current_user: CurrentUser = Depends(get_current_user)):
+    """Dependency that requires admin role."""
+    return await require_role(current_user, [UserRole.ADMIN])
+
+async def require_vendor(current_user: CurrentUser = Depends(get_current_user)):
+    """Dependency that requires vendor role."""
+    return await require_role(current_user, [UserRole.VENDOR])
+
+async def require_admin_or_vendor(current_user: CurrentUser = Depends(get_current_user)):
+    """Dependency that requires either admin or vendor role."""
+    return await require_role(current_user, [UserRole.ADMIN, UserRole.VENDOR])
+
+async def require_user(current_user: CurrentUser = Depends(get_current_user)):
+    """Dependency that requires either  user role."""
+    return await require_role(current_user, [UserRole.USER])
