@@ -1,5 +1,6 @@
 import mimetypes
-from typing import List
+from datetime import date, datetime
+from typing import Any, List
 from uuid import uuid4
 
 from app.application.dto.setting import SettingUpdateDTO
@@ -107,7 +108,8 @@ class UpdateSettingUseCase:
         for key, value in payload.items():
             if value is None:
                 continue
-            await self.setting_service.upsert(key, value)
+            normalized_value = self._normalize_payload_value(key, value)
+            await self.setting_service.upsert(key, normalized_value)
 
         return await self._build_settings_response()
 
@@ -146,6 +148,16 @@ class UpdateSettingUseCase:
             )
 
         return response
+
+    @staticmethod
+    def _normalize_payload_value(key: str, value: Any) -> Any:
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+
+        if isinstance(value, bool):
+            return str(value).lower()
+
+        return value
 
     @staticmethod
     def _is_upload_file(value) -> bool:
