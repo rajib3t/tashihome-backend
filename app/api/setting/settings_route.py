@@ -3,9 +3,10 @@ from typing import Optional
 
 from app.api.base_controller import BaseController
 from app.application.dto.setting import SettingUpdateDTO
+from app.application.use_case.settings.get_setting_use_case import GetSettingUseCase
 from app.application.use_case.settings.update_setting_use_case import UpdateSettingUseCase
 from app.deps.service import get_setting_service
-from app.deps.settings import get_update_setting_use_case
+from app.deps.settings import get_get_setting_use_case, get_update_setting_use_case
 from app.schemas.setting_schema import SettingResponseSchema
 from app.services.setting_service import SettingService
 import logging
@@ -31,6 +32,7 @@ class SettingsController(BaseController):
 
         routes = [
             ("post", "/", self._save_setting, {"response_model":SettingResponseSchema , "response_model_by_alias": False}),
+            ("get", "/", self._get_settings, {"response_model":SettingResponseSchema , "response_model_by_alias": False}),
         ]
 
 
@@ -48,10 +50,10 @@ class SettingsController(BaseController):
             app_date_format:Optional[str] = Form("DD/MM/YYYY"),
             app_time_format: Optional[str] = Form("12h"),
             is_enabled_coming_soon: Optional[bool] = Form(False),
+            launch_date:Optional[str] = Form(None),
             coming_soon_message: Optional[str] = Form(""),
             coming_background_image: Optional[UploadFile] = File(None),
             coming_soon_video: Optional[UploadFile] = File(None),
-            setting_service: SettingService = Depends(get_setting_service),
             use_case: UpdateSettingUseCase = Depends(get_update_setting_use_case)
 
         ):
@@ -64,6 +66,7 @@ class SettingsController(BaseController):
             app_date_format=app_date_format,
             app_time_format=app_time_format,
             is_enabled_coming_soon=is_enabled_coming_soon,
+            launch_date=launch_date,
             coming_soon_message=coming_soon_message,
             coming_background_image=coming_background_image,
             coming_soon_video=coming_soon_video,
@@ -76,5 +79,16 @@ class SettingsController(BaseController):
             data=result
         )
 
+    @handle_api_exceptions
+    async def _get_settings(
+        self,
+        use_case: GetSettingUseCase = Depends(get_get_setting_use_case),
+    ):
+        result = await use_case.execute()
+        return self.build_response(
+            "Settings fetched successfully",
+            data=result,
+        )
+        
 controller = SettingsController()
 router = controller.router

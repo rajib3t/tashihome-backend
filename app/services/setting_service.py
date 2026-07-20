@@ -103,3 +103,28 @@ class SettingService:
         else:
             setting.value = value
         return await self.setting_repository.save(setting, commit=commit)
+
+
+    async def delete(self, key: str, commit: bool = True) -> None:
+        """
+        Delete a setting by its key.
+
+        Args:
+            key (str): The key of the setting to delete.
+            commit (bool): Whether to commit the transaction immediately.
+
+        Raises:
+            SettingNotFoundError: If no setting exists with the given key.
+        """
+        setting = await self.get_by_key(key)
+        await self.setting_repository.delete(setting, commit=commit)
+
+
+    async def get_all(self, flush: bool = False) -> list[Setting]:
+        """
+        Retrieve all settings.
+
+        Returns:
+            list[Setting]: A list of all setting objects.
+        """
+        return await self.setting_repository.get_all(flush=flush)

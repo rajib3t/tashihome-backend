@@ -47,3 +47,35 @@ class SettingRepository(BaseRepository[Setting]):
 
         await self.db.refresh(setting)
         return setting
+    
+    async def delete(self, setting: Setting, commit: bool = True) -> None:
+        """
+        Delete a setting from the database.
+
+        Args:
+            setting (Setting): The setting object to delete.
+            commit (bool): Whether to commit the transaction immediately.
+        """
+        await self.db.delete(setting)
+
+        if not commit:
+            return
+
+        try:
+            await self.db.commit()
+        except SQLAlchemyError:
+            await self.db.rollback()
+            raise
+
+    async def get_all(self, flush: bool = False) -> list[Setting]:
+        """
+        Retrieve all settings from the database.
+
+        Args:
+            flush (bool): Whether to flush pending changes before querying.
+        Returns:
+            list[Setting]: A list of all setting objects.
+        """
+        query = select(Setting)
+        return await self._fetch_all(query, flush=flush)
+        

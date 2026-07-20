@@ -10,11 +10,18 @@ from app.services.storage_service import StorageService
 
 
 class UpdateSettingUseCase:
+    COMING_SOON_KEYS = {
+        "coming_soon_message",
+        "coming_background_image",
+        "coming_soon_video",
+        "launch_date",
+    }
+
     def __init__(
-            self, 
+            self,
             setting_service: SettingService,
             storage_service: StorageService,
-            current_user: CurrentUser 
+            current_user: CurrentUser
         ):
         self.setting_service = setting_service
         self.storage_service = storage_service
@@ -22,29 +29,23 @@ class UpdateSettingUseCase:
 
     async def execute(self, setting_update_dto: SettingUpdateDTO) -> List[SettingSchema]:
         payload = dict(setting_update_dto)
-        print(f"Payload keys: {list(payload.keys())}")
-        print(f"Payload values types: {[(k, type(v).__name__) for k, v in payload.items()]}")
-        
+
         if self._is_upload_file(payload.get("app_logo")):
             try:
                 old_setting = await self.setting_service.get_by_key("app_logo")
-                print(f"Old app_logo setting found: {old_setting.value if old_setting else None}")
             except SettingNotFoundError:
                 old_setting = None
-                print("No old app_logo setting found")
             await self._delete_replaced_file(old_setting, payload["app_logo"])
             payload["app_logo"] = await self._upload_file(
                 payload["app_logo"], folder="settings", field_name="app_logo"
             )
-        else:
-            print(f"app_logo is not an upload file: {type(payload.get('app_logo'))}")
-        
+
         if self._is_upload_file(payload.get("white_logo")):
             try:
                 old_setting = await self.setting_service.get_by_key("white_logo")
             except SettingNotFoundError:
                 old_setting = None
-            await self._delete_replaced_file(old_setting, payload["white_logo"]) 
+            await self._delete_replaced_file(old_setting, payload["white_logo"])
             payload["white_logo"] = await self._upload_file(
                 payload["white_logo"], folder="settings", field_name="white_logo"
             )
@@ -69,7 +70,6 @@ class UpdateSettingUseCase:
                 payload["coming_background_image"], folder="settings", field_name="coming_background_image"
             )
 
-        
         if self._is_upload_file(payload.get("coming_soon_video")):
             try:
                 old_setting = await self.setting_service.get_by_key("coming_soon_video")
@@ -80,69 +80,48 @@ class UpdateSettingUseCase:
                 payload["coming_soon_video"], folder="settings", field_name="coming_soon_video"
             )
 
-        saved_settings = {}
         for key, value in payload.items():
             if value is None:
                 continue
-            saved_settings[key] = await self.setting_service.upsert(key, value)
+            await self.setting_service.upsert(key, value)
 
-        if saved_settings.get("app_logo"):
-            saved_settings["app_logo"] = SettingSchema(
-                name="app_logo", value= self.storage_service.generate_presigned_url(saved_settings["app_logo"].value)    
-            )
-        
-        if saved_settings.get("white_logo"):
-            saved_settings["white_logo"] = SettingSchema(
-                name="white_logo", value= self.storage_service.generate_presigned_url(saved_settings["white_logo"].value)    
-            )
+        return await self._build_settings_response()
 
-        if saved_settings.get("app_favicon"):
-            saved_settings["app_favicon"] = SettingSchema(
-                name="app_favicon", value= self.storage_service.generate_presigned_url(saved_settings["app_favicon"].value)    
-            )
+    async def _build_settings_response(self) -> List[SettingSchema]:
+        settings = await self.setting_service.get_all()
+        response: List[SettingSchema] = []
+        setting_map = {setting.key: setting.value for setting in settings}
+        coming_soon_enabled = False
 
-        if saved_settings.get("coming_background_image"):
-            saved_settings["coming_background_image"] = SettingSchema(
-                name="coming_background_image", value= self.storage_service.generate_presigned_url(saved_settings["coming_background_image"].value)    
-            )
+        coming_soon_flag = setting_map.get("is_enabled_coming_soon")
+        if isinstance(coming_soon_flag, str):
+            coming_soon_enabled = coming_soon_flag.lower() == "true"
 
-        if saved_settings.get("coming_soon_video"):
-            saved_settings["coming_soon_video"] = SettingSchema(
-                name="coming_soon_video", value= self.storage_service.generate_presigned_url(saved_settings["coming_soon_video"].value)    
-            )
+        for setting in settings:
+            if not coming_soon_enabled and setting.key in self.COMING_SOON_KEYS:
+                continue
 
-        if saved_settings.get("is_enabled_coming_soon"):
-            saved_settings["is_enabled_coming_soon"] = SettingSchema(
-                name="is_enabled_coming_soon", value= str(saved_settings["is_enabled_coming_soon"].value).lower()    
-            )
+            value = setting.value
 
-        if saved_settings.get("coming_soon_message"):
-            saved_settings["coming_soon_message"] = SettingSchema(
-                name="coming_soon_message", value= saved_settings["coming_soon_message"].value    
-            )
+            if setting.key in {
+                "app_logo",
+                "white_logo",
+                "app_favicon",
+                "coming_background_image",
+                "coming_soon_video",
+            }:
+                value = self.storage_service.generate_presigned_url(value)
+            elif setting.key == "is_enabled_coming_soon":
+                value = str(value).lower()
 
-        if saved_settings.get("app_name"):
-            saved_settings["app_name"] = SettingSchema(
-                name="app_name", value= saved_settings["app_name"].value    
+            response.append(
+                SettingSchema(
+                    name=setting.key,
+                    value=value,
+                )
             )
 
-        if saved_settings.get("app_timezone"):
-            saved_settings["app_timezone"] = SettingSchema(
-                name="app_timezone", value= saved_settings["app_timezone"].value    
-            )
-
-        if saved_settings.get("app_date_format"):
-            saved_settings["app_date_format"] = SettingSchema(
-                name="app_date_format", value= saved_settings["app_date_format"].value    
-            )
-
-        if saved_settings.get("app_time_format"):
-            saved_settings["app_time_format"] = SettingSchema(
-                name="app_time_format", value= saved_settings["app_time_format"].value    
-            )
-
-        return list(saved_settings.values())
-    
+        return response
 
     @staticmethod
     def _is_upload_file(value) -> bool:
@@ -159,9 +138,6 @@ class UpdateSettingUseCase:
         old_value = old_setting.value if old_setting else None
         if isinstance(old_value, str) and old_value:
             try:
-                print(f"Deleting old file: {old_value}")
                 await self.storage_service.delete_object(old_value)
-                print(f"Successfully deleted: {old_value}")
-            except Exception as e:
-                print(f"Failed to delete {old_value}: {e}")
+            except Exception:
                 pass
