@@ -103,7 +103,10 @@ class BaseRepository(Generic[ModelT]):
                 continue
 
             column = allowed_fields[field_name]
-            query = query.where(column == value)
+            if isinstance(value, str):
+                query = query.where(func.lower(column) == value.strip().lower())
+            else:
+                query = query.where(column == value)
 
         return query
 

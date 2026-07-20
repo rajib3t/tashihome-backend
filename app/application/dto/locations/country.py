@@ -18,7 +18,8 @@ class CountryQueryDTO:
     size: int = 10
     sort_by: str = "created_at"
     sort_order: str = "desc"
-    
+    name: Optional[str] = None
+    code: Optional[str] = None
     filters: Optional[list[CountryFilterDTO]] = None
 
     @field_validator("page", "size")
@@ -45,4 +46,17 @@ class CountryQueryDTO:
         return value
 
 
-    
+@dataclass(config=ConfigDict(extra="forbid"))
+class CountryDTO:
+    name: str
+    code: str
+    @field_validator("name", "code")
+    def validate_non_empty(cls, value, field):
+        if not value or not value.strip():
+            raise AppException(
+                status_code=422,
+                message=f"{field.name.capitalize()} cannot be empty.",
+                field=field.name,
+                error_code=f"{field.name.upper()}_EMPTY",
+            )
+        return value.strip()

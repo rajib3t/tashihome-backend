@@ -1,5 +1,6 @@
 from fastapi import Depends
 
+from app.application.use_case.locations.country.create_country_use_case import CreateCountryUseCase
 from app.application.use_case.locations.country.get_countries_use_case import GetCountriesUseCase
 from app.deps.auth import CurrentUser, get_current_user
 from app.deps.service import get_country_service
@@ -11,6 +12,15 @@ async def get_countries_use_case(
     current_user: CurrentUser = Depends(get_current_user)
 ) -> GetCountriesUseCase:
     return GetCountriesUseCase(
+        country_service=country_service,
+        current_user=current_user
+    )
+
+async def get_create_country_use_case(
+    country_service: CountryService = Depends(get_country_service),
+    current_user: CurrentUser = Depends(get_current_user)
+) -> CreateCountryUseCase:
+    return CreateCountryUseCase(
         country_service=country_service,
         current_user=current_user
     )
