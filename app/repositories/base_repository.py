@@ -78,6 +78,35 @@ class BaseRepository(Generic[ModelT]):
 
         return query.where(or_(*conditions))
 
+    def _apply_dynamic_filters(
+        self,
+        query: Select,
+        filters: Optional[Sequence[dict[str, Any]]] = None,
+        allowed_fields: Optional[dict[str, Any]] = None,
+    ) -> Select:
+        """
+        Apply equality filters provided as dynamic name/value pairs.
+
+        Each filter item is expected to look like:
+            {"name": "code", "value": "IN"}
+
+        Only fields present in `allowed_fields` are applied.
+        """
+        if not filters or not allowed_fields:
+            return query
+
+        for item in filters:
+            field_name = item.get("name")
+            value = item.get("value")
+
+            if not field_name or field_name not in allowed_fields:
+                continue
+
+            column = allowed_fields[field_name]
+            query = query.where(column == value)
+
+        return query
+
     async def _fetch_one(self, query: Select, flush: bool = False) -> Optional[ModelT]:
         """
         Execute a query and return a single result (or None).

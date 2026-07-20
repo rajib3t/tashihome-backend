@@ -1,4 +1,4 @@
-from typing import List, Optional, TypedDict
+from typing import Optional, TypedDict
 
 from sqlalchemy import select
 
@@ -11,6 +11,12 @@ class CountryRepository(BaseRepository[Country]):
     
     _relation_map = {
         "cities": Country.cities
+    }
+    _filter_map = {
+        "name": Country.name,
+        "code": Country.code,
+        "status": Country.status,
+        "public_id": Country.public_id,
     }
      
     
@@ -146,11 +152,13 @@ class CountryRepository(BaseRepository[Country]):
         page: int = 1,
         page_size: int = 20,
         search: Optional[str] = None,
+        filters: Optional[list[dict[str, str]]] = None,
         with_relations: Optional[WithRelations] = None,
         flush: bool = False,
     ) -> Page[Country]:
         query = select(Country).order_by(Country.created_at.desc())
         query = self._apply_search(query, search, search_fields=[Country.name, Country.code])
+        query = self._apply_dynamic_filters(query, filters, self._filter_map)
         query = self._apply_relations(query, with_relations, self._relation_map)
 
         return await self._paginate(query, page=page, page_size=page_size, flush=flush)

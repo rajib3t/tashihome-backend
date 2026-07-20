@@ -45,5 +45,10 @@ class City(Base):
     country = relationship(
         "Country", 
         back_populates="cities",
-        cascade="all, delete-orphan"
+    )
+
+    locations = relationship(
+        "Location",
+        back_populates="city",
+        cascade="all, delete-orphan",
     )

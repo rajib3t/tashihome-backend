@@ -1,4 +1,4 @@
-from alembic.environment import Optional
+from typing import Optional
 
 from app.models.country_model import Country
 from app.repositories.base_repository import Page
@@ -88,6 +88,7 @@ class CountryService:
             page: int = 1,
             page_size: int = 10,
             search: Optional[str] = None,
+            filters: Optional[list[dict[str, str]]] = None,
             with_relations: Optional[WithRelations] = None,
             flush: bool = False
         ) -> Page[Country]:
@@ -95,6 +96,7 @@ class CountryService:
             page=page,
             page_size=page_size,
             search=search,
+            filters=filters,
             with_relations=with_relations,
             flush=flush
         )
