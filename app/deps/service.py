@@ -1,13 +1,15 @@
 from fastapi.params import Depends
 
-from app.deps.repository import get_setting_repository
+from app.deps.repository import get_country_repository, get_setting_repository
 from app.deps.repository import get_token_repository, get_user_repository
 
+from app.repositories.country_repository import CountryRepository
 from app.repositories.setting_repository import SettingRepository
 from app.repositories.token_repository import TokenRepository
 from app.repositories.user_repository import UserRepository
 from app.services import token_service
 from app.services import user_service
+from app.services.country_service import CountryService
 from app.services.ip_service import IpService
 from app.services.login_log_service import LoginLogService
 from app.services.setting_service import SettingService
@@ -51,3 +53,8 @@ async def get_setting_service(
 def get_storage_service():
     """Get the storage service."""
     return StorageService()
+
+async def get_country_service(
+    country_repository: CountryRepository = Depends(get_country_repository),
+) -> CountryService:
+    return CountryService(country_repository)
