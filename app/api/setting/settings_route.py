@@ -34,7 +34,7 @@ class SettingsController(BaseController):
 
         routes = [
             ("post", "/", self._save_setting, {"response_model":SettingResponseSchema , "response_model_by_alias": False}),
-            ("get", "/", self._get_settings, {"response_model":SettingResponseSchema , "response_model_by_alias": False}),
+            ("get", "/fetch", self._get_settings, {"response_model":SettingResponseSchema , "response_model_by_alias": False}),
         ]
 
 
