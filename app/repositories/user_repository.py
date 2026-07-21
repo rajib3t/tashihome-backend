@@ -91,7 +91,7 @@ class UserRepository(BaseRepository[User]):
         flush: bool = False,
     ) -> Page[User]:
         query = select(User).order_by(User.created_at.desc())
-        query = self._apply_search(query, search, search_fields=[User.name, User.email])
+        query = self._apply_search(query, search, search_fields=[User.full_name])
         query = self._apply_relations(query, with_relations, self._relation_map)
 
         return await self._paginate(query, page=page, page_size=page_size, flush=flush)

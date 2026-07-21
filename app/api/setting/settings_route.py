@@ -62,7 +62,7 @@ class SettingsController(BaseController):
         settings_payload = SettingUpdateDTO(
             app_name=app_name,
             app_logo=app_logo,
-            white_logo=white_logo,
+            white_logo=white_logo,   
             app_favicon=app_favicon,
             app_timezone=app_timezone,
             app_date_format=app_date_format,
