@@ -68,6 +68,15 @@ class Settings(BaseSettings):
     LOGIN_LOG_ENABLED: bool = True
     IP_DETAILS_API_URL: Optional[str] = None
 
+    # Allowed hosts for TrustedHostMiddleware
+    ALLOWED_HOSTS: Optional[str] = None
+
+    @property
+    def allowed_hosts(self) -> List[str]:
+        if not self.ALLOWED_HOSTS:
+            return []
+        return [host.strip() for host in self.ALLOWED_HOSTS.split(",") if host.strip()]
+
 @lru_cache()
 def get_settings():
     return Settings()
