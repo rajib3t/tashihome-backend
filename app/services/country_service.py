@@ -49,6 +49,18 @@ class CountryService:
             flush=flush
         )
     
+    async def get_by_code(
+            self,
+            code:str,
+            with_relations: Optional[WithRelations] = None,
+            flush: bool = False
+    ) -> Optional[Country]:
+        return await self._country_repository.get_by_code(
+            code,
+            with_relations=with_relations,
+            flush=flush
+        )
+    
     async def create_country(
             self, 
             country: Country, 
