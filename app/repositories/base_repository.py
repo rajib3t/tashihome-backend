@@ -103,7 +103,9 @@ class BaseRepository(Generic[ModelT]):
                 continue
 
             column = allowed_fields[field_name]
-            if isinstance(value, str):
+            python_type = getattr(column.type, "python_type", None)
+
+            if isinstance(value, str) and python_type is str:
                 query = query.where(func.lower(column) == value.strip().lower())
             else:
                 query = query.where(column == value)

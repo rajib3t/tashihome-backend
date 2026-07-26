@@ -20,6 +20,7 @@ class CountryQueryDTO:
     sort_order: str = "desc"
     name: Optional[str] = None
     code: Optional[str] = None
+    status: Optional[str] = None
     filters: Optional[list[CountryFilterDTO]] = None
 
     @field_validator("page", "size")
