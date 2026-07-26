@@ -30,6 +30,8 @@ class Location(Base):
         
         )
     status = Column(Enum(LocationStatus), default=LocationStatus.ACTIVE, nullable=False, index=True)
+    created_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
+    updated_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),

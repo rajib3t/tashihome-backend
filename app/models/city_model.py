@@ -40,6 +40,8 @@ class City(Base):
         nullable=False,
     )
 
+    created_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
+    updated_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
 
     # Relationships
     country = relationship(

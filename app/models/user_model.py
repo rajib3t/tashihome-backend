@@ -1,7 +1,7 @@
 import enum
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import UUID, BigInteger, Boolean, Column, DateTime, Enum, String, func
+from sqlalchemy import UUID, BigInteger, Boolean, Column, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -44,7 +44,8 @@ class User(Base):
     tokens = relationship("Token", back_populates="user", cascade="all, delete-orphan")
     login_logs = relationship("LoginLog", back_populates="user", cascade="all, delete-orphan")
 
-
+    created_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
+    updated_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
@@ -52,3 +53,5 @@ class User(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+

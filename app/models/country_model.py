@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import UUID, BigInteger, Column, DateTime, Enum, String, func
+from sqlalchemy import UUID, BigInteger, Column, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -28,6 +28,8 @@ class Country(Base):
 
     status = Column(Enum(CountryStatus), default=CountryStatus.ACTIVE, nullable=False, index=True)
 
+    created_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
+    updated_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
@@ -35,6 +37,7 @@ class Country(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
 
     # Relationships
     cities = relationship(
