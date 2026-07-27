@@ -35,7 +35,14 @@ class CreateCountryUseCase:
                 field="code",
             )
 
-        new_country = Country(name=country_data.name, code=country_data.code)
+        
+
+        new_country = Country(
+            name=country_data.name, 
+            code=country_data.code,
+            created_by=self.current_user.id,
+            updated_by=self.current_user.id
+        )
 
         return await self.country_service.create_country(
             new_country, with_relations=None, commit=True

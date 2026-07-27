@@ -51,6 +51,8 @@ class CountryQueryDTO:
 class CountryDTO:
     name: str
     code: str
+    
+
     @field_validator("name", "code")
     def validate_non_empty(cls, value, field):
         if not value or not value.strip():
@@ -61,3 +63,5 @@ class CountryDTO:
                 error_code=f"{field.name.upper()}_EMPTY",
             )
         return value.strip()
+
+    
