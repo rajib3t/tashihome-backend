@@ -29,7 +29,7 @@ class UpdateCountryUseCase:
             )
 
         duplicate_name = await self.country_service.get_by_name(
-            name=country_data.name,
+            name=country_data.name.lower(),
             with_relations=None,
             flush=False,
         )
@@ -42,7 +42,7 @@ class UpdateCountryUseCase:
             )
 
         duplicate_code = await self.country_service.get_by_code(
-            code=country_data.code,
+            code=country_data.code.upper(),
             with_relations=None,
             flush=False,
         )

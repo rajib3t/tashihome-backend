@@ -16,7 +16,7 @@ class CreateCountryUseCase:
     
     async def execute(self, country_data: CountryDTO) -> Country:
         if await self.country_service.get_by_name(
-            name=country_data.name, with_relations=None, flush=True
+            name=country_data.name.lower(), with_relations=None, flush=True
         ):
             raise AppException(
                 status_code=409,
@@ -26,7 +26,7 @@ class CreateCountryUseCase:
             )
 
         if await self.country_service.get_by_code(
-            code=country_data.code, with_relations=None, flush=True
+            code=country_data.code.upper(), with_relations=None, flush=True
         ):
             raise AppException(
                 status_code=409,

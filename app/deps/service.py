@@ -1,3 +1,6 @@
+from app.deps.repository import get_city_repository
+from app.services.city_service import CityService
+from app.repositories.city_repository import CityRepository
 from fastapi.params import Depends
 
 from app.deps.repository import get_country_repository, get_setting_repository
@@ -58,3 +61,8 @@ async def get_country_service(
     country_repository: CountryRepository = Depends(get_country_repository),
 ) -> CountryService:
     return CountryService(country_repository)
+
+async def get_city_service(
+    city_repository: CityRepository = Depends(get_city_repository),
+) -> CityService:
+    return CityService(city_repository)

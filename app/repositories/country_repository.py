@@ -67,7 +67,7 @@ class CountryRepository(BaseRepository[Country]):
         flush: bool = False,
     ) -> Optional[Country]:
         query = self._apply_relations(
-            select(Country).where(Country.name == name),
+            select(Country).where(Country.name.ilike(name.strip())),
             with_relations,
             self._relation_map,
         )
@@ -80,7 +80,7 @@ class CountryRepository(BaseRepository[Country]):
         flush: bool = False,
     ) -> Optional[Country]:
         query = self._apply_relations(
-            select(Country).where(Country.code == code),
+            select(Country).where(Country.code.upper() == code.upper()),
             with_relations,
             self._relation_map,
         )
