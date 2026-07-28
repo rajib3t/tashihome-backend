@@ -1,7 +1,8 @@
 from app.application.dto.locations.country import CountryQueryDTO
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
-from app.models.country_model import CountryStatus
+from app.models.country_model import Country, CountryStatus
+from app.repositories.base_repository import Page
 from app.services.country_service import CountryService
 
 
@@ -15,7 +16,7 @@ class GetCountriesUseCase:
         self.country_service = country_service
         self.current_user = current_user
 
-    async def execute(self, request_dto: CountryQueryDTO):
+    async def execute(self, request_dto: CountryQueryDTO) ->Page[Country]:
         filters = list(request_dto.filters or [])
 
         # Allow the API to support simple `?name=...` searches without forcing
