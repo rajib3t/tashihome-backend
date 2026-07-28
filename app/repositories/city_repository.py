@@ -79,6 +79,28 @@ class CityRepository(BaseRepository[City]):
         return await self._fetch_one(query, flush=flush)
 
 
+    async def update(
+        self,
+        city: City,
+        with_relations: Optional[WithRelations] = None,
+        commit: bool = True,
+    ) -> City:
+        if not commit:
+            return city
+
+        await self.db.commit()
+
+        if with_relations:
+            query = self._apply_relations(
+                select(City).where(City.id == city.id),
+                with_relations,
+                self._relation_map,
+            )
+            return await self._fetch_one(query)
+
+        await self.db.refresh(city)
+        return city
+
     
     async def list(
             self,

@@ -19,6 +19,18 @@ class CityService:
             commit=commit
         )
 
+    async def update(
+        self,
+        city_data: City,
+        with_relations: Optional[WithRelations] = None,
+        commit: bool = True,
+    ) -> City:
+        return await self.city_repository.update(
+            city_data,
+            with_relations=with_relations,
+            commit=commit,
+        )
+
     async def get_by_name(
         self,
         name: str,
@@ -41,7 +53,18 @@ class CityService:
             with_relations=with_relations,
             flush=flush
         )
-        
+    
+    async def get_by_public_id(
+        self,
+        public_id: str,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[City]:
+        return await self.city_repository.get_by_public_id(
+            public_id,
+            with_relations=with_relations,
+            flush=flush
+        )
         
     async def list(
         self,
