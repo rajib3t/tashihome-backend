@@ -35,7 +35,7 @@ class CreateCityUseCase(BaseUseCase):
 
         if await self.city_service.get_by_name(payload["name"].lower()):
             raise AppException(
-                status_code=400,
+                status_code=409,
                 message="City already exists",
                 error_code="CITY_ALREADY_EXISTS",
                 field="name",

@@ -1,5 +1,6 @@
 from typing import Optional
 from app.models.city_model import City
+from app.repositories.base_repository import Page
 from app.repositories.city_repository import CityRepository, WithRelations
 
 class CityService:
@@ -42,4 +43,20 @@ class CityService:
         )
         
         
-    
+    async def list(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        search: Optional[str] = None,
+        filters: Optional[list[dict[str, str]]] = None,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False
+    ) -> Page[City]:
+        return await self.city_repository.list(
+            page=page,
+            page_size=page_size,
+            search=search,
+            filters=filters,
+            with_relations=with_relations,
+            flush=flush
+        )

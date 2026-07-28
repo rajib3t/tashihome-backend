@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from typing import Optional
-from app.repositories.base_repository import BaseRepository
+from app.repositories.base_repository import BaseRepository, Page
 from app.models.city_model import City
 from typing import TypedDict
 
@@ -77,4 +77,21 @@ class CityRepository(BaseRepository[City]):
             self._relation_map,
         )
         return await self._fetch_one(query, flush=flush)
-        
+
+
+    
+    async def list(
+            self,
+            page: int = 1,
+            page_size: int = 20,
+            search: Optional[str] = None,
+            filters: Optional[list[dict[str, str]]] = None,
+            with_relations: Optional[WithRelations] = None,
+            flush: bool = False,
+        ) -> Page[City]:
+            query = select(City).order_by(City.created_at.desc())
+            query = self._apply_search(query, search, search_fields=[City.name, City.country_id])
+            query = self._apply_dynamic_filters(query, filters, self._filter_map)
+            query = self._apply_relations(query, with_relations, self._relation_map)
+    
+            return await self._paginate(query, page=page, page_size=page_size, flush=flush)

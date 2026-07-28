@@ -1,4 +1,5 @@
 from app.application.use_case.locations.city.create_city_use_case import CreateCityUseCase
+from app.application.use_case.locations.city.get_cities_use_case import GetCitiesUseCase
 from app.deps.service import get_storage_service
 from app.services.storage_service import StorageService
 from app.deps.service import get_city_service
@@ -65,3 +66,17 @@ async def get_create_city_use(
         country_service=country_service,
         current_user=current_user,
     )
+
+async def get_city_list_use_case(
+    city_service: CityService = Depends(get_city_service),
+    country_service: CountryService = Depends(get_country_service),
+    storage_service: StorageService = Depends(get_storage_service),
+     current_user: CurrentUser = Depends(require_admin)
+) -> GetCitiesUseCase:
+    return GetCitiesUseCase(
+        service=city_service,
+        country_service=country_service,
+        storage_service=storage_service,
+        current_user=current_user
+    )
+    

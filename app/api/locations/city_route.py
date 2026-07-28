@@ -1,11 +1,12 @@
-from app.deps.locations import get_create_city_use
+from app.application.use_case.locations.city.get_cities_use_case import GetCitiesUseCase
+from app.deps.locations import get_city_list_use_case, get_create_city_use
 from fastapi import Depends
 from app.application.use_case.locations.city.create_city_use_case import CreateCityUseCase
 from fastapi import APIRouter, File, Form, UploadFile
 from typing import Optional
 
 from app.api.base_controller import BaseController
-from app.application.dto.locations.city import CityDTO
+from app.application.dto.locations.city import CityDTO, CityQueryDTO
 from app.schemas.city_schema import CityListResponseSchema, CityResponseSchema
 
 
@@ -27,11 +28,18 @@ class CityController(BaseController):
             self.router.add_api_route(path, handler, methods=[method.upper()], **route_kwargs)
 
 
-    async def _get_cities(self):
-        # Placeholder for city retrieval logic
+    async def _get_cities(
+        self,
+        params:CityQueryDTO = Depends(),
+        use_case: GetCitiesUseCase = Depends(get_city_list_use_case)
+    ):
+        
+        cities = await use_case.execute(params)
+
         return self.build_response(
             message="Cities retrieved successfully.",
-            data=[]  # Replace with actual data
+            data=cities.items,
+            meta=self.pagination_meta(cities)
         )
 
     async def _create_city(
