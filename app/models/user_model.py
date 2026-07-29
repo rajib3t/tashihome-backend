@@ -44,8 +44,7 @@ class User(Base):
     tokens = relationship("Token", back_populates="user", cascade="all, delete-orphan")
     login_logs = relationship("LoginLog", back_populates="user", cascade="all, delete-orphan")
 
-    created_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
-    updated_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
