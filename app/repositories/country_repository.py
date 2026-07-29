@@ -1,6 +1,6 @@
 from typing import Optional, TypedDict
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models.country_model import Country
 from app.repositories.base_repository import BaseRepository, Page
@@ -80,7 +80,7 @@ class CountryRepository(BaseRepository[Country]):
         flush: bool = False,
     ) -> Optional[Country]:
         query = self._apply_relations(
-            select(Country).where(Country.code.upper() == code.upper()),
+            select(Country).where(func.lower(Country.code) == code.strip().lower()),
             with_relations,
             self._relation_map,
         )
