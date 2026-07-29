@@ -1,10 +1,16 @@
-from app.deps.repository import get_city_repository
+
 from app.services.city_service import CityService
 from app.repositories.city_repository import CityRepository
 from fastapi.params import Depends
 
-from app.deps.repository import get_country_repository, get_setting_repository
-from app.deps.repository import get_token_repository, get_user_repository
+from app.deps.repository import (
+    get_country_repository, 
+    get_setting_repository,
+    get_token_repository, 
+    get_user_repository,
+    get_city_repository,
+    get_location_repository,
+)
 
 from app.repositories.country_repository import CountryRepository
 from app.repositories.setting_repository import SettingRepository
@@ -19,6 +25,9 @@ from app.services.setting_service import SettingService
 from app.services.storage_service import StorageService
 from app.services.token_service import TokenService
 from app.services.user_service import UserService
+from app.services.location_service import LocationService
+from app.services.city_service import CityService
+from app.services.country_service import CountryService
 
 # Dependency injection function to provide an instance of UserService with the required UserRepository dependency.
 async def get_user_service(
@@ -66,3 +75,9 @@ async def get_city_service(
     city_repository: CityRepository = Depends(get_city_repository),
 ) -> CityService:
     return CityService(city_repository)
+
+async def get_location_service(
+    location_repository: LocationRepository = Depends(get_location_repository),
+) -> LocationService:
+    return LocationService(location_repository)
+
