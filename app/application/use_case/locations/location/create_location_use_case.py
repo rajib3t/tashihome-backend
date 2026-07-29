@@ -17,6 +17,6 @@ class CreateLocationUseCase(BaseUseCase):
         self.current_user = current_user
     
     def execute(self, location_data: LocationDTO) -> Location:
-
         
+
         return self.service.create_location(location_data)
