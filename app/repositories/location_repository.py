@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.city_model import City
 from app.models.location_model import Location
-from app.repositories.base_repository import BaseRepository
+from app.repositories.base_repository import BaseRepository, Page
 
 class WithRelations(TypedDict, total=False):
     city: bool
@@ -65,3 +65,24 @@ class LocationRepository(BaseRepository[Location]):
             )
         )
         return await self._fetch_one(query, flush=flush)
+
+
+    async def list(
+            self,
+            page: int = 1,
+            page_size: int = 20,
+            search: Optional[str] = None,
+        filters: Optional[list[dict[str, str]]] = None,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+        ) -> Page[Location]:
+            query = select(Location).order_by(Location.created_at.desc())
+            query = self._apply_search(query, search, search_fields=[Location.name, Location.city_id])
+            query = self._apply_dynamic_filters(query, filters, self._filter_map)
+            query = self._apply_relations(query, with_relations, self._relation_map)
+            if with_relations and with_relations.get("city"):
+                query = query.options(
+                    selectinload(Location.city).selectinload(City.country)
+                )
+    
+            return await self._paginate(query, page=page, page_size=page_size, flush=flush)

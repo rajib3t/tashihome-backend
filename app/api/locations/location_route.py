@@ -3,10 +3,11 @@ from fastapi.params import Depends
 from app.api.base_controller import BaseController
 from fastapi import APIRouter
 from app.application.use_case.locations.location.create_location_use_case import CreateLocationUseCase
-from app.deps.locations import get_create_location_use_case
+from app.application.use_case.locations.location.get_locations_use_case import GetLocationsUseCase
+from app.deps.locations import get_create_location_use_case, get_list_location_use_case
 from app.utils.exception_decorate import handle_api_exceptions
 from app.schemas.location_schema import LocationsResponseSchema, LocationResponseSchema
-from app.application.dto.locations.location import LocationDTO
+from app.application.dto.locations.location import CountryQueryDTO, LocationDTO
 
 class LocationController(BaseController):
     def __init__(self):
@@ -43,8 +44,19 @@ class LocationController(BaseController):
 
     
     @handle_api_exceptions
-    async def _get_locations(self):
-        pass
+    async def _get_locations(
+        self,
+        params: CountryQueryDTO = Depends(),
+        use_case: GetLocationsUseCase = Depends(get_list_location_use_case)
+    ):
+
+        results = await use_case.execute(params=params)
+
+        return self.build_response(
+            message="Locations fetch successfully",
+            data=results.items,
+            meta=self.pagination_meta(results)
+        )
 
     @handle_api_exceptions
     async def _create_location(

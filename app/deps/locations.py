@@ -2,6 +2,7 @@ from app.application.use_case.locations.city.create_city_use_case import CreateC
 from app.application.use_case.locations.city.get_cities_use_case import GetCitiesUseCase
 from app.application.use_case.locations.city.update_city_use_case import UpdateCityUseCase, UpdateStatusCityUseCase
 from app.application.use_case.locations.location.create_location_use_case import CreateLocationUseCase
+from app.application.use_case.locations.location.get_locations_use_case import GetLocationsUseCase
 from app.deps.service import get_location_service, get_storage_service
 from app.services.location_service import LocationService
 from app.services.storage_service import StorageService
@@ -117,4 +118,15 @@ async def get_create_location_use_case(
         city_service=city_service,
         current_user=current_user
     )
-    
+
+
+async def get_list_location_use_case(
+    location_service : LocationService = Depends( get_location_service),
+    city_service : CityService = Depends(get_city_service),
+    current_user: CurrentUser = Depends(require_admin)
+) -> GetLocationsUseCase:
+    return GetLocationsUseCase(
+        service=location_service,
+        city_service=city_service,
+        current_user=current_user
+    )
