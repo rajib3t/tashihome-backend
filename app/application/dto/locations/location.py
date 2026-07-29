@@ -9,6 +9,17 @@ class LocationDTO:
     name: str
     city_id: str
 
+
+@dataclass(config=ConfigDict(extra="forbid"))
+class UpdateLocationDTO:
+    name: str
+    city_id: str
+
+
+@dataclass(config=ConfigDict(extra="forbid"))
+class LocationStatusDTO:
+    status: str
+
 @dataclass(config=ConfigDict(extra="forbid"))
 class LocationFilterDTO:
     name: str

@@ -26,7 +26,7 @@ class LocationService:
         city_id,
         flush,
     ) -> Optional[Location]:
-         return self.location_repository.get_by_name_and_city_id(
+         return await self.location_repository.get_by_name_and_city_id(
               name=name,
               city_id=city_id,
               flush=flush
@@ -38,10 +38,34 @@ class LocationService:
         flush
     ) -> Optional[Location]:
 
-         return self.location_repository.get_by_id_with_city_country(
+         return await self.location_repository.get_by_id_with_city_country(
               location_id=location_id,
               flush=flush
          )
+
+    async def get_by_public_id(
+        self,
+        public_id: str,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Location]:
+        return await self.location_repository.get_by_public_id(
+            public_id=public_id,
+            with_relations=with_relations,
+            flush=flush,
+        )
+
+    async def update(
+        self,
+        location: Location,
+        with_relations: Optional[WithRelations] = None,
+        commit: bool = True,
+    ) -> Optional[Location]:
+        return await self.location_repository.update(
+            location,
+            with_relations=with_relations,
+            commit=commit,
+        )
 
     async def list(
         self,
