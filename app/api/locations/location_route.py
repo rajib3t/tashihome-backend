@@ -1,5 +1,9 @@
+from fastapi.params import Depends
+
 from app.api.base_controller import BaseController
 from fastapi import APIRouter
+from app.application.use_case.locations.location.create_location_use_case import CreateLocationUseCase
+from app.deps.locations import get_create_location_use_case
 from app.utils.exception_decorate import handle_api_exceptions
 from app.schemas.location_schema import LocationsResponseSchema, LocationResponseSchema
 from app.application.dto.locations.location import LocationDTO
@@ -46,8 +50,15 @@ class LocationController(BaseController):
     async def _create_location(
         self,
         location_data: LocationDTO,
+        use_case : CreateLocationUseCase = Depends(get_create_location_use_case)
     ):
-        pass
+
+        result = await use_case.execute(location_data=location_data)
+
+        return self.build_response(
+            message="Location create successfully",
+            data=result
+        )
 
 
 controller = LocationController()

@@ -1,4 +1,5 @@
 
+from app.repositories.location_repository import LocationRepository
 from app.services.city_service import CityService
 from app.repositories.city_repository import CityRepository
 from fastapi.params import Depends
