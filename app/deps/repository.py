@@ -1,5 +1,6 @@
 from app.repositories.facility_repository import  FacilityRepository
 from app.repositories.amenity_repository import AmenityRepository
+from app.repositories.room_type_repository import RoomTypeRepository
 from app.repositories.city_repository import CityRepository
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,3 +56,9 @@ async def get_amenity_repository(
     db: AsyncSession = Depends(get_db),
 ) -> AmenityRepository:
     return AmenityRepository(db)
+
+
+async def get_room_type_repository(
+    db: AsyncSession = Depends(get_db),
+) -> RoomTypeRepository:
+    return RoomTypeRepository(db)

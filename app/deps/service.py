@@ -1,9 +1,11 @@
 
 from app.repositories.facility_repository import  FacilityRepository
 from app.repositories.amenity_repository import AmenityRepository
+from app.repositories.room_type_repository import RoomTypeRepository
 from app.repositories.location_repository import LocationRepository
 from app.services.facility_service import  FacilityService
 from app.services.amenity_service import AmenityService
+from app.services.room_type_service import RoomTypeService
 from app.services.city_service import CityService
 from app.repositories.city_repository import CityRepository
 from fastapi.params import Depends
@@ -11,6 +13,7 @@ from fastapi.params import Depends
 from app.deps.repository import (
     get_attribute_repository,
     get_amenity_repository,
+    get_room_type_repository,
     get_country_repository, 
     get_setting_repository,
     get_token_repository, 
@@ -99,3 +102,9 @@ async def get_amenity_service(
     amenity_repository: AmenityRepository = Depends(get_amenity_repository),
 ) -> AmenityService:
     return AmenityService(amenity_repository)
+
+
+async def get_room_type_service(
+    room_type_repository: RoomTypeRepository = Depends(get_room_type_repository),
+) -> RoomTypeService:
+    return RoomTypeService(room_type_repository)
