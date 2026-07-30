@@ -1,3 +1,4 @@
+from app.repositories.facility_repository import  FacilityRepository
 from app.repositories.city_repository import CityRepository
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,3 +42,9 @@ async def get_location_repository(
     db: AsyncSession = Depends(get_db),
 ) -> LocationRepository:
     return LocationRepository(db)
+
+
+async def get_attribute_repository(
+    db: AsyncSession = Depends(get_db),
+) -> FacilityRepository:
+    return FacilityRepository(db)

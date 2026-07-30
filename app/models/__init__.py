@@ -14,3 +14,7 @@ from .setting_model import Setting
 from .country_model import Country
 from .city_model import City
 from .location_model import Location
+
+from .facility_model import Facility
+from .amenity_model import Amenity
+from .room_type_model import RoomType
