@@ -42,7 +42,7 @@ class CreateCityUseCase(BaseUseCase):
             )
         if self._is_upload_file(payload.get("image_url")):
             payload["image_url"] = await self._upload_file(
-                payload["image_url"], folder="cities", field_name="image_url"
+                payload["image_url"], folder="cities", field_name="image_url", webp=True
             )
         
         country = await self.country_service.get_by_public_id(

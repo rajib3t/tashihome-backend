@@ -71,7 +71,7 @@ class UpdateCityUseCase(BaseUseCase):
         if self._is_upload_file(image_url):
             old_image_url = existing_city.image_url
             image_url = await self._upload_file(
-                image_url, folder="cities", field_name="image_url"
+                image_url, folder="cities", field_name="image_url", webp=True
             )
             if isinstance(old_image_url, str) and old_image_url:
                 try:

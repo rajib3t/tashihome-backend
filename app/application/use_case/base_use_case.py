@@ -69,10 +69,12 @@ class BaseUseCase:
 
         return raw, mime_type
 
-    async def _upload_file(self, upload, *, folder: str, field_name: str) -> str:
+    async def _upload_file(self, upload, *, folder: str, field_name: str, webp: bool = False) -> str:
         raw, mime_type = await self._validate_upload_file(upload, field_name=field_name)
         extension = mimetypes.guess_extension(mime_type or "") or ""
         key = f"{folder}/{field_name}_{uuid4().hex}{extension}"
+        if webp:
+            return await self.storage_service.convert_and_upload_webp(key, raw, quality=82, lossless=False)
         return await self.storage_service.upload_bytes(key, raw, content_type=mime_type)
 
     async def _delete_replaced_file(self, old_setting, new_value):
