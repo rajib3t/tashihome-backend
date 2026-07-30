@@ -8,7 +8,8 @@ from app.schemas.response import BaseResponse
 
 class FacilityBase(BaseModel):
     name: str
-    icon: Optional[str] = None
+    icon_url: Optional[str] = None
+    status: str
 
 
 class FacilitySchema(FacilityBase):
@@ -31,3 +32,6 @@ class FacilitySchema(FacilityBase):
 
 class FacilityResponseSchema(BaseResponse):
     data: FacilitySchema
+
+class FacilityListResponseSchema(BaseResponse):
+    data: list[FacilitySchema]

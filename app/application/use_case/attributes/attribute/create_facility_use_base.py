@@ -18,10 +18,12 @@ class CreateFacilityUseCase(BaseUseCase):
     def __init__(self, 
         facility_service : FacilityService,
         storage_service : StorageService,
+        verify_csrf : bool ,
         current_user : CurrentUser,
         ):
         self.facility_service = facility_service
         self.storage_service = storage_service
+        self.verify_csrf = verify_csrf
         self.current_user = current_user
 
     async def execute(self, facility_dto : FacilityDTO) -> Facility:
@@ -49,4 +51,9 @@ class CreateFacilityUseCase(BaseUseCase):
             created_by=self.current_user.id,
             updated_by=self.current_user.id,
         )
-        return await self.facility_service.create(facility_obj, commit=True)
+        facility = await self.facility_service.create(facility_obj, commit=True)
+
+        if facility.icon_url:
+            facility.icon_url = self.storage_service.generate_presigned_url(facility.icon_url)
+
+        return facility
