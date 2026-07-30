@@ -38,7 +38,7 @@ class FacilityController(BaseController):
 
         return self.build_response(
             message="Facilities retrieved successfully.",
-            data=facilities,
+            data=facilities.items,
             meta=self.pagination_meta(facilities),
         )
     @handle_api_exceptions

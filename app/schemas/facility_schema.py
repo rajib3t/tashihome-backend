@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 from sqlalchemy import UUID
 
-from app.schemas.response import BaseResponse
+from app.schemas.response import BaseResponse, PaginationResponse
 
 
 class FacilityBase(BaseModel):
@@ -33,5 +33,5 @@ class FacilitySchema(FacilityBase):
 class FacilityResponseSchema(BaseResponse):
     data: FacilitySchema
 
-class FacilityListResponseSchema(BaseResponse):
+class FacilityListResponseSchema(PaginationResponse):
     data: list[FacilitySchema]
