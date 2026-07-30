@@ -10,7 +10,7 @@ from app.services.storage_service import StorageService
 
 class CreateFacilityUseCase(BaseUseCase):
     FILE_UPLOAD_RULES = {
-            "image_url": {
+            "icon": {
                 "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg",),
                 "max_size_bytes": 500 * 1024,
             },
