@@ -109,4 +109,17 @@ class TokenRepository(BaseRepository[Token]):
 
         await self.db.commit()
 
+    async def get_active_tokens_by_user_id_and_type(
+        self,
+        user_id: int,
+        token_type: str,
+        flush: bool = False
+    ) -> list[Token]:
+        query = select(Token).where(
+            Token.user_id == user_id,
+            Token.type == token_type,
+            Token.is_revoked == False
+        )
+        return await self._fetch_all(query, flush=flush)
+
     

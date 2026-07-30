@@ -38,6 +38,20 @@ class TokenService:
             flush=flush
         )
 
+    async def get_active_tokens_by_user_id_and_type(
+            self,
+            user_id: int,
+            token_type: str,
+           
+            flush: bool = False
+    ):
+        # This method retrieves a token from the database by the associated user ID, optionally controlling whether to flush the session.
+        return await self.token_repository.get_active_tokens_by_user_id_and_type(
+            user_id,
+            token_type,
+            flush=flush
+        )
+
     async def revoke_token(
             self,
             token: Token,

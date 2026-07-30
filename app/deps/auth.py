@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 import logging
 import uuid
+from typing import TYPE_CHECKING
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.application.use_case.auth.login_use_case import LoginUseCase
 from app.application.use_case.auth.refresh_token_use_case import RefreshTokenUseCase
+from app.core.csrf import verify_csrf
 from app.core.exceptions import AppException, TokenExpiredError, TokenInvalidError
 from app.core.security import TokenManager
 from app.deps.service import get_ip_service, get_login_log_service, get_token_service, get_user_service
@@ -15,6 +17,9 @@ from app.services.ip_service import IpService
 from app.services.login_log_service import LoginLogService
 from app.services.token_service import TokenService
 from app.services.user_service import UserService
+
+if TYPE_CHECKING:
+    from app.application.use_case.auth.logout_use_case import LogoutUseCase
 
 security = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
@@ -34,6 +39,7 @@ async def get_refresh_token_use_case(
     token_service: TokenService = Depends(get_token_service),
 ) -> RefreshTokenUseCase:
     return RefreshTokenUseCase(user_service, token_service)
+
 
 
 @dataclass
@@ -157,3 +163,13 @@ async def require_admin_or_vendor(current_user: CurrentUser = Depends(get_curren
 
 async def require_user(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
     return await require_role(current_user, [UserRole.USER])
+
+
+async def get_logout_use_case(
+    token_service: TokenService = Depends(get_token_service),
+    verify_csrf = Depends(verify_csrf),
+    current_user: "CurrentUser" = Depends(get_current_user),
+) -> LogoutUseCase:
+    from app.application.use_case.auth.logout_use_case import LogoutUseCase
+
+    return LogoutUseCase(token_service, verify_csrf, current_user)

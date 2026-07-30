@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, Request, Response
 from app.api.base_controller import BaseController
 from app.application.dto.auth import AuthDTO
 from app.application.use_case.auth.login_use_case import LoginUseCase
+from app.application.use_case.auth.logout_use_case import LogoutUseCase
 from app.application.use_case.auth.refresh_token_use_case import RefreshTokenUseCase
 from app.core.config import settings
 from app.core.csrf import issue_csrf_cookie, verify_csrf
-from app.deps.auth import get_login_use_case, get_refresh_token_use_case
+from app.deps.auth import get_login_use_case, get_logout_use_case, get_refresh_token_use_case
 from app.models.token_model import TokenType
 from app.schemas.auth_schema import LoginResponse, LoginResponseData, RefreshTokenResponse
 from app.schemas.token_schema import AccessTokenSchema
@@ -35,6 +36,7 @@ class AuthController(BaseController):
                     "dependencies": [Depends(verify_csrf)],  # protect state-changing route
                 },
             ),
+            ("post", "/logout", self.logout, {"response_model": dict}),  # protect state-changing route
         ]
         for method, path, handler, route_kwargs in routes:
             self.router.add_api_route(path, handler, methods=[method.upper()], **route_kwargs)
@@ -101,7 +103,20 @@ class AuthController(BaseController):
             data=response_data
         )
 
-    
+    @handle_api_exceptions
+    async def logout(
+        self, 
+        response: Response,
+        use_case: LogoutUseCase = Depends(get_logout_use_case)
+    ):
+
+        # Clear the authentication cookies
+        response.delete_cookie(TokenType.ACCESS.value)
+        response.delete_cookie(TokenType.REFRESH.value)
+        # Optionally, you can also revoke the refresh token in your database or token store here
+        response.delete_cookie("csrf_token")  # Clear CSRF token cookie if used
+        user_logged_out = await use_case.execute()
+        return self.build_response(message="Logout successful", data=None)
 
 controller = AuthController()
 router = controller.router
