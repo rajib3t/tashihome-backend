@@ -50,6 +50,7 @@ class AuthController(BaseController):
             secure=settings.SECURE_COOKIES,
             samesite=settings.cookie_samesite,
             max_age=max_age,
+            domain=settings.COOKIE_DOMAIN,
         )
 
 

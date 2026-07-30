@@ -20,7 +20,7 @@ def issue_csrf_cookie(response: Response) -> str:
         httponly=False,  # frontend JS must be able to read this one
         secure=settings.SECURE_COOKIES,
         samesite=settings.cookie_samesite,
-        domain=".tashihomes.in",
+        domain=settings.COOKIE_DOMAIN,
         max_age=60 * 60 * 24 * 7,
     )
     return token

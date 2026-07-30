@@ -45,7 +45,7 @@ class Settings(BaseSettings):
         if value in {"lax", "strict", "none"}:
             return value
         return "lax"
-
+    COOKIE_DOMAIN: Optional[str] = None  # Domain for setting cookies, e.g., ".example.com"
     # Environment
     ENV: str = "development"  # production | staging | development
     DEBUG: bool = True
