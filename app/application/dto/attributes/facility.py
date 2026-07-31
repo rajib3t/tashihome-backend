@@ -10,10 +10,13 @@ class FacilityDTO:
     icon: Optional[Union[str, UploadFile]] = None
 
 
+@dataclass(config=ConfigDict(extra="forbid"))
 class FacilityFilterDTO:
     name: str
     value: str
 
+
+@dataclass(config=ConfigDict(extra="forbid"))
 class FacilityQueryDTO:
     page: int = 1
     size: int = 10

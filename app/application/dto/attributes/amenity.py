@@ -11,11 +11,13 @@ class AmenityDTO:
     icon: Optional[Union[str, UploadFile]] = None
 
 
+@dataclass(config=ConfigDict(extra="forbid"))
 class AmenityFilterDTO:
     name: str
     value: str
 
 
+@dataclass(config=ConfigDict(extra="forbid"))
 class AmenityQueryDTO:
     page: int = 1
     size: int = 10

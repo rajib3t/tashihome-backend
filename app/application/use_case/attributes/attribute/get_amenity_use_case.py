@@ -25,16 +25,20 @@ class ListAmenitiesUseCase(BaseUseCase):
         if request_dto.name:
             filters.append({"name": "name", "value": request_dto.name})
         if request_dto.status:
-            if request_dto.status not in ["active", "inactive"]:
+            normalized_status = request_dto.status.strip().lower()
+            if normalized_status not in ["active", "inactive"]:
                 raise AppException(
                     status_code=422,
                     message="Invalid status filter. Must be 'active' or 'inactive'.",
                     field="status",
                     error_code="STATUS_INVALID",
                 )
-        if request_dto.status == "active":
+        else:
+            normalized_status = None
+
+        if normalized_status == "active":
             filters.append({"name": "status", "value": AmenityStatus.ACTIVE})
-        elif request_dto.status == "inactive":
+        elif normalized_status == "inactive":
             filters.append({"name": "status", "value": AmenityStatus.INACTIVE})
         amenities_page = await self.amenity_service.list(
             page=request_dto.page,
