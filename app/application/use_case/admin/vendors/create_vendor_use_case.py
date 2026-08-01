@@ -1,3 +1,4 @@
+from app.core.events import EventBus
 from app.events.events.users.create_vendor_event import CreateVendorEvent
 from app.application.dto.vendors.vendor import CreateVendorDTO
 from app.application.use_case.base_use_case import BaseUseCase
@@ -10,11 +11,13 @@ class CreateVendorUseCase(BaseUseCase):
     def __init__(
         self,
         user_service : UserService,
+        event_bus: EventBus,
         verify_csrf: bool,
         current_user: CurrentUser,
     ):
         self.user_service = user_service
         self.current_user = current_user
+        self.event_bus = event_bus
         self.verify_csrf = verify_csrf
         self.passwordManager = PasswordHasher()
     async def execute(self, vendor_dto: CreateVendorDTO) -> User:

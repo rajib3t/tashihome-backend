@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from app.api.base_controller import BaseController
 from app.application.dto.vendors.vendor import CreateVendorDTO
 from app.application.use_case.admin.vendors.create_vendor_use_case import CreateVendorUseCase
-from app.deps.venvor import get_create_vendor_use_case
+from app.deps.vendor import get_create_vendor_use_case
 from app.schemas.user_schema import UserResponseSchema
 
 

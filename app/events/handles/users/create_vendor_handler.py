@@ -8,7 +8,6 @@ from app.core.security import TokenManager
 from app.core.config import settings
 from app.core.database import db as database
 from app.repositories.token_repository import TokenRepository
-from app.services.email_service import EmailService
 from app.models.token_model import Token
 from datetime import timedelta
 from datetime import timezone
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 class CreateVendorHandler:
     @staticmethod
     async def handle(payload: User) -> None:
-        user_id = payload.user_id
+        user_id = payload.id
         email = payload.email
         public_id = str(payload.public_id)
 
@@ -55,13 +54,13 @@ class CreateVendorHandler:
             values = {
                 "full_name": username,
                 "activation_url": active_link,
-                "expires_in": f"{settings.ACCOUNT_ACTIVATION_TOKEN_EXPIRE_HOURS} hours",
+                "expires_in": settings.ACCOUNT_ACTIVATION_TOKEN_EXPIRE_HOUR,
                 "app_name": settings.APP_NAME,
                 "year": current_year,
             }
             email_template_service = await get_email_template_service()
             html_content = await email_template_service.render_template(
-                "email_verification",
+                "activation_email",
                 values,
                 strict=True,
             )
