@@ -1,13 +1,15 @@
 import logging
-from app.deps.service import get_email_service
+from typing import Any
+from app.deps.service import get_email_service, get_storage_service
 from app.deps.service import get_email_template_service
 from app.models.token_model import TokenType
 from app.services.email_template_service import EmailTemplateService
-from app.models.user_model import User
 from app.core.security import TokenManager
 from app.core.config import settings
 from app.core.database import db as database
 from app.repositories.token_repository import TokenRepository
+from app.repositories.setting_repository import SettingRepository
+from app.services.setting_service import SettingService
 from app.models.token_model import Token
 from datetime import timedelta
 from datetime import timezone
@@ -17,12 +19,13 @@ from datetime import date
 logger = logging.getLogger(__name__)
 class CreateVendorHandler:
     @staticmethod
-    async def handle(payload: User) -> None:
-        user_id = payload.id
-        email = payload.email
-        public_id = str(payload.public_id)
+    async def handle(payload: dict[str, Any]) -> None:
+        user_id = payload["id"]
+        email = payload["email"]
+        public_id = str(payload["public_id"])
 
-        active_token = await TokenManager.account_activation_token(public_id)
+        token_manager = TokenManager()
+        active_token = await token_manager.account_activation_token(public_id)
 
 
         if settings.FRONTEND_URL:
@@ -33,6 +36,7 @@ class CreateVendorHandler:
 
         async with database.async_session() as session:
             token_service = TokenRepository(session)
+            setting_service = SettingService(SettingRepository(session))
             
             tokens = await token_service.get_tokens(
                 where_clause=(Token.user_id == user_id) &
@@ -51,11 +55,17 @@ class CreateVendorHandler:
 
             username = payload.get("full_name") or "User"
             current_year = date.today().year
+            storage_service = get_storage_service()
+            app_name_setting = await setting_service.get_by_key("app_name")
+            logo_setting = await setting_service.get_by_key("app_logo")
+            app_name = app_name_setting.value
+            logo_url = storage_service.generate_presigned_url(logo_setting.value) if logo_setting else None
             values = {
+                "logo_url": logo_url,
                 "full_name": username,
                 "activation_url": active_link,
-                "expires_in": settings.ACCOUNT_ACTIVATION_TOKEN_EXPIRE_HOUR,
-                "app_name": settings.APP_NAME,
+                "expires_in": settings.ACCOUNT_ACTIVATION_HOURS,
+                "app_name": app_name,
                 "year": current_year,
             }
             email_template_service = await get_email_template_service()

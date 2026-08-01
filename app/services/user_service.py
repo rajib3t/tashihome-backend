@@ -1,3 +1,4 @@
+from contextvars import Token
 from typing import Optional
 
 from app.models.user_model import User
@@ -54,3 +55,6 @@ class UserService:
     async def create_user(self, user: User, commit: bool = True) -> User:
         # This method creates a new user in the database.
         return await self.user_repository.create(user, with_relations=None, commit=commit)
+
+    async def get_tokens(self, where_clause) -> list[Token]:
+        return await self.repository.get_tokens(where_clause)

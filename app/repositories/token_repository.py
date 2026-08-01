@@ -40,7 +40,11 @@ class TokenRepository(BaseRepository[Token]):
         await self.db.refresh(token)
         return token
     
-
+    async def get_tokens(self, where_clause) -> list[Token]:
+        result = await self.db.execute(
+            select(Token).where(where_clause)
+        )
+        return result.scalars().all()
     async def get_by_token(
         self,
         token_str: str,

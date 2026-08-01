@@ -4,11 +4,11 @@ from app.models.user_model import User
 
 class CreateVendorEvent(DomainEvent):
     def __init__(self, user: User):
-        payload = User(
-            id = int(user.id),
-            public_id = str(user.public_id),
-            full_name = user.full_name,
-            email = user.email,
-            phone = user.phone,
-        )
+        payload = {
+            "id": int(user.id),
+            "public_id": str(user.public_id),
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone": user.phone,
+        }
         super().__init__(name="user.vendor.created", payload=payload)
