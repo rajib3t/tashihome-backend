@@ -1,4 +1,5 @@
 
+from app.application.use_case.admin.vendors.list_vendor_use_case import ListVendorUseCase
 from app.deps.event_bus import get_event_bus
 from app.core.events import EventBus
 from fastapi.params import Depends
@@ -20,5 +21,14 @@ async def get_create_vendor_use_case(
         user_service=user_service,
         event_bus=event_bus,
         verify_csrf=verify_csrf,
+        current_user=current_user,
+    )
+
+async def get_list_vendor_use_case(
+    user_service: UserService = Depends(get_user_service),
+    current_user: CurrentUser = Depends(require_admin),
+) -> ListVendorUseCase:
+    return ListVendorUseCase(
+        user_service=user_service,
         current_user=current_user,
     )

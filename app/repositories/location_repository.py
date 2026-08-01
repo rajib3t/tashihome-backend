@@ -112,10 +112,10 @@ class LocationRepository(BaseRepository[Location]):
 
 
     async def list(
-            self,
-            page: int = 1,
-            page_size: int = 20,
-            search: Optional[str] = None,
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        search: Optional[str] = None,
         filters: Optional[list[dict[str, str]]] = None,
         with_relations: Optional[WithRelations] = None,
         flush: bool = False,

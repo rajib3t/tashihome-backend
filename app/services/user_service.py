@@ -56,5 +56,24 @@ class UserService:
         # This method creates a new user in the database.
         return await self.user_repository.create(user, with_relations=None, commit=commit)
 
-    async def get_tokens(self, where_clause) -> list[Token]:
-        return await self.repository.get_tokens(where_clause)
+    
+
+
+    async def list(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        search: Optional[str] = None,
+        filters: Optional[list[dict[str, str]]] = None,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False
+    ) -> list[User]:
+        # This method retrieves a paginated list of users, optionally including related data and applying filters.
+        return await self.user_repository.list_users(
+            page=page,
+            page_size=page_size,
+            search=search,
+            filters=filters,
+            with_relations=with_relations,
+            flush=flush
+        )

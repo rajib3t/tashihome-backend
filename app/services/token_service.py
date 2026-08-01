@@ -65,3 +65,6 @@ class TokenService:
             commit: bool = True
     ):
         return await self.token_repository.delete_token(token, commit=commit)
+
+    async def get_tokens(self, where_clause) -> list[Token]:
+            return await self.repository.get_tokens(where_clause)

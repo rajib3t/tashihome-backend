@@ -2,7 +2,7 @@ from typing import Optional
 from uuid import UUID
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
-from app.schemas.response import BaseResponse
+from app.schemas.response import BaseResponse, PaginationResponse
 
 from app.models.user_model import UserRole
 class UserBase(BaseModel):
@@ -58,3 +58,5 @@ class UserResponseSchema(BaseResponse):
     
     
 
+class UserListResponseSchema(PaginationResponse):
+    data: list[UserData]
