@@ -50,3 +50,7 @@ class UserService:
             with_relations=with_relations, 
             flush=flush
         )
+
+    async def create_user(self, user: User, commit: bool = True) -> User:
+        # This method creates a new user in the database.
+        return await self.user_repository.create(user, with_relations=None, commit=commit)

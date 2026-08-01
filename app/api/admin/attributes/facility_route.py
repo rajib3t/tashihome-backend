@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from typing import Optional
 from app.api.base_controller import BaseController
 from app.application.dto.attributes.facility import  FacilityDTO, FacilityQueryDTO
-from app.application.use_case.attributes.attribute.create_facility_use_base import  CreateFacilityUseCase
-from app.application.use_case.attributes.attribute.get_facility_use_case import ListFacilitiesUseCase
-from app.application.use_case.attributes.attribute.update_facility_use_case import UpdateFacilityUseCase, UpdateStatusFacilityUseCase
+from app.application.use_case.admin.attributes.attribute.create_facility_use_base import  CreateFacilityUseCase
+from app.application.use_case.admin.attributes.attribute.get_facility_use_case import ListFacilitiesUseCase
+from app.application.use_case.admin.attributes.attribute.update_facility_use_case import UpdateFacilityUseCase, UpdateStatusFacilityUseCase
 from app.deps.facility import  get_create_facility_use_case, get_list_facilities_use_case, get_update_facility_use_case, get_update_status_facility_use_case
 from app.schemas.facility_schema import  FacilityListResponseSchema, FacilityResponseSchema
 from app.utils.exception_decorate import handle_api_exceptions

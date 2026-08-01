@@ -4,12 +4,12 @@ from fastapi import APIRouter, Depends
 from app.api.base_controller import BaseController
 
 from app.application.dto.locations.country import CountryDTO, CountryQueryDTO
-from app.application.use_case.locations.country.create_country_use_case import CreateCountryUseCase
-from app.application.use_case.locations.country.update_country_use_case import UpdateCountryUseCase, UpdateStatusCountryUseCase
+from app.application.use_case.admin.locations.country.create_country_use_case import CreateCountryUseCase
+from app.application.use_case.admin.locations.country.update_country_use_case import UpdateCountryUseCase, UpdateStatusCountryUseCase
 from app.deps.locations import get_countries_use_case, get_create_country_use_case, get_update_country_use_case, get_update_status_country_use_case
 from app.schemas.country_schema import CountryListResponseSchema, CountryResponseSchema
 from app.utils.exception_decorate import handle_api_exceptions
-from app.application.use_case.locations.country.get_countries_use_case import GetCountriesUseCase
+from app.application.use_case.admin.locations.country.get_countries_use_case import GetCountriesUseCase
 
 class CountryController(BaseController):
     def __init__(self):

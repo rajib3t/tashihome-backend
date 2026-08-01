@@ -1,9 +1,9 @@
-from app.application.use_case.locations.city.create_city_use_case import CreateCityUseCase
-from app.application.use_case.locations.city.get_cities_use_case import GetCitiesUseCase
-from app.application.use_case.locations.city.update_city_use_case import UpdateCityUseCase, UpdateStatusCityUseCase
-from app.application.use_case.locations.location.create_location_use_case import CreateLocationUseCase
-from app.application.use_case.locations.location.get_locations_use_case import GetLocationsUseCase
-from app.application.use_case.locations.location.update_location_use_case import (
+from app.application.use_case.admin.locations.city.create_city_use_case import CreateCityUseCase
+from app.application.use_case.admin.locations.city.get_cities_use_case import GetCitiesUseCase
+from app.application.use_case.admin.locations.city.update_city_use_case import UpdateCityUseCase, UpdateStatusCityUseCase
+from app.application.use_case.admin.locations.location.create_location_use_case import CreateLocationUseCase
+from app.application.use_case.admin.locations.location.get_locations_use_case import GetLocationsUseCase
+from app.application.use_case.admin.locations.location.update_location_use_case import (
     UpdateLocationUseCase,
     UpdateStatusLocationUseCase,
 )
@@ -14,9 +14,9 @@ from app.deps.service import get_city_service
 from app.services.city_service import CityService
 from fastapi import Depends
 
-from app.application.use_case.locations.country.create_country_use_case import CreateCountryUseCase
-from app.application.use_case.locations.country.get_countries_use_case import GetCountriesUseCase
-from app.application.use_case.locations.country.update_country_use_case import UpdateCountryUseCase, UpdateStatusCountryUseCase
+from app.application.use_case.admin.locations.country.create_country_use_case import CreateCountryUseCase
+from app.application.use_case.admin.locations.country.get_countries_use_case import GetCountriesUseCase
+from app.application.use_case.admin.locations.country.update_country_use_case import UpdateCountryUseCase, UpdateStatusCountryUseCase
 from app.deps.auth import CurrentUser, get_current_user, require_admin
 from app.deps.service import get_country_service
 from app.services.country_service import CountryService

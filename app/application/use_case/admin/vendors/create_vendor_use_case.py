@@ -1,0 +1,39 @@
+from app.events.events.users.create_vendor_event import CreateVendorEvent
+from app.application.dto.vendors.vendor import CreateVendorDTO
+from app.application.use_case.base_use_case import BaseUseCase
+from app.deps.auth import CurrentUser
+from app.models.user_model import User, UserRole, UserStatus
+from app.services.user_service import UserService
+from app.core.security import PasswordHasher
+import logging
+class CreateVendorUseCase(BaseUseCase):
+    def __init__(
+        self,
+        user_service : UserService,
+        verify_csrf: bool,
+        current_user: CurrentUser,
+    ):
+        self.user_service = user_service
+        self.current_user = current_user
+        self.verify_csrf = verify_csrf
+        self.passwordManager = PasswordHasher()
+    async def execute(self, vendor_dto: CreateVendorDTO) -> User:
+        # Perform any necessary validation or business logic here
+
+        payload = User(
+            full_name=vendor_dto.full_name,
+            email=vendor_dto.email,
+            phone=vendor_dto.phone,
+            password= await self.passwordManager.hash_password(vendor_dto.phone),  # Hash the password before storing
+            role=UserRole.VENDOR,  # Assuming you have a UserStatus enum for roles
+            status=UserStatus.INACTIVE,  # Assuming you have a UserStatus enum for status
+        )
+
+        created_vendor = await self.user_service.create_user(payload)
+        try:
+            await self.event_bus.publish(CreateVendorEvent(created_vendor))
+        except Exception as exc:
+            logger = logging.getLogger(__name__)
+            logger.warning("Failed to publish CreateVendorEvent for user %s: %s", created_vendor.id, exc)
+
+        return created_vendor   

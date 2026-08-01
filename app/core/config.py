@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     EMAIL_VERIFY_TOKEN_EXPIRE_HOURS: int = 24 # Hours until the email verification token expires
     RESET_PASSWORD_TOKEN_EXPIRE_MINUTES: int = 30 # Minutes until the reset password token expires
 
+    # Account activation 
+    ACCOUNT_ACTIVATION_HOURS : int = 24 #  Hours until the Account activation token expires
     #  Frontend URL for sending email verification and password reset links
     FRONTEND_URL: str = "http://localhost:4200"
 

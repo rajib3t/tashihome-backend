@@ -1,3 +1,4 @@
+from app.events.handles.users.create_vendor_handler import CreateVendorHandler
 import asyncio
 import json
 import logging
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 EventHandler = Callable[[dict], Awaitable[None]]
 
 HANDLERS: dict[str, EventHandler] = {
-    
+   "user.vendor.created": CreateVendorHandler.handle,
 }
 
 

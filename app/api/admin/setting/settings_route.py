@@ -5,8 +5,8 @@ from typing import Optional
 
 from app.api.base_controller import BaseController
 from app.application.dto.setting import SettingUpdateDTO
-from app.application.use_case.settings.get_setting_use_case import GetSettingUseCase
-from app.application.use_case.settings.update_setting_use_case import UpdateSettingUseCase
+from app.application.use_case.admin.settings.get_setting_use_case import GetSettingUseCase
+from app.application.use_case.admin.settings.update_setting_use_case import UpdateSettingUseCase
 from app.deps.service import get_setting_service
 from app.deps.settings import get_get_setting_use_case, get_update_setting_use_case
 from app.schemas.setting_schema import SettingResponseSchema

@@ -52,6 +52,9 @@ class UserData(UserBase):
 
 class UserBasicProfileResponse(BaseResponse):
     data: UserData
+
+class UserResponseSchema(BaseResponse):
+    data: UserData
     
     
 

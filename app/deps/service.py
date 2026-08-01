@@ -1,4 +1,11 @@
 
+from app.services.email_template_service import EmailTemplateService
+from app.services.email_service import BrevoEmailService
+from app.services.email_service import MailgunEmailService
+from app.services.email_service import SMTPEmailService
+from app.services.email_service import MockEmailService
+from app.core.config import settings
+from app.services.email_service import BaseEmailService
 from app.repositories.facility_repository import  FacilityRepository
 from app.repositories.amenity_repository import AmenityRepository
 from app.repositories.room_type_repository import RoomTypeRepository
@@ -108,3 +115,36 @@ async def get_room_type_service(
     room_type_repository: RoomTypeRepository = Depends(get_room_type_repository),
 ) -> RoomTypeService:
     return RoomTypeService(room_type_repository)
+
+
+async def get_email_service() -> BaseEmailService:
+    provider = (settings.EMAIL_PROVIDER or "mock").lower()
+    if provider == "smtp":
+        if not settings.SMTP_HOST:
+            return MockEmailService(settings.EMAILS_FROM_EMAIL, settings.EMAILS_FROM_NAME)
+        return SMTPEmailService(
+            settings.SMTP_HOST,
+            settings.SMTP_PORT,
+            settings.SMTP_USER,
+            settings.SMTP_PASSWORD,
+            settings.EMAILS_FROM_EMAIL,
+            settings.EMAILS_FROM_NAME,
+        )
+    if provider == "mailgun" and settings.MAILGUN_DOMAIN and settings.MAILGUN_API_KEY:
+        return MailgunEmailService(
+            settings.MAILGUN_DOMAIN,
+            settings.MAILGUN_API_KEY,
+            settings.EMAILS_FROM_EMAIL,
+            settings.EMAILS_FROM_NAME,
+        )
+    if provider == "brevo" and settings.BREVO_API_KEY:
+        return BrevoEmailService(
+            settings.BREVO_API_KEY,
+            settings.EMAILS_FROM_EMAIL,
+            settings.EMAILS_FROM_NAME,
+        )
+    return MockEmailService(settings.EMAILS_FROM_EMAIL, settings.EMAILS_FROM_NAME)
+
+
+async def get_email_template_service() -> EmailTemplateService:
+    return EmailTemplateService()

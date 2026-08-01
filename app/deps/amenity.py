@@ -1,8 +1,8 @@
 from fastapi.params import Depends
 
-from app.application.use_case.attributes.attribute.create_amenity_use_base import CreateAmenityUseCase
-from app.application.use_case.attributes.attribute.get_amenity_use_case import ListAmenitiesUseCase
-from app.application.use_case.attributes.attribute.update_amenity_use_case import (
+from app.application.use_case.admin.attributes.attribute.create_amenity_use_base import CreateAmenityUseCase
+from app.application.use_case.admin.attributes.attribute.get_amenity_use_case import ListAmenitiesUseCase
+from app.application.use_case.admin.attributes.attribute.update_amenity_use_case import (
     UpdateAmenityUseCase,
     UpdateStatusAmenityUseCase,
 )

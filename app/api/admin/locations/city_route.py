@@ -1,5 +1,5 @@
-from app.application.use_case.locations.city.get_cities_use_case import GetCitiesUseCase
-from app.application.use_case.locations.city.update_city_use_case import UpdateCityUseCase, UpdateStatusCityUseCase
+from app.application.use_case.admin.locations.city.get_cities_use_case import GetCitiesUseCase
+from app.application.use_case.admin.locations.city.update_city_use_case import UpdateCityUseCase, UpdateStatusCityUseCase
 from app.deps.locations import (
     get_city_list_use_case, 
     get_create_city_use, 
@@ -7,7 +7,7 @@ from app.deps.locations import (
     get_update_city_status_use_case
 )
 from fastapi import Depends
-from app.application.use_case.locations.city.create_city_use_case import CreateCityUseCase
+from app.application.use_case.admin.locations.city.create_city_use_case import CreateCityUseCase
 from fastapi import APIRouter, File, Form, UploadFile
 from typing import Optional
 

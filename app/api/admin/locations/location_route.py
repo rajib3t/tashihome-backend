@@ -2,9 +2,9 @@ from fastapi.params import Depends
 
 from app.api.base_controller import BaseController
 from fastapi import APIRouter
-from app.application.use_case.locations.location.create_location_use_case import CreateLocationUseCase
-from app.application.use_case.locations.location.get_locations_use_case import GetLocationsUseCase
-from app.application.use_case.locations.location.update_location_use_case import UpdateLocationUseCase, UpdateStatusLocationUseCase
+from app.application.use_case.admin.locations.location.create_location_use_case import CreateLocationUseCase
+from app.application.use_case.admin.locations.location.get_locations_use_case import GetLocationsUseCase
+from app.application.use_case.admin.locations.location.update_location_use_case import UpdateLocationUseCase, UpdateStatusLocationUseCase
 from app.deps.locations import (
     get_create_location_use_case,
     get_list_location_use_case,

@@ -1,8 +1,8 @@
 from fastapi.params import Depends
 
-from app.application.use_case.attributes.attribute.create_facility_use_base import  CreateFacilityUseCase
-from app.application.use_case.attributes.attribute.get_facility_use_case import ListFacilitiesUseCase
-from app.application.use_case.attributes.attribute.update_facility_use_case import (
+from app.application.use_case.admin.attributes.attribute.create_facility_use_base import  CreateFacilityUseCase
+from app.application.use_case.admin.attributes.attribute.get_facility_use_case import ListFacilitiesUseCase
+from app.application.use_case.admin.attributes.attribute.update_facility_use_case import (
     UpdateFacilityUseCase,
     UpdateStatusFacilityUseCase,
 )

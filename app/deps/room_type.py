@@ -1,8 +1,8 @@
 from fastapi.params import Depends
 
-from app.application.use_case.attributes.attribute.create_room_type_use_case import CreateRoomTypeUseCase
-from app.application.use_case.attributes.attribute.get_room_type_use_case import ListRoomTypesUseCase
-from app.application.use_case.attributes.attribute.update_room_type_use_case import (
+from app.application.use_case.admin.attributes.attribute.create_room_type_use_case import CreateRoomTypeUseCase
+from app.application.use_case.admin.attributes.attribute.get_room_type_use_case import ListRoomTypesUseCase
+from app.application.use_case.admin.attributes.attribute.update_room_type_use_case import (
     UpdateRoomTypeUseCase,
     UpdateStatusRoomTypeUseCase,
 )

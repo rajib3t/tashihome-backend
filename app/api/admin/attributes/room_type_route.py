@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, Form
 
 from app.api.base_controller import BaseController
 from app.application.dto.attributes.room_type import RoomTypeDTO, RoomTypeQueryDTO
-from app.application.use_case.attributes.attribute.create_room_type_use_case import CreateRoomTypeUseCase
-from app.application.use_case.attributes.attribute.get_room_type_use_case import ListRoomTypesUseCase
-from app.application.use_case.attributes.attribute.update_room_type_use_case import UpdateRoomTypeUseCase, UpdateStatusRoomTypeUseCase
+from app.application.use_case.admin.attributes.attribute.create_room_type_use_case import CreateRoomTypeUseCase
+from app.application.use_case.admin.attributes.attribute.get_room_type_use_case import ListRoomTypesUseCase
+from app.application.use_case.admin.attributes.attribute.update_room_type_use_case import UpdateRoomTypeUseCase, UpdateStatusRoomTypeUseCase
 from app.deps.room_type import get_create_room_type_use_case, get_list_room_types_use_case, get_update_room_type_use_case, get_update_status_room_type_use_case
 from app.schemas.room_type_schema import RoomTypeListResponseSchema, RoomTypeResponseSchema
 from app.utils.exception_decorate import handle_api_exceptions

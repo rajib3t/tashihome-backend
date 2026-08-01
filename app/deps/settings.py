@@ -1,7 +1,7 @@
 from fastapi.params import Depends
 
-from app.application.use_case.settings.get_setting_use_case import GetSettingUseCase
-from app.application.use_case.settings.update_setting_use_case import UpdateSettingUseCase
+from app.application.use_case.admin.settings.get_setting_use_case import GetSettingUseCase
+from app.application.use_case.admin.settings.update_setting_use_case import UpdateSettingUseCase
 from app.deps.auth import CurrentUser, get_current_user, require_admin
 from app.deps.service import get_setting_service, get_storage_service
 from app.services.setting_service import SettingService
