@@ -54,3 +54,16 @@ class User(Base):
     )
 
 
+    # Relationships
+    company = relationship(
+        "Company",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    addresses = relationship(
+        "Address",
+        primaryjoin="and_(User.id==Address.owner_id, Address.owner_type=='user')",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )

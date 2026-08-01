@@ -23,6 +23,7 @@ class VendorController(BaseController):
             # Define your routes here, for example:
             ("get", "/", self._get_vendors, {"response_model": UserListResponseSchema}),
             ("post", "/", self._create_vendor, {"response_model": UserResponseSchema, "status_code": 201}),
+            ("get", "/{vendor_id}", self._get_vendor, {"response_model": UserResponseSchema}),
             # Add more routes as needed
         ]
 
@@ -52,6 +53,23 @@ class VendorController(BaseController):
         vendor = await use_case.execute(data)
         return self.build_response(
             message="Vendor created successfully.",
+            data=vendor,
+        )
+
+    async def _get_vendor(
+        self,
+        vendor_id: int,
+        use_case: ListVendorUseCase = Depends(get_list_vendor_use_case)
+    ):
+        vendor = await use_case.get_vendor_by_id(vendor_id)
+        if not vendor:
+            return self.build_response(
+                message="Vendor not found.",
+                data=None,
+                status_code=404
+            )
+        return self.build_response(
+            message="Vendor retrieved successfully.",
             data=vendor,
         )
 

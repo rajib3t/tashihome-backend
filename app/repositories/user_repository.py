@@ -8,13 +8,14 @@ from app.repositories.base_repository import BaseRepository, Page
 
 class WithRelations(TypedDict, total=False):
     # e.g. "orders": bool, "profile": bool
-    pass
+    company: bool
 
 
 class UserRepository(BaseRepository[User]):
 
     _relation_map = {
         # e.g. "orders": User.orders, "profile": User.profile
+        "company": User.company
     }
 
     _filter_map = {
@@ -105,3 +106,30 @@ class UserRepository(BaseRepository[User]):
         query = self._apply_dynamic_filters(query, filters, self._filter_map)
 
         return await self._paginate(query, page=page, page_size=page_size, flush=flush)
+
+    async def update(
+        self,
+        user: User,
+        with_relations: Optional[WithRelations] = None,
+        commit: bool = True,
+    ) -> Optional[User]:
+        self.db.add(user)
+
+        if not commit:
+            return user
+
+        await self.db.commit()
+
+        if with_relations:
+            query = self._apply_relations(
+                select(User).where(User.id == user.id),
+                with_relations,
+                self._relation_map,
+            )
+            # Data was just committed, so no flush is needed here.
+            await self.db.commit()
+            return await self._fetch_one(query)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+    
