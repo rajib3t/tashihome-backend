@@ -4,86 +4,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="color-scheme" content="light">
+    <meta name="supported-color-schemes" content="light">
     <title>Activate Your Account - {{app_name}}</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        /* Client resets */
+        body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+        table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
+        img { -ms-interpolation-mode:bicubic; border:0; height:auto; line-height:100%; outline:none; text-decoration:none; }
+        body { margin:0; padding:0; width:100% !important; height:100% !important; }
+
+        a { color:inherit; }
+
+        .cta-link:hover { background-color:#0c2f49 !important; }
+
+        @media screen and (max-width: 600px) {
+            .email-container { width:100% !important; max-width:100% !important; border-radius:0 !important; }
+            .fluid-padding { padding:28px 24px !important; }
+            .header-padding { padding:32px 24px 16px 24px !important; }
+            .footer-padding { padding:20px !important; }
+            .heading-text { font-size:21px !important; }
+            .cta-link { display:block !important; width:100% !important; box-sizing:border-box; padding:15px 0 !important; }
+            .cta-table { width:100% !important; }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .email-bg { background-color:#f4f7fb !important; }
+        }
+    </style>
 </head>
 
-<body
-    style="margin:0; padding:0; background-color:#f4f7fb; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:#333333;">
+<body style="margin:0; padding:0; background-color:#f4f7fb; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#333333;">
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+    <!-- Preheader (hidden preview text) -->
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
+        Confirm your email to activate your {{app_name}} account. This link expires in {{expires_in}} hours.
+    </div>
+    <div style="display:none; max-height:0; overflow:hidden;">&#8203;&#847; &nbsp;&zwnj;&nbsp;&#8203;&#847;</div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-bg"
         style="background-color:#f4f7fb; padding:40px 0;">
         <tr>
             <td align="center">
 
                 <!-- Container Table -->
-                <table role="presentation" width="600" cellpadding="0" cellspacing="0"
-                    style="background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="email-container"
+                    style="width:600px; max-width:600px; background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 8px 24px rgba(15,59,92,0.08); border:1px solid #e2e8f0;">
 
                     <!-- Header / Logo Section -->
                     <tr>
-                        <td align="center"
-                            style="background-color:#ffffff; padding:40px 40px 20px 40px; border-bottom: 2px solid #f1f5f9;">
-                            <!-- Replace {{logo_url}} with your hosted image link -->
-                            <img src="{{logo_url}}" alt="Tashi Homes Logo" width="180"
-                                style="display:block; max-width:180px; height:auto; border:0;">
+                        <td align="center" class="header-padding"
+                            style="background-color:#ffffff; padding:36px 40px 18px 40px; border-bottom:2px solid #f1f5f9;">
+                            <img src="{{logo_url}}" alt="{{app_name}}" width="140"
+                                style="display:block; width:50px; max-width:50px; height:auto; border:0;">
                         </td>
                     </tr>
 
                     <!-- Main Content Body -->
                     <tr>
-                        <td style="padding:40px;">
+                        <td class="fluid-padding" style="padding:40px;">
 
-                            <h2
-                                style="margin:0 0 20px; font-size:24px; color:#0f3b5c; font-weight:700; text-align:center;">
+                            <h1 class="heading-text"
+                                style="margin:0 0 20px; font-size:23px; line-height:1.3; color:#0f3b5c; font-weight:700; text-align:center;">
                                 Activate Your Account
-                            </h2>
+                            </h1>
 
-                            <p style="margin:0 0 20px; font-size:16px; color:#4a5568; line-height:1.6;">
-                                Hello <strong>{{full_name}}</strong>,
+                            <p style="margin:0 0 18px; font-size:16px; color:#4a5568; line-height:1.6;">
+                                Hi <strong style="color:#1a202c;">{{full_name}}</strong>,
                             </p>
 
-                            <p style="margin:0 0 24px; font-size:16px; color:#4a5568; line-height:1.6;">
-                                Welcome to <strong>{{app_name}}</strong>! We're excited to have you on board. To
-                                complete
-                                your registration and activate your account, please confirm your email address below.
+                            <p style="margin:0 0 28px; font-size:16px; color:#4a5568; line-height:1.6;">
+                                Welcome to <strong style="color:#1a202c;">{{app_name}}</strong>! We're glad you're
+                                here. Confirm your email address to activate your account and get started.
                             </p>
 
                             <!-- CTA Button -->
-                            <table role="presentation" cellpadding="0" cellspacing="0" align="center"
-                                style="margin:30px auto;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" align="center" class="cta-table"
+                                style="margin:0 auto 28px;">
                                 <tr>
-                                    <td align="center" style="border-radius:8px; background-color:#0f3b5c;">
-                                        <a href="{{activation_url}}"
-                                            style="display:inline-block; padding:16px 36px; font-size:16px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:8px;">
+                                    <td align="center" style="border-radius:8px;">
+                                        <!--[if mso]>
+                                        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{activation_url}}" style="height:52px;v-text-anchor:middle;width:260px;" arcsize="15%" fillcolor="#0f3b5c" stroke="f">
+                                        <w:anchorlock/>
+                                        <center style="color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:bold;">Activate Account</center>
+                                        </v:roundrect>
+                                        <![endif]-->
+                                        <!--[if !mso]><!-->
+                                        <a href="{{activation_url}}" class="cta-link"
+                                            style="display:inline-block; padding:16px 40px; font-size:16px; font-weight:600; color:#ffffff; background-color:#0f3b5c; text-decoration:none; border-radius:8px; letter-spacing:0.2px; transition:background-color 0.15s ease;">
                                             Activate Account
                                         </a>
+                                        <!--<![endif]-->
                                     </td>
                                 </tr>
                             </table>
 
                             <!-- Expiration Note -->
-                            <div
-                                style="background-color:#f8fafc; border-left:4px solid #0f3b5c; padding:12px 16px; margin-bottom:28px; border-radius:0 6px 6px 0;">
-                                <p style="margin:0; font-size:14px; color:#64748b; line-height:1.5;">
-                                    <strong>Note:</strong> This activation link is valid for
-                                    <strong>{{expires_in}} hours</strong>.
-                                </p>
-                            </div>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                                <tr>
+                                    <td style="background-color:#f8fafc; border-left:4px solid #0f3b5c; padding:14px 18px; border-radius:0 6px 6px 0;">
+                                        <p style="margin:0; font-size:14px; color:#64748b; line-height:1.5;">
+                                            <strong style="color:#475569;">Note:</strong> This activation link expires
+                                            in <strong style="color:#475569;">{{expires_in}} hours</strong>.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
 
                             <!-- Fallback URL Section -->
-                            <p style="margin:0 0 10px; font-size:14px; color:#64748b; line-height:1.5;">
-                                If the button above doesn't work, copy and paste this link into your browser:
+                            <p style="margin:0 0 8px; font-size:14px; color:#64748b; line-height:1.5;">
+                                Button not working? Paste this link into your browser:
                             </p>
 
-                            <p style="margin:0 0 30px; word-break:break-all; font-size:13px; color:#0f3b5c;">
+                            <p style="margin:0 0 30px; word-break:break-all; font-size:13px; line-height:1.5;">
                                 <a href="{{activation_url}}"
                                     style="color:#0f3b5c; text-decoration:underline;">{{activation_url}}</a>
                             </p>
 
-                            <hr style="border:none; border-top:1px solid #e2e8f0; margin:30px 0;">
+                            <hr style="border:none; border-top:1px solid #e2e8f0; margin:0 0 24px;">
 
-                            <p style="margin:0; font-size:13px; color:#94a3b8; line-height:1.5;">
-                                If you didn't create an account with {{app_name}}, you can safely ignore this email.
+                            <p style="margin:0; font-size:13px; color:#94a3b8; line-height:1.6;">
+                                Didn't sign up for {{app_name}}? No action is needed — you can safely ignore this
+                                email and no account will be created.
                             </p>
 
                         </td>
@@ -91,20 +143,31 @@
 
                     <!-- Footer Section -->
                     <tr>
-                        <td align="center"
-                            style="background-color:#f8fafc; padding:25px; border-top:1px solid #e2e8f0;">
+                        <td align="center" class="footer-padding"
+                            style="background-color:#f8fafc; padding:24px; border-top:1px solid #e2e8f0;">
 
-                            <p style="margin:0; font-size:14px; font-weight:bold; color:#0f3b5c;">
+                            <p style="margin:0; font-size:14px; font-weight:700; color:#0f3b5c;">
                                 {{app_name}}
                             </p>
 
-                            <p style="margin:8px 0 0; font-size:12px; color:#94a3b8;">
+                            <p style="margin:8px 0 0; font-size:12px; color:#94a3b8; line-height:1.5;">
                                 © {{year}} {{app_name}}. All rights reserved.
                             </p>
 
                         </td>
                     </tr>
 
+                </table>
+
+                <!-- Below-card note (optional, common in modern transactional emails) -->
+                <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="email-container" style="width:600px; max-width:600px;">
+                    <tr>
+                        <td align="center" style="padding:20px 20px 0;">
+                            <p style="margin:0; font-size:12px; color:#a0aec0; line-height:1.5;">
+                                This is an automated message, please don't reply directly to this email.
+                            </p>
+                        </td>
+                    </tr>
                 </table>
 
             </td>

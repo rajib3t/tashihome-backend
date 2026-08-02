@@ -213,7 +213,8 @@ class UserService:
     async def update(
             self,
             user: User,
+            with_relations: Optional[WithRelations] = None,
             commit: bool = True
     ):
         # This method updates an existing user in the database.
-        return await self.user_repository.update(user, with_relations=None, commit=commit)
+        return await self.user_repository.update(user, with_relations=with_relations, commit=commit)

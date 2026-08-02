@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, UploadFile
 
 from app.api.base_controller import BaseController
-from app.application.dto.vendors.vendor import CreateVendorDTO, VendorQueryDTO, VendorUpdateDTO
+from app.application.dto.vendors.vendor import  VendorDTO, VendorQueryDTO, VendorUpdateDTO
 from app.application.use_case.admin.vendors.create_vendor_use_case import CreateVendorUseCase
 from app.application.use_case.admin.vendors.get_vendor_use_case import GetVendorUseCase
 from app.application.use_case.admin.vendors.list_vendor_use_case import ListVendorUseCase
@@ -51,7 +51,7 @@ class VendorController(BaseController):
 
     async def _create_vendor(
         self,
-        data: CreateVendorDTO,
+        data: VendorDTO,
         use_case : CreateVendorUseCase = Depends(get_create_vendor_use_case)
     ):
         
@@ -76,7 +76,7 @@ class VendorController(BaseController):
     async def _update_vendor(
         self,
         vendor_id: str,
-        data: VendorUpdateDTO,
+        data: VendorDTO,
         use_case: UpdateVendorUseCase = Depends(get_update_vendor_use_case),
     ):
         vendor = await use_case.execute(vendor_id, data)

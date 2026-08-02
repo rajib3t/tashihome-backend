@@ -1,6 +1,7 @@
 from app.core.events import EventBus
+from app.core.exceptions import AppException
 from app.events.events.users.create_vendor_event import CreateVendorEvent
-from app.application.dto.vendors.vendor import CreateVendorDTO
+from app.application.dto.vendors.vendor import  VendorDTO
 from app.application.use_case.base_use_case import BaseUseCase
 from app.deps.auth import CurrentUser
 from app.models.user_model import User, UserRole, UserStatus
@@ -20,9 +21,22 @@ class CreateVendorUseCase(BaseUseCase):
         self.event_bus = event_bus
         self.verify_csrf = verify_csrf
         self.passwordManager = PasswordHasher()
-    async def execute(self, vendor_dto: CreateVendorDTO) -> User:
+    async def execute(self, vendor_dto: VendorDTO) -> User:
         # Perform any necessary validation or business logic here
-
+        if await self.user_service.get_user_by_email(vendor_dto.email):
+            raise AppException(
+                status_code=409,
+                message="Email already exists",
+                error_code="EMAIL_ALREADY_EXISTS",
+                field="email",
+            )
+        if await self.user_service.get_user_by_phone(vendor_dto.phone):
+            raise AppException(
+                status_code=409,
+                message="Phone number already exists",
+                error_code="PHONE_ALREADY_EXISTS",
+                field="phone",
+            )
         payload = User(
             full_name=vendor_dto.full_name,
             email=vendor_dto.email,
