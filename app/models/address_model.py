@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import UUID, BigInteger, Column, DateTime, String, func
 
 from app.core.database import Base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import foreign, relationship
 
 class Address(Base):
     __tablename__ = "addresses"
@@ -40,12 +40,12 @@ class Address(Base):
     # Relationships
     user = relationship(
         "User",
-        primaryjoin="and_(Address.owner_id==User.id, Address.owner_type=='user')",
+        primaryjoin="and_(foreign(Address.owner_id)==User.id, Address.owner_type=='user')",
         back_populates="addresses",
     )
 
     company = relationship(
         "Company",
-        primaryjoin="and_(Address.owner_id==Company.id, Address.owner_type=='company')",
+        primaryjoin="and_(foreign(Address.owner_id)==Company.id, Address.owner_type=='company')",
         back_populates="addresses",
     )

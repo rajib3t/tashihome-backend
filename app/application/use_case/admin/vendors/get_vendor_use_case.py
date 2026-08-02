@@ -1,5 +1,9 @@
+from typing import Optional
+
 from app.application.use_case.base_use_case import BaseUseCase
+from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
+from app.models.user_model import User, UserRole
 from app.services.storage_service import StorageService
 from app.services.user_service import UserService
 
@@ -10,18 +14,46 @@ class GetVendorUseCase(BaseUseCase):
             self,
             user_service : UserService,
             storage_service: StorageService,
-            verify_csrf: bool,
+            
             current_user: CurrentUser
     ):
         self.user_service = user_service
         self.storage_service = storage_service
-        self.verify_csrf = verify_csrf
+    
         self.current_user = current_user
 
 
     async def execute(
             self,
             user_id : str,
-            data
-    ): 
-        pass
+            
+    ) -> Optional[User]: 
+        vendor = await self.user_service.get_user_by_public_id(
+            public_id=user_id,
+            with_relations={
+                "company": True,
+                
+            }
+        )
+
+        if not vendor:
+            raise AppException(
+                status_code=404,
+                message="Vendor not found",
+                error_code="VENDOR_NOT_FOUND"
+            )
+
+        if vendor.role != UserRole.VENDOR:
+            raise AppException(
+                status_code=400,
+                message="User is not a vendor",
+                error_code="USER_NOT_VENDOR"
+            )
+
+        if vendor.is_profile_image_url:
+                    vendor.is_profile_image_url = self.storage_service.generate_presigned_url(
+                        vendor.is_profile_image_url,
+                    )
+                
+
+        return vendor

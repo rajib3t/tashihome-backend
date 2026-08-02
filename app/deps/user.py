@@ -9,3 +9,5 @@ async def get_user_profile_use_case(
     current_user: CurrentUser = Depends(get_current_user)
 ) -> ProfileUseCase:
     return ProfileUseCase(user_service, current_user)
+
+

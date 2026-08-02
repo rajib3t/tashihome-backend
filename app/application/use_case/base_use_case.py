@@ -71,15 +71,22 @@ class BaseUseCase:
 
     async def _upload_file(self, upload, *, folder: str, field_name: str, webp: bool = False) -> str:
         raw, mime_type = await self._validate_upload_file(upload, field_name=field_name)
-        extension = mimetypes.guess_extension(mime_type or "") or ""
+        extension = ".webp" if webp else (mimetypes.guess_extension(mime_type or "") or "")
         key = f"{folder}/{field_name}_{uuid4().hex}{extension}"
         if webp:
             return await self.storage_service.convert_and_upload_webp(key, raw, quality=82, lossless=False)
         return await self.storage_service.upload_bytes(key, raw, content_type=mime_type)
 
     async def _delete_replaced_file(self, old_setting, new_value):
-        old_value = old_setting.value if old_setting else None
+        if old_setting is None:
+            old_value = None
+        elif isinstance(old_setting, str):
+            old_value = old_setting
+        else:
+            old_value = old_setting.value
         if isinstance(old_value, str) and old_value:
+            if old_value == new_value:
+                return
             try:
                 await self.storage_service.delete_object(old_value)
             except Exception:

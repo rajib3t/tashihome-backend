@@ -10,6 +10,8 @@ from app.repositories.facility_repository import  FacilityRepository
 from app.repositories.amenity_repository import AmenityRepository
 from app.repositories.room_type_repository import RoomTypeRepository
 from app.repositories.location_repository import LocationRepository
+from app.repositories.company_repository import CompanyRepository
+from app.repositories.address_repository import AddressRepository
 from app.services.facility_service import  FacilityService
 from app.services.amenity_service import AmenityService
 from app.services.room_type_service import RoomTypeService
@@ -27,6 +29,8 @@ from app.deps.repository import (
     get_user_repository,
     get_city_repository,
     get_location_repository,
+    get_company_repository,
+    get_address_repository,
 )
 
 from app.repositories.country_repository import CountryRepository
@@ -45,14 +49,22 @@ from app.services.user_service import UserService
 from app.services.location_service import LocationService
 from app.services.city_service import CityService
 from app.services.country_service import CountryService
+from app.services.company_service import CompanyService
+from app.services.address_service import AddressService
 
 # Dependency injection function to provide an instance of UserService with the required UserRepository dependency.
 async def get_user_service(
     user_repository: UserRepository = Depends(get_user_repository),
+    company_repository: CompanyRepository = Depends(get_company_repository),
+    address_repository: AddressRepository = Depends(get_address_repository),
 ) -> UserService:
     
     # Return an instance of UserService, initialized with the provided UserRepository.
-    return UserService(user_repository) 
+    return UserService(
+        user_repository,
+        CompanyService(company_repository),
+        AddressService(address_repository),
+    ) 
 
 # Dependency injection function to provide an instance of TokenService with the required TokenRepository dependency.    
 async def get_token_service(

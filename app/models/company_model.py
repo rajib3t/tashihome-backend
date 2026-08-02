@@ -1,10 +1,9 @@
 import uuid
 
-from alembic.environment import Column
 from sqlalchemy import UUID, BigInteger, DateTime, ForeignKey, String, func
-
 from app.core.database import Base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import foreign, relationship
+from sqlalchemy import Column
 
 class Company(Base):
 
@@ -39,7 +38,7 @@ class Company(Base):
     # Relationships
     addresses = relationship(
         "Address",
-        primaryjoin="and_(Company.id==Address.owner_id, Address.owner_type=='company')",
+        primaryjoin="and_(Company.id==foreign(Address.owner_id), Address.owner_type=='company')",
         back_populates="company",
         cascade="all, delete-orphan",
     )
@@ -49,3 +48,7 @@ class Company(Base):
         back_populates="company",
         uselist=False,
     )
+
+    @property
+    def address(self):
+        return self.addresses[0] if self.addresses else None

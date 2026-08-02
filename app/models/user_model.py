@@ -2,7 +2,7 @@ import enum
 from typing import TYPE_CHECKING, List
 
 from sqlalchemy import UUID, BigInteger, Boolean, Column, DateTime, Enum, ForeignKey, String, func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import foreign, relationship
 
 from app.core.database import Base
 import uuid
@@ -63,7 +63,7 @@ class User(Base):
     )
     addresses = relationship(
         "Address",
-        primaryjoin="and_(User.id==Address.owner_id, Address.owner_type=='user')",
+        primaryjoin="and_(User.id==foreign(Address.owner_id), Address.owner_type=='user')",
         back_populates="user",
         cascade="all, delete-orphan",
     )

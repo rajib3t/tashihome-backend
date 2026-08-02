@@ -18,3 +18,6 @@ from .location_model import Location
 from .facility_model import Facility
 from .amenity_model import Amenity
 from .room_type_model import RoomType
+
+from .company_model import Company
+from .address_model import Address

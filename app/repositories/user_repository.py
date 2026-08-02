@@ -91,6 +91,19 @@ class UserRepository(BaseRepository[User]):
         )
         return await self._fetch_one(query, flush=flush)
 
+    async def get_by_phone(
+        self,
+        phone: str,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[User]:
+        query = self._apply_relations(
+            select(User).where(User.phone == phone),
+            with_relations,
+            self._relation_map,
+        )
+        return await self._fetch_one(query, flush=flush)
+
     async def list_users(
         self,
         page: int = 1,
