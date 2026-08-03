@@ -5,11 +5,12 @@ from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
 from app.models.address_model import Address
 from app.models.company_model import Company
-from app.models.user_model import User
+from app.models.user_model import User, UserStatus
 from app.deps.auth import CurrentUser
 from app.repositories.address_repository import AddressRepository
 from app.repositories.company_repository import CompanyRepository
 from app.schemas.vendor_schema import VendorAddressData, VendorCompanyData, VendorUserResponseData
+from app.services import user_service
 from app.services.address_service import AddressService
 from app.services.company_service import CompanyService
 from app.services.setting_service import SettingNotFoundError
@@ -282,5 +283,75 @@ class UploadVendorProfileImageUseCase(BaseUseCase):
 
         return await self.user_service.build_vendor_response(
             data,
+            profile_image_url=profile_image_url,
+        )
+
+
+class UpdateStatusVendorUseCase(BaseUseCase):
+    def __init__(
+        self,
+        user_service: UserService,
+        storage_service: StorageService,
+        verify_csrf: bool,
+        current_user: CurrentUser,
+    ):
+        self.user_service = user_service
+        self.storage_service = storage_service
+        self.verify_csrf = verify_csrf
+        self.current_user = current_user
+
+    async def execute(
+        self,
+        user_id: str,
+        status: str,
+    ) -> VendorUserResponseData:
+       
+        vendor = await self.user_service.get_user_by_public_id(
+            public_id=user_id,
+            with_relations={"company": True},
+            flush=True,
+        )
+        if vendor is None:
+            raise AppException(
+                status_code=404,
+                message="Vendor not found",
+                error_code="VENDOR_NOT_FOUND",
+                field="vendor_id",
+            )
+
+        if status not in ["active", "inactive"]:
+            raise AppException(
+                status_code=400,
+                message="Invalid status value",
+                error_code="INVALID_STATUS_VALUE",
+                field="status",
+            )
+
+        normalized_status = status.strip().lower()
+        if normalized_status not in ["active", "inactive"]:
+            raise AppException(
+                status_code=422,
+                message="Status must be either 'active' or 'inactive'.",
+                field="status",
+                error_code="STATUS_INVALID",
+            )
+
+        vendor.status = (
+            UserStatus.ACTIVE if normalized_status == "active" else UserStatus.INACTIVE
+        )
+        updated_vendor = await self.user_service.update(
+            vendor,
+            with_relations={"company": True},
+            commit=True,
+        )
+
+        profile_image_url = (
+            self.storage_service.get_display_url(updated_vendor.is_profile_image_url)
+            if updated_vendor.is_profile_image_url
+            else None
+        )
+
+        return await self.user_service.build_vendor_response(
+            updated_vendor,
             profile_image_url=profile_image_url,
         )

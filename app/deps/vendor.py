@@ -1,6 +1,6 @@
 
 from app.application.use_case.admin.vendors.get_vendor_use_case import GetVendorUseCase
-from app.application.use_case.admin.vendors.update_vendor_use_case import UpdateVendorUseCase, UploadVendorProfileImageUseCase
+from app.application.use_case.admin.vendors.update_vendor_use_case import UpdateStatusVendorUseCase, UpdateVendorUseCase, UploadVendorProfileImageUseCase
 from app.application.use_case.admin.vendors.list_vendor_use_case import ListVendorUseCase
 from app.deps.event_bus import get_event_bus
 from app.core.events import EventBus
@@ -79,6 +79,20 @@ async def get_upload_vendor_profile_image_use_case(
         current_user: CurrentUser = Depends(require_admin),
 ) -> UploadVendorProfileImageUseCase:
     return UploadVendorProfileImageUseCase(
+        user_service=user_service,
+        storage_service=storage_service,
+        verify_csrf=verify_csrf,
+        current_user=current_user,
+    )
+
+
+async def get_update_vendor_status_use_case(
+        user_service: UserService = Depends(get_user_service),
+        storage_service: StorageService = Depends(get_storage_service),
+        verify_csrf=Depends(verify_csrf),
+        current_user: CurrentUser = Depends(require_admin),
+) -> UpdateStatusVendorUseCase:
+    return UpdateStatusVendorUseCase(
         user_service=user_service,
         storage_service=storage_service,
         verify_csrf=verify_csrf,
