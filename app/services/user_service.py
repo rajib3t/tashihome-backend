@@ -110,7 +110,11 @@ class UserService:
         vendor.company = company
         return company
 
-    async def build_vendor_response(self, vendor: User) -> VendorUserResponseData:
+    async def build_vendor_response(
+        self,
+        vendor: User,
+        profile_image_url: str | None = None,
+    ) -> VendorUserResponseData:
         refreshed_company = None
         if vendor.company is not None:
             company = vendor.company
@@ -139,7 +143,7 @@ class UserService:
             phone=vendor.phone,
             status=vendor.status,
             role=vendor.role,
-            is_profile_image_url=vendor.is_profile_image_url,
+            is_profile_image_url=profile_image_url if profile_image_url is not None else vendor.is_profile_image_url,
             company=refreshed_company,
         )
 

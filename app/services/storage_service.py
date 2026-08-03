@@ -1,4 +1,5 @@
 from typing import Optional
+from urllib.parse import urlparse
 import io
 import boto3
 from aioboto3 import Session
@@ -58,6 +59,17 @@ class StorageService:
             return url
         except ClientError:
             raise
+
+    def is_presigned_url(self, value: str) -> bool:
+        parsed = urlparse(value)
+        return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+    def get_display_url(self, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if self.is_presigned_url(value):
+            return value
+        return self.generate_presigned_url(value)
 
     async def convert_and_upload_webp(
         self,

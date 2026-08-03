@@ -45,6 +45,30 @@ class UpdateVendorUseCase(BaseUseCase):
             stripped = value.strip()
             return stripped if stripped else None
 
+        def has_meaningful_value(value: str | None) -> bool:
+            return value is not None and value.strip() != ""
+
+        def has_meaningful_company_fields(company_data: VendorCompanyUpdateDTO | None) -> bool:
+            if company_data is None:
+                return False
+
+            company_values = [
+                empty_to_none(company_data.name),
+                empty_to_none(company_data.email),
+                empty_to_none(company_data.phone),
+            ]
+
+            address = company_data.address
+            if address is not None:
+                company_values.extend([
+                    empty_to_none(address.address_line1),
+                    empty_to_none(address.address_line2),
+                    empty_to_none(address.postal_code),
+                    empty_to_none(address.country),
+                ])
+
+            return any(has_meaningful_value(value) for value in company_values)
+
         session = self.user_service.user_repository.db
         tx = session.begin_nested() if session.in_transaction() else session.begin()
 
@@ -70,15 +94,10 @@ class UpdateVendorUseCase(BaseUseCase):
                     field="vendor_id",
                 )
 
-            # Fix #1: only look up duplicates when the field is actually being updated,
-            # otherwise vendor_data.email / vendor_data.phone may be None and this
-            # would raise (e.g. AttributeError on None.lower()).
             normalized_email = None
             if vendor_data.email is not None:
                 normalized_email = empty_to_none(vendor_data.email)
-                if normalized_email is None:
-                    normalized_email = None
-                else:
+                if normalized_email is not None:
                     normalized_email = normalized_email.lower()
                 duplicate_email = await self.user_service.get_user_by_email(
                     email=normalized_email,
@@ -107,30 +126,28 @@ class UpdateVendorUseCase(BaseUseCase):
                         field="phone",
                     )
 
-        full_name = empty_to_none(vendor_data.full_name)
-        if full_name is not None:
-            vendor.full_name = full_name
-        if vendor_data.email is not None:
-            # Fix #2: store the same normalized (lowercased) value that was
-            # checked for duplicates above, so case-variant duplicates can't slip in.
-            vendor.email = normalized_email
-        phone = empty_to_none(vendor_data.phone)
-        if phone is not None:
-            vendor.phone = phone
+            full_name = empty_to_none(vendor_data.full_name)
+            if full_name is not None:
+                vendor.full_name = full_name
+            if vendor_data.email is not None:
+                vendor.email = normalized_email
+            phone = empty_to_none(vendor_data.phone)
+            if phone is not None:
+                vendor.phone = phone
 
-        # Update the vendor's information within the same transaction.
-        # Update the vendor's information within the same transaction.
-        if vendor_data.company is not None:
-            company_name = empty_to_none(vendor_data.company.name)
-            company_email = empty_to_none(vendor_data.company.email)
-            company_phone = empty_to_none(vendor_data.company.phone)
-            has_company_update = any([company_name, company_email, company_phone, vendor_data.company.address is not None])
+            if vendor_data.company is not None:
+                company_name = empty_to_none(vendor_data.company.name)
+                company_email = empty_to_none(vendor_data.company.email)
+                company_phone = empty_to_none(vendor_data.company.phone)
+                address_line1 = empty_to_none(vendor_data.company.address.address_line1) if vendor_data.company.address is not None else None
+                address_line2 = empty_to_none(vendor_data.company.address.address_line2) if vendor_data.company.address is not None else None
+                postal_code = empty_to_none(vendor_data.company.address.postal_code) if vendor_data.company.address is not None else None
+                country = empty_to_none(vendor_data.company.address.country) if vendor_data.company.address is not None else None
+                has_company_update = has_meaningful_company_fields(vendor_data.company)
 
-            if vendor.company is None:
                 if not has_company_update:
                     vendor_data.company = None
-                    has_company_update = False
-                else:
+                elif vendor.company is None:
                     company = Company(
                         name=company_name or "",
                         email=company_email or "",
@@ -139,68 +156,66 @@ class UpdateVendorUseCase(BaseUseCase):
                     )
                     await self.company_service.create(company, commit=False)
                     vendor.company = company
-            elif any([company_name is not None, company_email is not None, company_phone is not None]):
-                if company_name is not None:
-                    vendor.company.name = company_name
-                if company_email is not None:
-                    vendor.company.email = company_email
-                if company_phone is not None:
-                    vendor.company.phone = company_phone
-                await self.company_service.update(vendor.company, commit=False)
+                else:
+                    if company_name is not None:
+                        vendor.company.name = company_name
+                    if company_email is not None:
+                        vendor.company.email = company_email
+                    if company_phone is not None:
+                        vendor.company.phone = company_phone
+                    await self.company_service.update(vendor.company, commit=False)
 
-            # Handle address update if provided.
-            if vendor_data.company.address is not None and vendor.company is not None:
-                address_line1 = empty_to_none(vendor_data.company.address.address_line1)
-                address_line2 = empty_to_none(vendor_data.company.address.address_line2)
-                postal_code = empty_to_none(vendor_data.company.address.postal_code)
-                country = empty_to_none(vendor_data.company.address.country)
-                if any([address_line1, address_line2, postal_code, country]):
-                    company_id = vendor.company.id
-                    if company_id is None:
-                        await session.flush()
+                if vendor_data.company is not None and vendor.company is not None:
+                    if any([
+                        has_meaningful_value(address_line1),
+                        has_meaningful_value(address_line2),
+                        has_meaningful_value(postal_code),
+                        has_meaningful_value(country),
+                    ]):
                         company_id = vendor.company.id
+                        if company_id is None:
+                            await session.flush()
+                            company_id = vendor.company.id
 
-                    address = await self.address_service.get_company_address_by_owner_id(
-                        owner_id=company_id,
-                        flush=False,
-                    )
-                    if address is None:
-                        address = Address(
-                            address_line1=address_line1 or "",
-                            address_line2=address_line2,
-                            postal_code=postal_code or "",
-                            country=country or "",
+                        address = await self.address_service.get_company_address_by_owner_id(
                             owner_id=company_id,
-                            owner_type="company",
+                            flush=False,
                         )
-                        await self.address_service.create(address, commit=False)
-                    else:
-                        if address_line1 is not None:
-                            address.address_line1 = address_line1
-                        if address_line2 is not None:
-                            address.address_line2 = address_line2
-                        if postal_code is not None:
-                            address.postal_code = postal_code
-                        if country is not None:
-                            address.country = country
-                        await self.address_service.update(address, commit=False)
+                        if address is None:
+                            address = Address(
+                                address_line1=address_line1 or "",
+                                address_line2=address_line2,
+                                postal_code=postal_code or "",
+                                country=country or "",
+                                owner_id=company_id,
+                                owner_type="company",
+                            )
+                            await self.address_service.create(address, commit=False)
+                        else:
+                            if address_line1 is not None:
+                                address.address_line1 = address_line1
+                            if address_line2 is not None:
+                                address.address_line2 = address_line2
+                            if postal_code is not None:
+                                address.postal_code = postal_code
+                            if country is not None:
+                                address.country = country
+                            await self.address_service.update(address, commit=False)
 
-        # These must run regardless of whether a company payload was sent.
-        updated_vendor = await self.user_service.update(
-            vendor,
-            with_relations={"company": True},
-            commit=False,
-        )
-
-        await session.flush()
-
-        if updated_vendor.is_profile_image_url:
-            updated_vendor.is_profile_image_url = self.storage_service.generate_presigned_url(
-                updated_vendor.is_profile_image_url,
+            updated_vendor = await self.user_service.update(
+                vendor,
+                with_relations={"company": True},
+                commit=False,
             )
+            await session.flush()
 
-        
-        return await self.user_service.build_vendor_response(updated_vendor)
+            profile_image_url = self.storage_service.get_display_url(
+                updated_vendor.is_profile_image_url
+            )
+            return await self.user_service.build_vendor_response(
+                updated_vendor,
+                profile_image_url=profile_image_url,
+            )
 
 
 class UploadVendorProfileImageUseCase(BaseUseCase):
@@ -269,14 +284,14 @@ class UploadVendorProfileImageUseCase(BaseUseCase):
 
             if old_dp and old_dp != uploaded_key:
                 try:
-                    await self.storage_service.delete_object(old_dp)
+                    if not self.storage_service.is_presigned_url(old_dp):
+                        await self.storage_service.delete_object(old_dp)
                 except Exception:
                     pass
 
-            if updated_vendor.is_profile_image_url:
-                updated_vendor.is_profile_image_url = self.storage_service.generate_presigned_url(
-                    updated_vendor.is_profile_image_url,
-                )
+            updated_vendor.is_profile_image_url = self.storage_service.get_display_url(
+                updated_vendor.is_profile_image_url
+            )
             return updated_vendor
 
         updated_vendor = await self.user_service.update(
@@ -285,9 +300,8 @@ class UploadVendorProfileImageUseCase(BaseUseCase):
             commit=True,
         )
 
-        if updated_vendor.is_profile_image_url:
-            updated_vendor.is_profile_image_url = self.storage_service.generate_presigned_url(
-                updated_vendor.is_profile_image_url,
-            )
+        updated_vendor.is_profile_image_url = self.storage_service.get_display_url(
+            updated_vendor.is_profile_image_url
+        )
 
         return updated_vendor
