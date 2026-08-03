@@ -122,7 +122,7 @@ class UserService:
             refreshed_address = None
             if address is not None:
                 refreshed_address = VendorAddressData(
-                    id=str(address.id),
+                    id=str(address.public_id),
                     address_line1=address.address_line1,
                     address_line2=address.address_line2,
                     postal_code=address.postal_code,
