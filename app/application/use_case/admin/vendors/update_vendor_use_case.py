@@ -222,10 +222,9 @@ class UploadVendorProfileImageUseCase(BaseUseCase):
     FILE_UPLOAD_RULES = {
         "profile_image_file": {
             "allowed_prefixes": ("image/",),
-            "max_size_bytes": 2 * 1024 * 1024,  # 2 MB
+            "max_size_bytes": 2 * 1024 * 1024,  # 2 MB  2 MB
         },
     }
-
     def __init__(
         self,
         user_service: UserService,
@@ -242,7 +241,8 @@ class UploadVendorProfileImageUseCase(BaseUseCase):
         self,
         user_id: str,
         profile_image_file: UploadFile,
-    ) -> User:
+    ) -> VendorUserResponseData:
+       
         vendor = await self.user_service.get_user_by_public_id(
             public_id=user_id,
             with_relations={"company": True},
@@ -256,52 +256,31 @@ class UploadVendorProfileImageUseCase(BaseUseCase):
                 field="vendor_id",
             )
 
-        old_dp = getattr(vendor, "is_profile_image_url", None)
-
+        # Upload the profile image to S3 and get the URL
         if self._is_upload_file(profile_image_file):
-            uploaded_key = None
             try:
-                uploaded_key = await self._upload_file(
-                    profile_image_file,
-                    folder="vendor_profiles",
-                    field_name="profile_image_file",
-                    webp =True,
-                )
-                vendor.is_profile_image_url = uploaded_key
-                updated_vendor = await self.user_service.update(
-                    vendor,
-                    with_relations={"company": True},
-                    commit=True,
-                )
-            except Exception:
-                if uploaded_key:
-                    try:
-                        await self.storage_service.delete_object(uploaded_key)
-                    except Exception:
-                        pass
-                vendor.is_profile_image_url = old_dp
-                raise
-
-            if old_dp and old_dp != uploaded_key:
-                try:
-                    if not self.storage_service.is_presigned_url(old_dp):
-                        await self.storage_service.delete_object(old_dp)
-                except Exception:
-                    pass
-
-            updated_vendor.is_profile_image_url = self.storage_service.get_display_url(
-                updated_vendor.is_profile_image_url
+                old_dp  = vendor.is_profile_image_url
+            except SettingNotFoundError:
+                old_dp = None
+            await self._delete_replaced_file(old_dp, profile_image_file)
+            profile_image_key = await self._upload_file(
+                profile_image_file, folder="vendor_profiles", field_name="profile_image_file", webp =True
             )
-            return updated_vendor
 
-        updated_vendor = await self.user_service.update(
+            vendor.is_profile_image_url = profile_image_key
+
+        data = await self.user_service.update(
             vendor,
-            with_relations={"company": True},
             commit=True,
         )
 
-        updated_vendor.is_profile_image_url = self.storage_service.get_display_url(
-            updated_vendor.is_profile_image_url
+        profile_image_url = (
+            self.storage_service.get_display_url(data.is_profile_image_url)
+            if data.is_profile_image_url
+            else None
         )
 
-        return updated_vendor
+        return await self.user_service.build_vendor_response(
+            data,
+            profile_image_url=profile_image_url,
+        )

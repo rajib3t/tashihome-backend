@@ -3,7 +3,8 @@ from typing import Optional
 from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
-from app.models.user_model import User, UserRole
+from app.models.user_model import UserRole
+from app.schemas.vendor_schema import VendorUserResponseData
 from app.services.storage_service import StorageService
 from app.services.user_service import UserService
 
@@ -27,7 +28,7 @@ class GetVendorUseCase(BaseUseCase):
             self,
             user_id : str,
             
-    ) -> Optional[User]: 
+    ) -> Optional[VendorUserResponseData]: 
         vendor = await self.user_service.get_user_by_public_id(
             public_id=user_id,
             with_relations={
@@ -49,11 +50,8 @@ class GetVendorUseCase(BaseUseCase):
                 message="User is not a vendor",
                 error_code="USER_NOT_VENDOR"
             )
-
-        if vendor.is_profile_image_url:
-                    vendor.is_profile_image_url = self.storage_service.generate_presigned_url(
-                        vendor.is_profile_image_url,
-                    )
-                
-
-        return vendor
+        return await self.user_service.build_vendor_response(
+            vendor,
+            profile_image_url=self.storage_service.get_display_url(vendor.is_profile_image_url),
+        )
+        

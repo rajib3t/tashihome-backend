@@ -84,7 +84,7 @@ class VendorController(BaseController):
             message="Vendor updated successfully.",
             data=vendor,
         )
-
+        
     async def _update_vendor_profile_image(
         self,
         vendor_id: str,

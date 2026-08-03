@@ -46,9 +46,7 @@ class UserRepository(BaseRepository[User]):
                 self._relation_map,
             )
             # Data was just committed, so no flush is needed here.
-            await self.db.commit()
             return await self._fetch_one(query)
-        await self.db.commit()
         await self.db.refresh(user)
         return user
 
@@ -140,9 +138,7 @@ class UserRepository(BaseRepository[User]):
                 self._relation_map,
             )
             # Data was just committed, so no flush is needed here.
-            await self.db.commit()
             return await self._fetch_one(query)
-        await self.db.commit()
         await self.db.refresh(user)
         return user
     
