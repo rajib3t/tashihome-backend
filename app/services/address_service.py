@@ -38,9 +38,23 @@ class AddressService:
     ) -> Address:
         return await self.address_repository.create(address, commit=commit)
 
+    async def create(
+        self,
+        address: Address,
+        commit: bool = True,
+    ) -> Address:
+        return await self.create_address(address=address, commit=commit)
+
     async def persist_company_address(
         self,
         address: Address,
         commit: bool = True,
     ) -> Address:
         return await self.address_repository.update(address, commit=commit)
+
+    async def update(
+        self,
+        address: Address,
+        commit: bool = True,
+    ) -> Address:
+        return await self.persist_company_address(address=address, commit=commit)

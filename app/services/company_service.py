@@ -38,6 +38,13 @@ class CompanyService:
         
         return await self.company_repository.create(company, commit=commit)
 
+    async def create(
+        self,
+        company: Company,
+        commit: bool = True,
+    ) -> Company:
+        return await self.create_vendor_company(company=company, commit=commit)
+
 
     async def update_company(
         self,
@@ -46,3 +53,10 @@ class CompanyService:
     ) -> Company:
         
         return await self.company_repository.update(company, commit=commit)
+
+    async def update(
+        self,
+        company: Company,
+        commit: bool = True,
+    ) -> Company:
+        return await self.update_company(company=company, commit=commit)

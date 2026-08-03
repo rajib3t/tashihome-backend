@@ -125,7 +125,7 @@ class UserService:
                     country=address.country,
                 )
             refreshed_company = VendorCompanyData(
-                id=str(company.id),
+                id=str(company.public_id),
                 name=company.name,
                 email=company.email,
                 phone=company.phone,
@@ -142,54 +142,6 @@ class UserService:
             is_profile_image_url=vendor.is_profile_image_url,
             company=refreshed_company,
         )
-
-    async def build_vendor_response(self, vendor: User):
-        refreshed_company = None
-        if vendor.company is not None:
-            company = vendor.company
-            address = await self.address_service.get_company_address_by_owner_id(company.id, flush=True)
-            refreshed_address = None
-            if address is not None:
-                from app.schemas.vendor_schema import VendorAddressData
-                refreshed_address = VendorAddressData(
-                    id=str(address.id),
-                    address_line1=address.address_line1,
-                    address_line2=address.address_line2,
-                    postal_code=address.postal_code,
-                    country=address.country,
-                )
-            from app.schemas.vendor_schema import VendorCompanyData, VendorUserResponseData
-            refreshed_company = VendorCompanyData(
-                id=str(company.id),
-                name=company.name,
-                email=company.email,
-                phone=company.phone,
-                address=refreshed_address,
-            )
-            return VendorUserResponseData(
-                id=str(vendor.public_id),
-                email=vendor.email,
-                full_name=vendor.full_name or "",
-                phone=vendor.phone,
-                status=vendor.status,
-                role=vendor.role,
-                is_profile_image_url=vendor.is_profile_image_url,
-                company=refreshed_company,
-            )
-        from app.schemas.vendor_schema import VendorUserResponseData
-        return VendorUserResponseData(
-            id=str(vendor.public_id),
-            email=vendor.email,
-            full_name=vendor.full_name or "",
-            phone=vendor.phone,
-            status=vendor.status,
-            role=vendor.role,
-            is_profile_image_url=vendor.is_profile_image_url,
-            company=None,
-        )
-
-    
-
 
     async def list(
         self,

@@ -11,6 +11,8 @@ from app.core.csrf import verify_csrf
 from app.deps.auth import CurrentUser, require_admin
 from app.deps.database import get_db
 from app.deps.service import get_storage_service, get_user_service
+from app.services.address_service import AddressService
+from app.services.company_service import CompanyService
 from app.services.storage_service import StorageService
 from app.services.user_service import UserService
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,10 +58,16 @@ async def get_vendor_use_case(
 
 async def get_update_vendor_use_case(
         user_service: UserService = Depends(get_user_service),
+        storage_service: StorageService = Depends(get_storage_service),
+        verify_csrf=Depends(verify_csrf),
         current_user: CurrentUser = Depends(require_admin),
 ) -> UpdateVendorUseCase:
     return UpdateVendorUseCase(
         user_service=user_service,
+        storage_service=storage_service,
+        company_service=user_service.company_service,
+        address_service=user_service.address_service,
+        verify_csrf=verify_csrf,
         current_user=current_user,
     )
 
