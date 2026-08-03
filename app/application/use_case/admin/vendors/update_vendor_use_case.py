@@ -31,80 +31,93 @@ class UpdateVendorUseCase(BaseUseCase):
         user_id: str,
         vendor_data: VendorDTO,
     ) -> User:
-        vendor = await self.user_service.get_user_by_public_id(
-            public_id=user_id,
-            with_relations=None,
-            flush=True,
-        )
-        if vendor is None:
-            raise AppException(
-                status_code=404,
-                message="Vendor not found",
-                error_code="VENDOR_NOT_FOUND",
-                field="vendor_id",
-            )
+        session = self.user_service.user_repository.db
 
-        if vendor.role != "vendor":
-            raise AppException(
-                status_code=400,
-                message="User is not a vendor",
-                error_code="USER_NOT_VENDOR",
-                field="vendor_id",
+        async with session.begin():
+            vendor = await self.user_service.get_user_by_public_id(
+                public_id=user_id,
+                with_relations={"company": True},
+                flush=True,
             )
-
-        # Fix #1: only look up duplicates when the field is actually being updated,
-        # otherwise vendor_data.email / vendor_data.phone may be None and this
-        # would raise (e.g. AttributeError on None.lower()).
-        if vendor_data.email is not None:
-            normalized_email = vendor_data.email.lower()
-            duplicate_email = await self.user_service.get_user_by_email(
-                email=normalized_email,
-                with_relations=None,
-                flush=False,
-            )
-            if duplicate_email and duplicate_email.id != vendor.id:
+            if vendor is None:
                 raise AppException(
-                    status_code=409,
-                    message="Email already exists",
-                    error_code="EMAIL_ALREADY_EXISTS",
-                    field="email",
+                    status_code=404,
+                    message="Vendor not found",
+                    error_code="VENDOR_NOT_FOUND",
+                    field="vendor_id",
                 )
 
-        if vendor_data.phone is not None:
-            duplicate_phone = await self.user_service.get_user_by_phone(
-                phone=vendor_data.phone,
-                with_relations=None,
-                flush=False,
-            )
-            if duplicate_phone and duplicate_phone.id != vendor.id:
+            if vendor.role != "vendor":
                 raise AppException(
-                    status_code=409,
-                    message="Phone number already exists",
-                    error_code="PHONE_ALREADY_EXISTS",
-                    field="phone",
+                    status_code=400,
+                    message="User is not a vendor",
+                    error_code="USER_NOT_VENDOR",
+                    field="vendor_id",
                 )
 
-        if vendor_data.full_name is not None:
-            vendor.full_name = vendor_data.full_name
-        if vendor_data.email is not None:
-            # Fix #2: store the same normalized (lowercased) value that was
-            # checked for duplicates above, so case-variant duplicates can't slip in.
-            vendor.email = normalized_email
-        if vendor_data.phone is not None:
-            vendor.phone = vendor_data.phone
+            # Fix #1: only look up duplicates when the field is actually being updated,
+            # otherwise vendor_data.email / vendor_data.phone may be None and this
+            # would raise (e.g. AttributeError on None.lower()).
+            normalized_email = None
+            if vendor_data.email is not None:
+                normalized_email = vendor_data.email.lower()
+                duplicate_email = await self.user_service.get_user_by_email(
+                    email=normalized_email,
+                    with_relations=None,
+                    flush=False,
+                )
+                if duplicate_email and duplicate_email.id != vendor.id:
+                    raise AppException(
+                        status_code=409,
+                        message="Email already exists",
+                        error_code="EMAIL_ALREADY_EXISTS",
+                        field="email",
+                    )
 
-        # Update the vendor's information
-        updated_vendor = await self.user_service.update(
-            vendor,
-            with_relations={"company": True},
-            commit=True
-        )
+            if vendor_data.phone is not None:
+                duplicate_phone = await self.user_service.get_user_by_phone(
+                    phone=vendor_data.phone,
+                    with_relations=None,
+                    flush=False,
+                )
+                if duplicate_phone and duplicate_phone.id != vendor.id:
+                    raise AppException(
+                        status_code=409,
+                        message="Phone number already exists",
+                        error_code="PHONE_ALREADY_EXISTS",
+                        field="phone",
+                    )
 
-       
-        updated_vendor.is_profile_image_url = self.storage_service.generate_presigned_url(
-            updated_vendor.is_profile_image_url,
-        )
-        return updated_vendor
+            if vendor_data.full_name is not None:
+                vendor.full_name = vendor_data.full_name
+            if vendor_data.email is not None:
+                # Fix #2: store the same normalized (lowercased) value that was
+                # checked for duplicates above, so case-variant duplicates can't slip in.
+                vendor.email = normalized_email
+            if vendor_data.phone is not None:
+                vendor.phone = vendor_data.phone
+
+            # Update the vendor's information without committing here so the whole
+            # edit remains in one transaction and can roll back atomically.
+            if vendor_data.company is not None:
+                if vendor.company is None:
+                    company = Company(
+                        name = vendor_data.company.name,
+                        
+
+                    )
+
+            
+            updated_vendor = await self.user_service.update(
+                vendor,
+                with_relations={"company": True},
+                commit=False,
+            )
+
+            updated_vendor.is_profile_image_url = self.storage_service.generate_presigned_url(
+                updated_vendor.is_profile_image_url,
+            )
+            return updated_vendor
 
 
 class UploadVendorProfileImageUseCase(BaseUseCase):

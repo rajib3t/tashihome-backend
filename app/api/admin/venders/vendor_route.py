@@ -27,7 +27,7 @@ class VendorController(BaseController):
             ("get", "/", self._get_vendors, {"response_model": UserListResponseSchema}),
             ("post", "/", self._create_vendor, {"response_model": UserResponseSchema, "status_code": 201}),
             ("get", "/{vendor_id}", self._get_vendor, {"response_model": VendorResponseSchema}),
-            ("patch", "/{vendor_id}", self._update_vendor, {"response_model": VendorResponseSchema}),
+            ("put", "/{vendor_id}", self._update_vendor, {"response_model": VendorResponseSchema}),
             ("patch", "/{vendor_id}/profile-image", self._update_vendor_profile_image, {"response_model": VendorResponseSchema}),
             # Add more routes as needed
         ]
@@ -76,7 +76,7 @@ class VendorController(BaseController):
     async def _update_vendor(
         self,
         vendor_id: str,
-        data: VendorDTO,
+        data: VendorUpdateDTO,
         use_case: UpdateVendorUseCase = Depends(get_update_vendor_use_case),
     ):
         vendor = await use_case.execute(vendor_id, data)
