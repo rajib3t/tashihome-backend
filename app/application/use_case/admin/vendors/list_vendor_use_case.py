@@ -4,6 +4,7 @@ from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.user_model import User, UserRole, UserStatus
 from app.repositories.base_repository import Page
+from app.services.storage_service import StorageService
 from app.services.user_service import UserService
 
 
@@ -11,9 +12,11 @@ class ListVendorUseCase(BaseUseCase):
     def __init__(
             self, 
             user_service: UserService,
+            storage_service: StorageService,
             current_user: CurrentUser 
         ):
         self.user_service = user_service
+        self.storage_service = storage_service
         self.current_user = current_user
     async def execute(self, params: VendorQueryDTO) -> Page[User]:
         filters = list(params.filters or [])
@@ -46,6 +49,14 @@ class ListVendorUseCase(BaseUseCase):
             filters=filters,
             flush=True,
         )
+        items = []
+        for vendor in vendors_page.items:
+            if vendor.is_profile_image_url is not None:
+                vendor.is_profile_image_url = self.storage_service.generate_presigned_url(
+                    vendor.is_profile_image_url
+                )
+            items.append(vendor)
+        
 
         return vendors_page
          

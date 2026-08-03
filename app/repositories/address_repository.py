@@ -18,6 +18,17 @@ class AddressRepository(BaseRepository[Address]):
         )
         return await self._fetch_one(query, flush=flush)
 
+    async def get_address_by_owner_id(
+        self,
+        owner_id: int,
+        owner_type: str,
+        flush: bool = False,
+    ) -> Optional[Address]:
+        query = select(Address).where(
+            Address.owner_type == owner_type,
+            Address.owner_id == owner_id,
+        )
+        return await self._fetch_one(query, flush=flush)
 
     async def create(
         self,

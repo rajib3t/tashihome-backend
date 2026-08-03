@@ -145,20 +145,44 @@ class UploadVendorProfileImageUseCase(BaseUseCase):
                 field="vendor_id",
             )
 
-        # Upload the profile image to S3 and get the URL
+        old_dp = getattr(vendor, "is_profile_image_url", None)
+
         if self._is_upload_file(profile_image_file):
+            uploaded_key = None
             try:
-                old_dp = vendor.is_profile_image_url
-            except SettingNotFoundError:
-                old_dp = None
-            await self._delete_replaced_file(old_dp, profile_image_file)
-            profile_image_url = await self._upload_file(
-                profile_image_file, folder="vendor_profiles", field_name="profile_image", webp=True
-            )
+                uploaded_key = await self._upload_file(
+                    profile_image_file,
+                    folder="vendor_profiles",
+                    field_name="profile_image_file",
+                    webp =True,
+                )
+                vendor.is_profile_image_url = uploaded_key
+                updated_vendor = await self.user_service.update(
+                    vendor,
+                    with_relations={"company": True},
+                    commit=True,
+                )
+            except Exception:
+                if uploaded_key:
+                    try:
+                        await self.storage_service.delete_object(uploaded_key)
+                    except Exception:
+                        pass
+                vendor.is_profile_image_url = old_dp
+                raise
 
-            vendor.is_profile_image_url = profile_image_url
+            if old_dp and old_dp != uploaded_key:
+                try:
+                    await self.storage_service.delete_object(old_dp)
+                except Exception:
+                    pass
 
-        
+            if updated_vendor.is_profile_image_url:
+                updated_vendor.is_profile_image_url = self.storage_service.generate_presigned_url(
+                    updated_vendor.is_profile_image_url,
+                )
+            return updated_vendor
+
         updated_vendor = await self.user_service.update(
             vendor,
             with_relations={"company": True},

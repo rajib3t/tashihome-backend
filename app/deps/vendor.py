@@ -31,10 +31,12 @@ async def get_create_vendor_use_case(
 
 async def get_list_vendor_use_case(
     user_service: UserService = Depends(get_user_service),
+    storage_service: StorageService = Depends(get_storage_service),
     current_user: CurrentUser = Depends(require_admin),
 ) -> ListVendorUseCase:
     return ListVendorUseCase(
         user_service=user_service,
+        storage_service=storage_service,
         current_user=current_user,
     )
 

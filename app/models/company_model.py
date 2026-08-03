@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import UUID, BigInteger, DateTime, ForeignKey, String, func
+from sqlalchemy import UUID, BigInteger, DateTime, ForeignKey, String, UniqueConstraint, func
 from app.core.database import Base
 from sqlalchemy.orm import foreign, relationship
 from sqlalchemy import Column
@@ -8,6 +8,9 @@ from sqlalchemy import Column
 class Company(Base):
 
     __tablename__ = "companies"
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_companies_user_id_name"),
+    )
 
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -22,7 +25,7 @@ class Company(Base):
 
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    name = Column(String(255), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=False, index=True)
 
     email = Column(String(255), unique=True, nullable=False, index=True)
     phone = Column(String(20), unique=True, nullable=True, index=True)

@@ -3,7 +3,7 @@ import io
 import boto3
 from aioboto3 import Session
 from botocore.exceptions import ClientError
-from PIL import Image
+from PIL import Image, ImageOps
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.utils.file_validation import validate_data_url_file
@@ -78,6 +78,7 @@ class StorageService:
         """
         try:
             image = Image.open(io.BytesIO(data))
+            image = ImageOps.exif_transpose(image)
         except Exception as exc:
             raise ValueError(f"Cannot decode image data: {exc}") from exc
 
