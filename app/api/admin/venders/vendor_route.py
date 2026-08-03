@@ -9,6 +9,7 @@ from app.application.use_case.admin.vendors.update_vendor_use_case import Update
 from app.deps.vendor import get_create_vendor_use_case, get_list_vendor_use_case, get_update_vendor_use_case, get_upload_vendor_profile_image_use_case, get_vendor_use_case
 from app.schemas.user_schema import UserListResponseSchema, UserResponseSchema
 from app.schemas.vendor_schema import VendorResponseSchema
+from app.utils.exception_decorate import handle_api_exceptions
 
 
 class VendorController(BaseController):
@@ -35,7 +36,7 @@ class VendorController(BaseController):
         for method, path, handler, route_kwargs in routes:
             self.router.add_api_route(path, handler, methods=[method.upper()], **route_kwargs)
 
-
+    @handle_api_exceptions
     async def _get_vendors(
         self,
         params: VendorQueryDTO = Depends(),
@@ -48,7 +49,7 @@ class VendorController(BaseController):
             data=vendors_page.items,
             meta=self.pagination_meta(vendors_page),
         )
-
+    @handle_api_exceptions
     async def _create_vendor(
         self,
         data: VendorDTO,
@@ -60,7 +61,7 @@ class VendorController(BaseController):
             message="Vendor created successfully.",
             data=vendor,
         )
-
+    @handle_api_exceptions
     async def _get_vendor(
         self,
         vendor_id: str,
@@ -72,7 +73,7 @@ class VendorController(BaseController):
             message="Vendor retrieved successfully.",
             data=vendor,
         )
-
+    @handle_api_exceptions
     async def _update_vendor(
         self,
         vendor_id: str,
@@ -84,7 +85,7 @@ class VendorController(BaseController):
             message="Vendor updated successfully.",
             data=vendor,
         )
-        
+    @handle_api_exceptions 
     async def _update_vendor_profile_image(
         self,
         vendor_id: str,

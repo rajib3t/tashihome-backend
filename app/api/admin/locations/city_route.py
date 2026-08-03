@@ -14,6 +14,7 @@ from typing import Optional
 from app.api.base_controller import BaseController
 from app.application.dto.locations.city import CityDTO, CityQueryDTO
 from app.schemas.city_schema import CityListResponseSchema, CityResponseSchema
+from app.utils.exception_decorate import handle_api_exceptions
 
 
 class CityController(BaseController):
@@ -35,7 +36,7 @@ class CityController(BaseController):
         for method, path, handler, route_kwargs in routes:
             self.router.add_api_route(path, handler, methods=[method.upper()], **route_kwargs)
 
-
+    @handle_api_exceptions
     async def _get_cities(
         self,
         params:CityQueryDTO = Depends(),
@@ -49,7 +50,7 @@ class CityController(BaseController):
             data=cities.items,
             meta=self.pagination_meta(cities)
         )
-
+    @handle_api_exceptions
     async def _create_city(
         self,
         name: str = Form(...),
@@ -68,7 +69,7 @@ class CityController(BaseController):
             message="City created successfully.",
             data=city
         )
-
+    @handle_api_exceptions
     async def _update_city(
         self,
         city_id: str,
@@ -87,6 +88,7 @@ class CityController(BaseController):
             message="City updated successfully.",
             data=city,
         )
+    @handle_api_exceptions
     async def _update_city_status(
         self,
         city_id: str,
