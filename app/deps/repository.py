@@ -13,6 +13,11 @@ from app.repositories.setting_repository import SettingRepository
 from app.repositories.token_repository import TokenRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.location_repository import LocationRepository
+from app.repositories.property_repository import PropertyRepository
+from app.repositories.property_asset_repository import PropertyAssetRepository
+from app.repositories.property_facility_repository import PropertyFacilityRepository
+from app.repositories.property_amenity_repository import PropertyAmenityRepository
+from app.repositories.property_food_option_repository import PropertyFoodOptionRepository
 
 async def get_user_repository(
     db: AsyncSession = Depends(get_db),
@@ -76,3 +81,33 @@ async def get_address_repository(
     db: AsyncSession = Depends(get_db),
 ) -> AddressRepository:
     return AddressRepository(db)
+
+
+async def get_property_repository(
+    db: AsyncSession = Depends(get_db),
+) -> PropertyRepository:
+    return PropertyRepository(db)
+
+
+async def get_property_asset_repository(
+    db: AsyncSession = Depends(get_db),
+) -> PropertyAssetRepository:
+    return PropertyAssetRepository(db)
+
+
+async def get_property_facility_repository(
+    db: AsyncSession = Depends(get_db),
+) -> PropertyFacilityRepository:
+    return PropertyFacilityRepository(db)
+
+
+async def get_property_amenity_repository(
+    db: AsyncSession = Depends(get_db),
+) -> PropertyAmenityRepository:
+    return PropertyAmenityRepository(db)
+
+
+async def get_property_food_option_repository(
+    db: AsyncSession = Depends(get_db),
+) -> PropertyFoodOptionRepository:
+    return PropertyFoodOptionRepository(db)

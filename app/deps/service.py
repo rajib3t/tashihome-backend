@@ -12,6 +12,11 @@ from app.repositories.room_type_repository import RoomTypeRepository
 from app.repositories.location_repository import LocationRepository
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.address_repository import AddressRepository
+from app.repositories.property_repository import PropertyRepository
+from app.repositories.property_asset_repository import PropertyAssetRepository
+from app.repositories.property_facility_repository import PropertyFacilityRepository
+from app.repositories.property_amenity_repository import PropertyAmenityRepository
+from app.repositories.property_food_option_repository import PropertyFoodOptionRepository
 from app.services.facility_service import  FacilityService
 from app.services.amenity_service import AmenityService
 from app.services.room_type_service import RoomTypeService
@@ -31,6 +36,11 @@ from app.deps.repository import (
     get_location_repository,
     get_company_repository,
     get_address_repository,
+    get_property_repository,
+    get_property_asset_repository,
+    get_property_facility_repository,
+    get_property_amenity_repository,
+    get_property_food_option_repository,
 )
 
 from app.repositories.country_repository import CountryRepository
@@ -51,6 +61,11 @@ from app.services.city_service import CityService
 from app.services.country_service import CountryService
 from app.services.company_service import CompanyService
 from app.services.address_service import AddressService
+from app.services.property_service import PropertyService
+from app.services.property_asset_service import PropertyAssetService
+from app.services.property_facility_service import PropertyFacilityService
+from app.services.property_amenity_service import PropertyAmenityService
+from app.services.property_food_option_service import PropertyFoodOptionService
 
 # Dependency injection function to provide an instance of UserService with the required UserRepository dependency.
 async def get_user_service(
@@ -109,6 +124,36 @@ async def get_location_service(
     location_repository: LocationRepository = Depends(get_location_repository),
 ) -> LocationService:
     return LocationService(location_repository)
+
+
+async def get_property_service(
+    property_repository: PropertyRepository = Depends(get_property_repository),
+) -> PropertyService:
+    return PropertyService(property_repository)
+
+
+async def get_property_asset_service(
+    property_asset_repository: PropertyAssetRepository = Depends(get_property_asset_repository),
+) -> PropertyAssetService:
+    return PropertyAssetService(property_asset_repository)
+
+
+async def get_property_facility_service(
+    property_facility_repository: PropertyFacilityRepository = Depends(get_property_facility_repository),
+) -> PropertyFacilityService:
+    return PropertyFacilityService(property_facility_repository)
+
+
+async def get_property_amenity_service(
+    property_amenity_repository: PropertyAmenityRepository = Depends(get_property_amenity_repository),
+) -> PropertyAmenityService:
+    return PropertyAmenityService(property_amenity_repository)
+
+
+async def get_property_food_option_service(
+    property_food_option_repository: PropertyFoodOptionRepository = Depends(get_property_food_option_repository),
+) -> PropertyFoodOptionService:
+    return PropertyFoodOptionService(property_food_option_repository)
 
 
 async def get_facility_service(
