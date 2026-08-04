@@ -19,5 +19,11 @@ from .facility_model import Facility
 from .amenity_model import Amenity
 from .room_type_model import RoomType
 
+from .property_model import Property
+from .property_asset_model import PropertyAsset
+from .property_facility_model import PropertyFacility
+from .property_amenity_model import PropertyAmenity
+from .property_food_option_model import PropertyFoodOption
+
 from .company_model import Company
 from .address_model import Address

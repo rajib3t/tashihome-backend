@@ -54,3 +54,9 @@ class City(Base):
         back_populates="city",
         cascade="all, delete-orphan",
     )
+
+    properties = relationship(
+        "Property",
+        back_populates="city",
+        cascade="all, delete-orphan",
+    )

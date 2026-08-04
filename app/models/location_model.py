@@ -44,3 +44,9 @@ class Location(Base):
     __table_args__ = (
         UniqueConstraint("city_id", "name", name="uq_location_city_name"),
     )
+
+    properties = relationship(
+        "Property",
+        back_populates="location",
+        cascade="all, delete-orphan",
+    )
