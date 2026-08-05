@@ -57,8 +57,8 @@ class Property(Base):
     cover_image_url = Column(String(500), nullable=True)
     max_guests = Column(Integer, nullable=True, default=1)
     price_per_night = Column(Numeric(12, 2), nullable=False, default=0)
-    currency = Column(String(10), nullable=False, default="INR")
-    is_featured = Column(Boolean, nullable=False, default=False)
+    currency = Column(String(10), nullable=True, default="INR")
+    is_featured = Column(Boolean, nullable=True, default=False)
     status = Column(Enum(PropertyStatus), default=PropertyStatus.DRAFT, nullable=False, index=True)
 
     created_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

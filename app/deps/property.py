@@ -1,11 +1,12 @@
 from fastapi import Depends
 
 from app.application.use_case.admin.properties.property_use_case import (
-    CreatePropertyUseCase,
+    
     ListPropertiesUseCase,
     UpdatePropertyUseCase,
     UpdateStatusPropertyUseCase,
 )
+from app.application.use_case.admin.properties.create_property_use_case import CreatePropertyUseCase
 from app.deps.auth import CurrentUser, require_admin
 from app.deps.service import get_property_service
 from app.services.property_service import PropertyService

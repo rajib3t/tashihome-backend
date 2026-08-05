@@ -3,11 +3,11 @@ from fastapi import APIRouter, Depends
 from app.api.base_controller import BaseController
 from app.application.dto.properties.property import PropertyDTO, PropertyQueryDTO, PropertyUpdateDTO
 from app.application.use_case.admin.properties.property_use_case import (
-    CreatePropertyUseCase,
     ListPropertiesUseCase,
     UpdatePropertyUseCase,
     UpdateStatusPropertyUseCase,
 )
+from app.application.use_case.admin.properties.create_property_use_case import CreatePropertyUseCase
 from app.deps.property import (
     get_create_property_use_case,
     get_list_properties_use_case,

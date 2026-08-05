@@ -54,32 +54,15 @@ class PropertyQueryDTO:
 
 @dataclass(config=ConfigDict(extra="forbid"))
 class PropertyDTO:
-    vendor_id: int
+    vendor_id: str
     name: str
-    slug: Optional[str] = None
-    description: Optional[str] = None
-    location_id: Optional[int] = None
-    city_id: Optional[int] = None
-    room_type_id: Optional[int] = None
-    main_image_url: Optional[str] = None
-    cover_image_url: Optional[str] = None
-    max_guests: int = 1
-    price_per_night: float = 0.0
-    currency: str = "INR"
+    location_id: str
+    city_id: str
     is_featured: bool = False
-    status: str = "draft"
+    description: Optional[str] = None
+    
 
-    @field_validator("vendor_id", "location_id", "city_id", "room_type_id")
-    @classmethod
-    def validate_ids(cls, value):
-        if value is not None and value < 1:
-            raise AppException(
-                status_code=422,
-                message="Id values must be greater than 0.",
-                field="id",
-                error_code="ID_INVALID",
-            )
-        return value
+   
 
     @field_validator("name")
     @classmethod
@@ -93,41 +76,7 @@ class PropertyDTO:
             )
         return value.strip()
 
-    @field_validator("currency")
-    @classmethod
-    def validate_currency(cls, value):
-        if not value or not value.strip():
-            raise AppException(
-                status_code=422,
-                message="Currency cannot be empty.",
-                field="currency",
-                error_code="CURRENCY_EMPTY",
-            )
-        return value.strip().upper()
 
-    @field_validator("max_guests")
-    @classmethod
-    def validate_max_guests(cls, value):
-        if value < 1:
-            raise AppException(
-                status_code=422,
-                message="Max guests must be at least 1.",
-                field="max_guests",
-                error_code="MAX_GUESTS_INVALID",
-            )
-        return value
-
-    @field_validator("price_per_night")
-    @classmethod
-    def validate_price(cls, value):
-        if value < 0:
-            raise AppException(
-                status_code=422,
-                message="Price per night cannot be negative.",
-                field="price_per_night",
-                error_code="PRICE_INVALID",
-            )
-        return value
 
 
 @dataclass(config=ConfigDict(extra="forbid"))
@@ -135,9 +84,9 @@ class PropertyUpdateDTO:
     name: Optional[str] = None
     slug: Optional[str] = None
     description: Optional[str] = None
-    location_id: Optional[int] = None
-    city_id: Optional[int] = None
-    room_type_id: Optional[int] = None
+    location_id: Optional[str] = None
+    city_id: Optional[str] = None
+    room_type_id: Optional[str] = None
     main_image_url: Optional[str] = None
     cover_image_url: Optional[str] = None
     max_guests: Optional[int] = None
