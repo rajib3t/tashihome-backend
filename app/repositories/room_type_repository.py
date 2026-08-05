@@ -50,3 +50,8 @@ class RoomTypeRepository(BaseRepository[RoomType]):
         query = self._apply_search(query, search, search_fields=[RoomType.name])
         query = self._apply_dynamic_filters(query, filters, self._filter_map)
         return await self._paginate(query, page=page, page_size=page_size, flush=flush)
+
+    async def get_all(self) -> list[RoomType]:
+        query = select(RoomType)
+        return await self._fetch_all(query)
+

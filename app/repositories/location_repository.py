@@ -128,3 +128,8 @@ class LocationRepository(BaseRepository[Location]):
                 query = self._with_city_country(query)
     
             return await self._paginate(query, page=page, page_size=page_size, flush=flush)
+
+    async def get_all_by_city_id(self, city_id: int) -> list[Location]:
+        query = select(Location).where(Location.city_id == city_id)
+        return await self._fetch_all(query)
+

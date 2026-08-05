@@ -152,3 +152,8 @@ class PropertyRepository(BaseRepository[Property]):
         query = self._apply_dynamic_filters(query, filters, self._filter_map)
         query = self._apply_relations(query, with_relations, self._relation_map)
         return await self._paginate(query, page=page, page_size=page_size, flush=flush)
+
+    async def get_all_by_vendor(self, vendor_id: int) -> list[Property]:
+        query = select(Property).where(Property.vendor_id == vendor_id)
+        return await self._fetch_all(query)
+

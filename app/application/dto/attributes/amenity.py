@@ -1,7 +1,7 @@
 from typing import Optional, Union
 
 from fastapi import UploadFile
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass
 
 
@@ -9,6 +9,13 @@ from pydantic.dataclasses import dataclass
 class AmenityDTO:
     name: str
     icon: Optional[Union[str, UploadFile]] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value):
+        from app.utils.validation import validate_name_field
+        return validate_name_field(value, "name", 50, "AMENITY_NAME")
+
 
 
 @dataclass(config=ConfigDict(extra="forbid"))

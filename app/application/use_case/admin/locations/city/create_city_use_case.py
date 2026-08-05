@@ -1,5 +1,6 @@
 from app.services.country_service import CountryService
 from app.core.exceptions import AppException
+from app.utils.validation import find_similar_name
 from app.application.use_case.base_use_case import BaseUseCase
 from app.models.city_model import City
 from app.application.dto.locations.city import CityDTO
@@ -38,6 +39,17 @@ class CreateCityUseCase(BaseUseCase):
                 status_code=409,
                 message="City already exists",
                 error_code="CITY_ALREADY_EXISTS",
+                field="name",
+            )
+
+        existing_cities = await self.city_service.get_all()
+        existing_names = [c.name for c in existing_cities]
+        similar_name = find_similar_name(payload["name"], existing_names)
+        if similar_name:
+            raise AppException(
+                status_code=409,
+                message=f"City name is too similar to an existing city: '{similar_name}'.",
+                error_code="CITY_NAME_TOO_SIMILAR",
                 field="name",
             )
         if self._is_upload_file(payload.get("image_url")):

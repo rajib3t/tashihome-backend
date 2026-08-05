@@ -83,3 +83,7 @@ class CityService:
             with_relations=with_relations,
             flush=flush
         )
+
+    async def get_all(self) -> list[City]:
+        return await self.city_repository.get_all()
+

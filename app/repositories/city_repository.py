@@ -117,3 +117,8 @@ class CityRepository(BaseRepository[City]):
             query = self._apply_relations(query, with_relations, self._relation_map)
     
             return await self._paginate(query, page=page, page_size=page_size, flush=flush)
+
+    async def get_all(self) -> list[City]:
+        query = select(City)
+        return await self._fetch_all(query)
+

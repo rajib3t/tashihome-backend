@@ -51,4 +51,9 @@ class FacilityRepository(BaseRepository[Facility]):
         query = self._apply_search(query, search, search_fields=[Facility.name])
         query = self._apply_dynamic_filters(query, filters, self._filter_map)
         return await self._paginate(query, page=page, page_size=page_size, flush=flush)
+
+    async def get_all(self) -> list[Facility]:
+        query = select(Facility)
+        return await self._fetch_all(query)
+
     

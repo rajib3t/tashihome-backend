@@ -55,3 +55,6 @@ class FacilityService:
         return await self.facility_repository.list(
             page=page, page_size=page_size, search=search, filters=filters, flush=flush
         )
+
+    async def get_all(self) -> list[Facility]:
+        return await self.facility_repository.get_all()

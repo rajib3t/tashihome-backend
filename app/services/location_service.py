@@ -84,3 +84,7 @@ class LocationService:
             with_relations=with_relations,
             flush=flush
         )
+
+    async def get_all_by_city_id(self, city_id: int) -> list:
+        return await self.location_repository.get_all_by_city_id(city_id)
+

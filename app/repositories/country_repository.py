@@ -163,4 +163,9 @@ class CountryRepository(BaseRepository[Country]):
 
         return await self._paginate(query, page=page, page_size=page_size, flush=flush)
 
+    async def get_all(self) -> list[Country]:
+        query = select(Country)
+        return await self._fetch_all(query)
+
+
     

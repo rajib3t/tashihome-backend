@@ -67,14 +67,8 @@ class PropertyDTO:
     @field_validator("name")
     @classmethod
     def validate_name(cls, value):
-        if not value or not value.strip():
-            raise AppException(
-                status_code=422,
-                message="Property name cannot be empty.",
-                field="name",
-                error_code="PROPERTY_NAME_EMPTY",
-            )
-        return value.strip()
+        from app.utils.validation import validate_name_field
+        return validate_name_field(value, "name", 50, "PROPERTY_NAME")
 
 
 
@@ -98,14 +92,10 @@ class PropertyUpdateDTO:
     @field_validator("name")
     @classmethod
     def validate_name(cls, value):
-        if value is not None and not value.strip():
-            raise AppException(
-                status_code=422,
-                message="Property name cannot be empty.",
-                field="name",
-                error_code="PROPERTY_NAME_EMPTY",
-            )
-        return value.strip() if value is not None else value
+        if value is None:
+            return value
+        from app.utils.validation import validate_name_field
+        return validate_name_field(value, "name", 50, "PROPERTY_NAME")
 
     @field_validator("currency")
     @classmethod

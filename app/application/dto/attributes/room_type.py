@@ -11,6 +11,13 @@ class RoomTypeDTO:
     name: str
     capacity: int
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value):
+        from app.utils.validation import validate_name_field
+        return validate_name_field(value, "name", 50, "ROOM_TYPE_NAME")
+
+
 
 @dataclass(config=ConfigDict(extra="forbid"))
 class RoomTypeFilterDTO:

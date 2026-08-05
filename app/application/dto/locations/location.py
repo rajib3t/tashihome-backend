@@ -1,7 +1,7 @@
 from typing import Optional
 
 from pydantic.dataclasses import dataclass
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 
 
 @dataclass(config=ConfigDict(extra="forbid"))
@@ -9,11 +9,24 @@ class LocationDTO:
     name: str
     city_id: str
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value):
+        from app.utils.validation import validate_name_field
+        return validate_name_field(value, "name", 50, "LOCATION_NAME")
+
 
 @dataclass(config=ConfigDict(extra="forbid"))
 class UpdateLocationDTO:
     name: str
     city_id: str
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value):
+        from app.utils.validation import validate_name_field
+        return validate_name_field(value, "name", 50, "LOCATION_NAME")
+
 
 
 @dataclass(config=ConfigDict(extra="forbid"))

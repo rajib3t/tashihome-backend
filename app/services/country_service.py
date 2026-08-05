@@ -112,3 +112,7 @@ class CountryService:
             with_relations=with_relations,
             flush=flush
         )
+
+    async def get_all(self) -> list[Country]:
+        return await self._country_repository.get_all()
+

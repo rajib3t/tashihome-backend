@@ -53,15 +53,23 @@ class CountryDTO:
     code: str
     
 
-    @field_validator("name", "code")
-    def validate_non_empty(cls, value, field):
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value):
+        from app.utils.validation import validate_name_field
+        return validate_name_field(value, "name", 50, "COUNTRY_NAME")
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value):
         if not value or not value.strip():
             raise AppException(
                 status_code=422,
-                message=f"{field.name.capitalize()} cannot be empty.",
-                field=field.name,
-                error_code=f"{field.name.upper()}_EMPTY",
+                message="Code cannot be empty.",
+                field="code",
+                error_code="CODE_EMPTY",
             )
         return value.strip()
+
 
     

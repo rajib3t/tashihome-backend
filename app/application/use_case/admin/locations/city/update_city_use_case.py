@@ -1,5 +1,6 @@
 from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
+from app.utils.validation import find_similar_name
 from app.deps.auth import CurrentUser
 from app.models.city_model import City, CityStatus
 from app.services.city_service import CityService
@@ -51,6 +52,17 @@ class UpdateCityUseCase(BaseUseCase):
                 status_code=409,
                 message="City already exists",
                 error_code="CITY_ALREADY_EXISTS",
+                field="name",
+            )
+
+        existing_cities = await self.service.get_all()
+        existing_names = [c.name for c in existing_cities if c.id != existing_city.id]
+        similar_name = find_similar_name(data.name, existing_names)
+        if similar_name:
+            raise AppException(
+                status_code=409,
+                message=f"City name is too similar to an existing city: '{similar_name}'.",
+                error_code="CITY_NAME_TOO_SIMILAR",
                 field="name",
             )
 
