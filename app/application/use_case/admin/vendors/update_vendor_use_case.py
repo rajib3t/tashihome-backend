@@ -276,7 +276,7 @@ class UploadVendorProfileImageUseCase(BaseUseCase):
         )
 
         profile_image_url = (
-            self.storage_service.get_display_url(data.is_profile_image_url)
+            await self.storage_service.get_display_url(data.is_profile_image_url)
             if data.is_profile_image_url
             else None
         )
@@ -346,7 +346,7 @@ class UpdateStatusVendorUseCase(BaseUseCase):
         )
 
         profile_image_url = (
-            self.storage_service.get_display_url(updated_vendor.is_profile_image_url)
+            await self.storage_service.get_display_url(updated_vendor.is_profile_image_url)
             if updated_vendor.is_profile_image_url
             else None
         )

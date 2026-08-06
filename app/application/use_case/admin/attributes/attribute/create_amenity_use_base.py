@@ -55,6 +55,6 @@ class CreateAmenityUseCase(BaseUseCase):
         amenity = await self.amenity_service.create(amenity_obj, commit=True)
 
         if amenity.icon_url:
-            amenity.icon_url = self.storage_service.generate_presigned_url(amenity.icon_url)
+            amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
 
         return amenity

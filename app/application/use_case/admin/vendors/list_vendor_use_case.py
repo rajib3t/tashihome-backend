@@ -52,7 +52,7 @@ class ListVendorUseCase(BaseUseCase):
         )
         items = []
         for vendor in vendors_page.items:
-            profile_image_url = self.storage_service.get_display_url(vendor.is_profile_image_url)
+            profile_image_url =  await self.storage_service.get_display_url(vendor.is_profile_image_url)
             items.append(
                 UserData(
                     id=vendor.public_id,

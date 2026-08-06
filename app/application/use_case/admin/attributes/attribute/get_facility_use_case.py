@@ -54,6 +54,6 @@ class ListFacilitiesUseCase(BaseUseCase):
 
         for facility in facilities_page.items:
             if facility.icon_url:
-                facility.icon_url = self.storage_service.generate_presigned_url(facility.icon_url)
+                facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
 
         return facilities_page

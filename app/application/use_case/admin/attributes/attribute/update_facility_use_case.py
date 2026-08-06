@@ -69,7 +69,7 @@ class UpdateFacilityUseCase(BaseUseCase):
 
         facility = await self.facility_service.update(existing_facility, commit=True)
         if facility.icon_url:
-            facility.icon_url = self.storage_service.generate_presigned_url(facility.icon_url)
+            facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
 
         return facility
 
@@ -111,4 +111,7 @@ class UpdateStatusFacilityUseCase(BaseUseCase):
         )
         existing_facility.updated_by = self.current_user.id
 
-        return await self.facility_service.update(existing_facility, commit=True)
+        facility = await self.facility_service.update(existing_facility, commit=True)
+        if facility.icon_url:
+            facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
+        return facility

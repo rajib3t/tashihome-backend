@@ -50,6 +50,6 @@ class ListAmenitiesUseCase(BaseUseCase):
 
         for amenity in amenities_page.items:
             if amenity.icon_url:
-                amenity.icon_url = self.storage_service.generate_presigned_url(amenity.icon_url)
+                amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
 
         return amenities_page

@@ -43,7 +43,7 @@ class StorageService:
             await client.delete_object(Bucket=self.bucket, Key=key)
         return True
 
-    def generate_presigned_url(self, key: str, expires_in: int = 3600, method: str = "get_object") -> str:
+    async def generate_presigned_url(self, key: str, expires_in: int = 3600, method: str = "get_object") -> str:
         """Generate a presigned URL using synchronous boto3 (safe to call from async code)."""
         params = {k: v for k, v in self.client_params.items() if k != "use_ssl"}
         if "endpoint_url" in self.client_params:
@@ -60,16 +60,18 @@ class StorageService:
         except ClientError:
             raise
 
-    def is_presigned_url(self, value: str) -> bool:
+    async def is_presigned_url(self, value: str) -> bool:
         parsed = urlparse(value)
         return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
-    def get_display_url(self, value: Optional[str]) -> Optional[str]:
+    async def get_display_url(self, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
-        if self.is_presigned_url(value):
+        # Check if the URL is already a presigned URL
+        if await self.is_presigned_url(value):
             return value
-        return self.generate_presigned_url(value)
+        # Generate a presigned URL for the stored object
+        return await self.generate_presigned_url(value)
 
     async def convert_and_upload_webp(
         self,

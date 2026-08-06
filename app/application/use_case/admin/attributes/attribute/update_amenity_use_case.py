@@ -69,7 +69,7 @@ class UpdateAmenityUseCase(BaseUseCase):
 
         amenity = await self.amenity_service.update(existing_amenity, commit=True)
         if amenity.icon_url:
-            amenity.icon_url = self.storage_service.generate_presigned_url(amenity.icon_url)
+            amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
 
         return amenity
 
@@ -111,4 +111,7 @@ class UpdateStatusAmenityUseCase(BaseUseCase):
         )
         existing_amenity.updated_by = self.current_user.id
 
-        return await self.amenity_service.update(existing_amenity, commit=True)
+        amenity = await self.amenity_service.update(existing_amenity, commit=True)
+        if amenity.icon_url:
+            amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
+        return amenity

@@ -54,6 +54,6 @@ class CreateFacilityUseCase(BaseUseCase):
         facility = await self.facility_service.create(facility_obj, commit=True)
 
         if facility.icon_url:
-            facility.icon_url = self.storage_service.generate_presigned_url(facility.icon_url)
+            facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
 
         return facility

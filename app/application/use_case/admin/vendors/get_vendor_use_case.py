@@ -52,6 +52,6 @@ class GetVendorUseCase(BaseUseCase):
             )
         return await self.user_service.build_vendor_response(
             vendor,
-            profile_image_url=self.storage_service.get_display_url(vendor.is_profile_image_url),
+            profile_image_url= await self.storage_service.get_display_url(vendor.is_profile_image_url),
         )
         
