@@ -67,7 +67,7 @@ class GetCitiesUseCase(BaseUseCase):
         for city in cities.items:
             city_schema = CitySchema.model_validate(city, from_attributes=True)
             if city_schema.image_url:
-                city_schema.image_url = self.storage_service.generate_presigned_url(city_schema.image_url)
+                city_schema.image_url = await self.storage_service.generate_presigned_url(city_schema.image_url)
             items.append(city_schema)
 
         cities.items = items
