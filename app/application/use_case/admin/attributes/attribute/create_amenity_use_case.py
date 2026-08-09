@@ -5,6 +5,7 @@ from app.deps.auth import CurrentUser
 from app.models.amenity_model import Amenity
 from app.services.amenity_service import AmenityService
 from app.services.storage_service import StorageService
+import copy
 
 
 class CreateAmenityUseCase(BaseUseCase):
@@ -55,6 +56,8 @@ class CreateAmenityUseCase(BaseUseCase):
         amenity = await self.amenity_service.create(amenity_obj, commit=True)
 
         if amenity.icon_url:
-            amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
+            display_amenity = copy.copy(amenity)
+            display_amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
+            return display_amenity
 
         return amenity

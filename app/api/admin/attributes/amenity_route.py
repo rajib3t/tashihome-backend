@@ -3,7 +3,7 @@ from typing import Optional
 
 from app.api.base_controller import BaseController
 from app.application.dto.attributes.amenity import AmenityDTO, AmenityQueryDTO
-from app.application.use_case.admin.attributes.attribute.create_amenity_use_base import CreateAmenityUseCase
+from app.application.use_case.admin.attributes.attribute.create_amenity_use_case import CreateAmenityUseCase
 from app.application.use_case.admin.attributes.attribute.get_amenity_use_case import ListAmenitiesUseCase
 from app.application.use_case.admin.attributes.attribute.update_amenity_use_case import UpdateAmenityUseCase, UpdateStatusAmenityUseCase
 from app.deps.amenity import get_create_amenity_use_case, get_list_amenities_use_case, get_update_amenity_use_case, get_update_status_amenity_use_case

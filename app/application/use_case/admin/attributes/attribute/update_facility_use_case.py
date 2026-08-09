@@ -5,6 +5,7 @@ from app.deps.auth import CurrentUser
 from app.models.facility_model import Facility, FacilityStatus
 from app.services.facility_service import FacilityService
 from app.services.storage_service import StorageService
+import copy
 
 
 class UpdateFacilityUseCase(BaseUseCase):
@@ -69,7 +70,9 @@ class UpdateFacilityUseCase(BaseUseCase):
 
         facility = await self.facility_service.update(existing_facility, commit=True)
         if facility.icon_url:
-            facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
+            display_facility = copy.copy(facility)
+            display_facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
+            return display_facility
 
         return facility
 
@@ -78,9 +81,11 @@ class UpdateStatusFacilityUseCase(BaseUseCase):
     def __init__(
         self,
         facility_service: FacilityService,
+        storage_service: StorageService,
         current_user: CurrentUser,
     ):
         self.facility_service = facility_service
+        self.storage_service = storage_service
         self.current_user = current_user
 
     async def execute(self, facility_id: str, status: str) -> Facility:
@@ -113,5 +118,7 @@ class UpdateStatusFacilityUseCase(BaseUseCase):
 
         facility = await self.facility_service.update(existing_facility, commit=True)
         if facility.icon_url:
-            facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
+            display_facility = copy.copy(facility)
+            display_facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
+            return display_facility
         return facility

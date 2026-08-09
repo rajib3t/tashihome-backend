@@ -1,6 +1,6 @@
 from fastapi.params import Depends
 
-from app.application.use_case.admin.attributes.attribute.create_facility_use_base import  CreateFacilityUseCase
+from app.application.use_case.admin.attributes.attribute.create_facility_use_case import  CreateFacilityUseCase
 from app.application.use_case.admin.attributes.attribute.get_facility_use_case import ListFacilitiesUseCase
 from app.application.use_case.admin.attributes.attribute.update_facility_use_case import (
     UpdateFacilityUseCase,
@@ -40,6 +40,7 @@ async def get_update_facility_use_case(
 
 async def get_update_status_facility_use_case(
     facility_service: FacilityService = Depends(get_facility_service),
+    storage_service: StorageService = Depends(get_storage_service),
     current_user: CurrentUser = Depends(require_admin),
 ):
-    return UpdateStatusFacilityUseCase(facility_service, current_user)
+    return UpdateStatusFacilityUseCase(facility_service, storage_service, current_user)

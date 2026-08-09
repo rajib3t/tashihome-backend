@@ -6,6 +6,7 @@ from app.models.facility_model import Facility, FacilityStatus
 from app.repositories.base_repository import Page
 from app.services.facility_service import FacilityService
 from app.services.storage_service import StorageService
+import copy
 
 
 class ListFacilitiesUseCase(BaseUseCase):
@@ -52,8 +53,13 @@ class ListFacilitiesUseCase(BaseUseCase):
             flush=True
         )
 
+        updated_items = []
         for facility in facilities_page.items:
+            display_facility = copy.copy(facility)
             if facility.icon_url:
-                facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
+                display_facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
+            updated_items.append(display_facility)
+
+        facilities_page.items = updated_items
 
         return facilities_page

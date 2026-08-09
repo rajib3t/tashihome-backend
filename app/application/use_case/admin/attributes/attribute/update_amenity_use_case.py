@@ -5,6 +5,7 @@ from app.deps.auth import CurrentUser
 from app.models.amenity_model import Amenity, AmenityStatus
 from app.services.amenity_service import AmenityService
 from app.services.storage_service import StorageService
+import copy
 
 
 class UpdateAmenityUseCase(BaseUseCase):
@@ -69,7 +70,9 @@ class UpdateAmenityUseCase(BaseUseCase):
 
         amenity = await self.amenity_service.update(existing_amenity, commit=True)
         if amenity.icon_url:
-            amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
+            display_amenity = copy.copy(amenity)
+            display_amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
+            return display_amenity
 
         return amenity
 
@@ -78,9 +81,11 @@ class UpdateStatusAmenityUseCase(BaseUseCase):
     def __init__(
         self,
         amenity_service: AmenityService,
+        storage_service: StorageService,
         current_user: CurrentUser,
     ):
         self.amenity_service = amenity_service
+        self.storage_service = storage_service
         self.current_user = current_user
 
     async def execute(self, amenity_id: str, status: str) -> Amenity:
@@ -113,5 +118,7 @@ class UpdateStatusAmenityUseCase(BaseUseCase):
 
         amenity = await self.amenity_service.update(existing_amenity, commit=True)
         if amenity.icon_url:
-            amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
+            display_amenity = copy.copy(amenity)
+            display_amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
+            return display_amenity
         return amenity
