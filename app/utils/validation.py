@@ -2,6 +2,8 @@ import re
 from difflib import SequenceMatcher
 from typing import Optional
 
+from app.core.exceptions import AppException
+
 def has_excessive_repeating_chars(text: str, limit: int = 3) -> bool:
     """
     Checks if there are any non-whitespace characters that repeat consecutively `limit` or more times.
@@ -54,3 +56,86 @@ def validate_name_field(value: str, field_name: str = "name", max_length: int = 
         )
     return cleaned
 
+def validate_description(value: Optional[str], required: bool = False, max_length: int = 512) -> Optional[str]:
+    """
+    Validates description field to prevent XSS and code injection attacks.
+    
+    Prevents:
+    - HTML/XML tags (script, iframe, img, style, etc.)
+    - JavaScript code (eval, function, onclick, etc.)
+    - Dangerous characters and patterns
+    
+    Args:
+        value: The description text to validate
+        required: Whether description is required
+        max_length: Maximum allowed length (default 512)
+        
+    Returns:
+        Sanitized description text
+        
+    Raises:
+        AppException: If description contains dangerous content
+    """
+    if value is None:
+        if required:
+            raise AppException(
+                status_code=422,
+                message="Description is required.",
+                field="description",
+                error_code="DESCRIPTION_REQUIRED",
+            )
+        return value
+
+    value = value.strip()
+
+    if required and not value:
+        raise AppException(
+            status_code=422,
+            message="Description is required.",
+            field="description",
+            error_code="DESCRIPTION_REQUIRED",
+        )
+
+    if value and len(value) > max_length:
+        raise AppException(
+            status_code=422,
+            message=f"Description must not exceed {max_length} characters.",
+            field="description",
+            error_code="DESCRIPTION_TOO_LONG",
+        )
+
+    # Dangerous patterns to check for (case-insensitive)
+    dangerous_patterns = [
+        r"<\s*script",  # <script tags
+        r"<\s*iframe",  # <iframe tags
+        r"<\s*img",     # <img tags
+        r"<\s*style",   # <style tags
+        r"<\s*link",    # <link tags
+        r"<\s*meta",    # <meta tags
+        r"<\s*embed",   # <embed tags
+        r"<\s*object",  # <object tags
+        r"on\w+\s*=",   # onclick, onerror, onload, etc.
+        r"javascript\s*:",  # javascript: protocol
+        r"data\s*:",    # data: protocol
+        r"vbscript\s*:",  # vbscript: protocol
+        r"eval\s*\(",   # eval() function
+        r"expression\s*\(",  # expression() function
+        r"import\s+",   # import statements
+        r"exec\s*\(",   # exec() function
+        r"\bfunction\b",  # function keyword
+        r"<\s*\/?\s*[a-zA-Z]+",  # Any HTML tag
+        r"[\<\>]",  # Any angle brackets
+        r"[\{\}\[\]]",  # Any curly or square brackets
+    ]
+
+    value_lower = value.lower()
+    for pattern in dangerous_patterns:
+        if re.search(pattern, value_lower):
+            raise AppException(
+                status_code=422,
+                message="Description contains invalid characters or patterns (HTML tags, JavaScript code, etc.).",
+                field="description",
+                error_code="DESCRIPTION_INVALID_CHARACTERS",
+            )
+
+    return value

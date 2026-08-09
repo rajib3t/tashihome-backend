@@ -29,6 +29,23 @@ class PropertyStatus(str, enum.Enum):
     ARCHIVED = "archived"
 
 
+class PropertyType(str, enum.Enum):
+    HOTEL = "hotel"
+    APARTMENT = "apartment"
+    VILLA = "villa"
+    RESORT = "resort"
+    HOSTEL = "hostel"
+    GUEST_HOUSE = "guest_house"
+    BED_AND_BREAKFAST = "bed_and_breakfast"
+    COTTAGE = "cottage"
+    CABIN = "cabin"
+    LODGE = "lodge"
+    MOTEL = "motel"
+    PENSION = "pension"
+    CHALET = "chalet"
+    FARM_STAY = "farm_stay"
+    HOUSEBOAT = "houseboat"
+    HOME_STAY = "home_stay"
 class Property(Base):
     __tablename__ = "properties"
     __table_args__ = (
@@ -59,6 +76,7 @@ class Property(Base):
     currency = Column(String(10), nullable=True, default="INR")
     sale_per_night = Column(Numeric(12, 2), nullable=True, default=0)
     is_featured = Column(Boolean, nullable=True, default=False)
+    type = Column(Enum(PropertyType), nullable=True, index=True, comment="Type of property, e.g., hotel, apartment, villa, etc.")
     status = Column(Enum(PropertyStatus), default=PropertyStatus.DRAFT, nullable=False, index=True)
 
     created_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

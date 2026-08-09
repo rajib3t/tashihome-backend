@@ -5,6 +5,7 @@ from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass
 
 from app.core.exceptions import AppException
+from app.utils.validation import validate_description
 
 
 @dataclass(config=ConfigDict(extra="forbid"))
@@ -55,10 +56,18 @@ class PropertyQueryDTO:
 
 @dataclass(config=ConfigDict(extra="forbid"))
 class PropertyDTO:
-    vendor_id: str
     name: str
-    location_id: str
-    city_id: str
+    vendor: Optional[str] = None
+    type: Optional[str] = None
+    city: Optional[str] = None
+    location: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    vendor_id: Optional[str] = None
+    location_id: Optional[str] = None
+    city_id: Optional[str] = None
+    room_type_id: Optional[str] = None
     description: Optional[str] = None
 
     @field_validator("name")
@@ -72,8 +81,16 @@ class PropertyDTO:
     def validate_description(cls, value):
         if value is None:
             return value
-        from app.utils.validation import validate_description_field
-        return validate_description_field(value, "description", 1000, "PROPERTY_DESCRIPTION")
+        from app.utils.validation import validate_description
+        return validate_description(value, required=False, max_length=100)
+
+    @field_validator("vendor", "type", "city", "location", "address")
+    @classmethod
+    def validate_text_fields(cls, value):
+        if value is None:
+            return value
+        value = value.strip()
+        return value or None
 
 
 @dataclass(config=ConfigDict(extra="forbid"))
@@ -97,6 +114,19 @@ class FoodOptionDTO:
 
 @dataclass(config=ConfigDict(extra="forbid"))
 class PropertyUpdateDTO(PropertyDTO):
+    name: Optional[str] = None
+    vendor: Optional[str] = None
+    type: Optional[str] = None
+    city: Optional[str] = None
+    location: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    vendor_id: Optional[str] = None
+    location_id: Optional[str] = None
+    city_id: Optional[str] = None
+    room_type_id: Optional[str] = None
+    description: Optional[str] = None
     price_per_night: Optional[float] = None
     sale_per_night: Optional[float] = None
     currency: Optional[str] = None

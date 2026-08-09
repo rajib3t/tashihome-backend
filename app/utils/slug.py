@@ -2,7 +2,7 @@ import re
 import unicodedata
 
 
-def generate_slug(name: str) -> str:
+async def generate_slug(name: str) -> str:
     """
     Generate a WordPress-style slug from a name.
     
