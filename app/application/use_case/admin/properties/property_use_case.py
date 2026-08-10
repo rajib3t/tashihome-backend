@@ -54,6 +54,7 @@ class ListPropertiesUseCase(BaseUseCase):
             page_size=params.size,
             search=params.name or params.slug,
             filters=filters,
+            with_relations={"vendor": True, "city": True, "location": True},
             flush=True,
         )
 
@@ -138,7 +139,12 @@ class UpdatePropertyUseCase(BaseUseCase):
             existing_property.status = self._normalize_status(data.status)
 
         existing_property.updated_by = self.current_user.id
-        return await self.property_service.update(existing_property)
+        updated_property = await self.property_service.update(existing_property)
+        return await self.property_service.get_by_public_id(
+            updated_property.public_id,
+            with_relations={"vendor": True, "city": True, "location": True},
+            flush=True,
+        ) or updated_property
 
 
 class UpdateStatusPropertyUseCase(BaseUseCase):

@@ -113,7 +113,12 @@ class CreatePropertyUseCase(BaseUseCase):
             updated_by=self.current_user.id,
         )
 
-        return await self.property_service.create(payload)
+        created_property = await self.property_service.create(payload, commit=True)
+        return await self.property_service.get_by_public_id(
+            created_property.public_id,
+            with_relations={"vendor": True, "city": True, "location": True},
+            flush=True,
+        ) or created_property
 
     
 

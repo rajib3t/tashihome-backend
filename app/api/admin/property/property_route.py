@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends
 
 from app.api.base_controller import BaseController
 from app.application.dto.properties.property import PropertyDTO, PropertyQueryDTO, PropertyUpdateDTO
+from app.application.use_case.admin.properties.get_properties_use_case import GetPropertiesUseCase
+from app.application.use_case.admin.properties.get_property_use_case import GetPropertyUseCase
 from app.application.use_case.admin.properties.property_use_case import (
     ListPropertiesUseCase,
     UpdatePropertyUseCase,
@@ -11,6 +13,7 @@ from app.application.use_case.admin.properties.create_property_use_case import C
 from app.deps.property import (
     get_create_property_use_case,
     get_list_properties_use_case,
+    get_property_use_case,
     get_update_property_status_use_case,
     get_update_property_use_case,
 )
@@ -28,8 +31,9 @@ class PropertyController(BaseController):
 
     def _register_routes(self):
         routes = [
-            ("get", "/", self._get_properties, {"response_model": PropertyListResponseSchema}),
+            ("get", "", self._get_properties, {"response_model": PropertyListResponseSchema}),
             ("post", "/", self._create_property, {"response_model": PropertyResponseSchema, "status_code": 201}),
+            ("get", "/{property_id}", self._get_property, {"response_model": PropertyResponseSchema}),
             ("put", "/{property_id}", self._update_property, {"response_model": PropertyResponseSchema}),
             ("patch", "/{property_id}/{status}", self._update_property_status, {"response_model": PropertyResponseSchema}),
         ]
@@ -41,7 +45,7 @@ class PropertyController(BaseController):
     async def _get_properties(
         self,
         params: PropertyQueryDTO = Depends(),
-        use_case: ListPropertiesUseCase = Depends(get_list_properties_use_case),
+        use_case: GetPropertiesUseCase = Depends(get_list_properties_use_case),
     ):
         properties_page = await use_case.execute(params)
         return self.build_response(
@@ -62,6 +66,19 @@ class PropertyController(BaseController):
             data=created_property,
         )
 
+    @handle_api_exceptions
+    async def _get_property(
+        self,
+        property_id: str,
+        use_case: GetPropertyUseCase = Depends(get_property_use_case),
+    ):
+
+        property_data = await use_case.execute(property_id)
+        return self.build_response(
+            message="Property retrieved successfully.",
+            data=property_data,
+        )
+    
     @handle_api_exceptions
     async def _update_property(
         self,

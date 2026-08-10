@@ -25,7 +25,6 @@ class PropertyQueryDTO:
     vendor_id: Optional[int] = None
     location_id: Optional[int] = None
     city_id: Optional[int] = None
-    room_type_id: Optional[int] = None
     status: Optional[str] = None
     filters: Optional[list[PropertyFilterDTO]] = None
 
