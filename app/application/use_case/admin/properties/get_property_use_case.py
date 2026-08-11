@@ -23,7 +23,7 @@ class GetPropertyUseCase(BaseUseCase):
                 "city": True,
                 "location": True,
                 "vendor": True,
-                "room_type": True,
+                "property_room_types": True,
                 "property_amenities": True,
                 "property_facilities": True,
                 "property_food_options": True,

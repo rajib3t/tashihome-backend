@@ -62,6 +62,14 @@ class GetPropertiesUseCase(BaseUseCase):
             page_size=params.size,
             search=params.name,
             filters=filters,
-            with_relations={"city": True, "location": True, "vendor": True, "room_type": True},
-            flush=True
+            with_relations={
+                "city": True,
+                "location": True,
+                "vendor": True,
+                "property_room_types": True,
+                "property_amenities": True,
+                "property_facilities": True,
+                "property_food_options": True,
+            },
+            flush=True,
         )

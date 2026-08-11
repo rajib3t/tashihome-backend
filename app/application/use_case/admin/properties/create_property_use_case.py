@@ -136,7 +136,15 @@ class CreatePropertyUseCase(BaseUseCase):
         await self._sync_child_records(created_property.id, property_dto)
         return await self.property_service.get_by_public_id(
             created_property.public_id,
-            with_relations={"vendor": True, "city": True, "location": True, "room_type": True},
+            with_relations={
+                "vendor": True,
+                "city": True,
+                "location": True,
+                "property_room_types": True,
+                "property_amenities": True,
+                "property_facilities": True,
+                "property_food_options": True,
+            },
             flush=True,
         ) or created_property
 

@@ -231,7 +231,15 @@ class UpdatePropertyUseCase(BaseUseCase):
         await self._sync_child_records(updated_property.id, data)
         return await self.property_service.get_by_public_id(
             updated_property.public_id,
-            with_relations={"vendor": True, "city": True, "location": True, "room_type": True, "amenities": True, "facilities": True, "food_options": True},
+            with_relations={
+                "vendor": True,
+                "city": True,
+                "location": True,
+                "property_room_types": True,
+                "property_amenities": True,
+                "property_facilities": True,
+                "property_food_options": True,
+            },
             flush=True,
         ) or updated_property
 

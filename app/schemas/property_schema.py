@@ -152,9 +152,10 @@ class PropertyBase(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     description: Optional[str] = None
-    amenities: Optional[list[PropertyAmenitySchema]] = None
-    facilities: Optional[list[PropertyFacilitySchema]] = None
-    food_options: Optional[list[PropertyFoodOptionSchema]] = None
+    property_room_types: Optional[list[PropertyRoomTypeSchema]] = None
+    property_amenities: Optional[list[PropertyAmenitySchema]] = None
+    property_facilities: Optional[list[PropertyFacilitySchema]] = None
+    property_food_options: Optional[list[PropertyFoodOptionSchema]] = None
 
     status: str
     model_config = ConfigDict(from_attributes=True)
