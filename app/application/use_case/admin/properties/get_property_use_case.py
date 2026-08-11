@@ -19,7 +19,15 @@ class GetPropertyUseCase(BaseUseCase):
     async def execute(self, property_id: str) -> Optional[Property]:
         property_data = await self.property_service.get_by_public_id(
             property_id,
-            with_relations=["city", "location"],
+            with_relations={
+                "city": True,
+                "location": True,
+                "vendor": True,
+                "room_type": True,
+                "property_amenities": True,
+                "property_facilities": True,
+                "property_food_options": True,
+            },
         )
         if not property_data:
             raise AppException(

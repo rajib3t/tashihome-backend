@@ -84,7 +84,60 @@ class PropertyRoomTypeSchema(BaseModel):
             return str(value)
         return str(value)
 
+class PropertyAmenitySchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    name: str | None = None
+    model_config = ConfigDict(from_attributes=True)
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return str(value)
+
+
+class PropertyFacilitySchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    name: str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return str(value)
+class PropertyFoodOptionSchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    name: str | None = None
+    is_included: bool | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return str(value)
 class PropertyBase(BaseModel):
     name: str
     slug: str
@@ -99,6 +152,10 @@ class PropertyBase(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     description: Optional[str] = None
+    amenities: Optional[list[PropertyAmenitySchema]] = None
+    facilities: Optional[list[PropertyFacilitySchema]] = None
+    food_options: Optional[list[PropertyFoodOptionSchema]] = None
+
     status: str
     model_config = ConfigDict(from_attributes=True)
 

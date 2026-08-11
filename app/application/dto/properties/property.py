@@ -1,7 +1,7 @@
 from fastapi import UploadFile
 from typing import List, Optional
 
-from pydantic import ConfigDict, field_validator
+from pydantic import AliasChoices, ConfigDict, Field, field_validator
 from pydantic.dataclasses import dataclass
 
 from app.core.exceptions import AppException
@@ -58,16 +58,30 @@ class PropertyDTO:
     name: str
     vendor: Optional[str] = None
     type: Optional[str] = None
+    slug: Optional[str] = None
     city: Optional[str] = None
     location: Optional[str] = None
     address: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: Optional[float] = Field(default=None, validation_alias=AliasChoices("latitude", "lat"))
+    longitude: Optional[float] = Field(default=None, validation_alias=AliasChoices("longitude", "lon"))
+    main_image_url: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    max_guests: Optional[int] = None
     vendor_id: Optional[str] = None
     location_id: Optional[str] = None
     city_id: Optional[str] = None
     room_type_id: Optional[str] = None
     description: Optional[str] = None
+    price: Optional[float] = None
+    price_per_night: Optional[float] = None
+    sale_price: Optional[float] = None
+    sale_per_night: Optional[float] = None
+    is_featured: Optional[bool] = None
+    status: Optional[str] = None
+    amenity_ids: Optional[List[str]] = None
+    facility_ids: Optional[List[str]] = None
+    room_type_ids: Optional[List[str]] = None
+    food_option_ids: Optional[List[str]] = None
 
     @field_validator("name")
     @classmethod
@@ -86,6 +100,14 @@ class PropertyDTO:
     @field_validator("vendor", "type", "city", "location", "address")
     @classmethod
     def validate_text_fields(cls, value):
+        if value is None:
+            return value
+        value = value.strip()
+        return value or None
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug_field(cls, value):
         if value is None:
             return value
         value = value.strip()
@@ -116,17 +138,23 @@ class PropertyUpdateDTO(PropertyDTO):
     name: Optional[str] = None
     vendor: Optional[str] = None
     type: Optional[str] = None
+    slug: Optional[str] = None
     city: Optional[str] = None
     location: Optional[str] = None
     address: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: Optional[float] = Field(default=None, validation_alias=AliasChoices("latitude", "lat"))
+    longitude: Optional[float] = Field(default=None, validation_alias=AliasChoices("longitude", "lon"))
+    main_image_url: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    max_guests: Optional[int] = None
     vendor_id: Optional[str] = None
     location_id: Optional[str] = None
     city_id: Optional[str] = None
     room_type_id: Optional[str] = None
     description: Optional[str] = None
+    price: Optional[float] = None
     price_per_night: Optional[float] = None
+    sale_price: Optional[float] = None
     sale_per_night: Optional[float] = None
     currency: Optional[str] = None
     amenities: Optional[List[PropertyAmenitiesDTO]] = None

@@ -11,7 +11,7 @@ class WithRelations(TypedDict, total=False):
     vendor: bool
     location: bool
     city: bool
-    room_type: bool
+    property_room_types: bool
     property_assets: bool
     property_facilities: bool
     property_amenities: bool
@@ -23,7 +23,7 @@ class PropertyRepository(BaseRepository[Property]):
         "vendor": Property.vendor,
         "location": Property.location,
         "city": Property.city,
-        "room_type": Property.room_type,
+        "property_room_types": Property.property_room_types,
         "property_assets": Property.property_assets,
         "property_facilities": Property.property_facilities,
         "property_amenities": Property.property_amenities,
@@ -36,7 +36,6 @@ class PropertyRepository(BaseRepository[Property]):
         "vendor_id": Property.vendor_id,
         "location_id": Property.location_id,
         "city_id": Property.city_id,
-        "room_type_id": Property.room_type_id,
         "public_id": Property.public_id,
         "is_featured": Property.is_featured,
     }

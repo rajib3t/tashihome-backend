@@ -1,14 +1,13 @@
 from typing import Optional
 
-from app.application.dto.properties.property import PropertyDTO, PropertyQueryDTO, PropertyUpdateDTO
+from app.application.dto.properties.property import PropertyUpdateDTO
 from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
-from app.models.property_model import Property, PropertyStatus
 from app.models.property_amenity_model import PropertyAmenity
 from app.models.property_facility_model import PropertyFacility
 from app.models.property_food_option_model import PropertyFoodOption, PropertyFoodOptionStatus
-from app.repositories.base_repository import Page
+from app.models.property_model import Property, PropertyStatus
 from app.services.amenity_service import AmenityService
 from app.services.city_service import CityService
 from app.services.facility_service import FacilityService
@@ -19,58 +18,6 @@ from app.services.property_food_option_service import PropertyFoodOptionService
 from app.services.property_service import PropertyService
 from app.services.room_type_service import RoomTypeService
 from app.utils.slug import generate_slug
-
-
-class ListPropertiesUseCase(BaseUseCase):
-    def __init__(self, property_service: PropertyService, current_user: CurrentUser):
-        self.property_service = property_service
-        self.current_user = current_user
-
-    @staticmethod
-    def _normalize_status(status_value: Optional[str]) -> Optional[PropertyStatus]:
-        if status_value is None:
-            return None
-        status_text = status_value.strip().lower()
-        valid_statuses = {item.value for item in PropertyStatus}
-        if status_text not in valid_statuses:
-            raise AppException(
-                status_code=422,
-                message="Status must be one of: draft, active, inactive, archived.",
-                field="status",
-                error_code="STATUS_INVALID",
-            )
-        return PropertyStatus(status_text)
-
-    async def execute(self, params: PropertyQueryDTO) -> Page[Property]:
-        filters = list(params.filters or [])
-
-        if params.name:
-            filters.append({"name": "name", "value": params.name})
-        if params.slug:
-            filters.append({"name": "slug", "value": params.slug})
-        if params.vendor_id is not None:
-            filters.append({"name": "vendor_id", "value": str(params.vendor_id)})
-        if params.location_id is not None:
-            filters.append({"name": "location_id", "value": str(params.location_id)})
-        if params.city_id is not None:
-            filters.append({"name": "city_id", "value": str(params.city_id)})
-        if params.room_type_id is not None:
-            filters.append({"name": "room_type_id", "value": str(params.room_type_id)})
-        if params.status:
-            normalized_status = self._normalize_status(params.status)
-            filters.append({"name": "status", "value": normalized_status.value})
-
-        return await self.property_service.list(
-            page=params.page,
-            page_size=params.size,
-            search=params.name or params.slug,
-            filters=filters,
-            with_relations={"vendor": True, "city": True, "location": True},
-            flush=True,
-        )
-
-
-
 
 
 class UpdatePropertyUseCase(BaseUseCase):
@@ -144,8 +91,10 @@ class UpdatePropertyUseCase(BaseUseCase):
                     error_code="PROPERTY_SLUG_EXIST",
                 )
             existing_property.slug = normalized_slug
+
         if data.description is not None:
-            existing_property.description = data.description
+            existing_property.description = data.description.strip()
+
         if data.location_id is not None:
             location = await self.location_service.get_by_public_id(data.location_id, flush=True)
             if not location:
@@ -156,6 +105,7 @@ class UpdatePropertyUseCase(BaseUseCase):
                     error_code="LOCATION_NOT_FOUND",
                 )
             existing_property.location_id = location.id
+
         if data.city_id is not None:
             city = await self.city_service.get_by_public_id(data.city_id, flush=True)
             if not city:
@@ -166,42 +116,7 @@ class UpdatePropertyUseCase(BaseUseCase):
                     error_code="CITY_NOT_FOUND",
                 )
             existing_property.city_id = city.id
-        if data.room_type_id is not None:
-            room_type = await self.room_type_service.get_by_public_id(data.room_type_id, flush=True)
-            if not room_type:
-                raise AppException(
-                    status_code=404,
-                    message="Room type not found.",
-                    field="room_type_id",
-                    error_code="ROOM_TYPE_NOT_FOUND",
-                )
-            existing_property.room_type_id = room_type.id
-        if data.main_image_url is not None:
-            existing_property.main_image_url = data.main_image_url
-        if data.cover_image_url is not None:
-            existing_property.cover_image_url = data.cover_image_url
-        if data.max_guests is not None:
-            existing_property.max_guests = data.max_guests
-        if data.price_per_night is not None:
-            existing_property.price_per_night = data.price_per_night
-        if data.currency is not None:
-            existing_property.currency = data.currency.upper()
-        if data.is_featured is not None:
-            existing_property.is_featured = data.is_featured
-        if data.status is not None:
-            existing_property.status = self._normalize_status(data.status)
-        if data.price is not None:
-            existing_property.price_per_night = data.price
-        if data.sale_per_night is not None:
-            existing_property.sale_per_night = data.sale_per_night
-        if data.sale_price is not None:
-            existing_property.sale_per_night = data.sale_price
-        if data.latitude is not None:
-            existing_property.latitude = data.latitude
-        if data.longitude is not None:
-            existing_property.longitude = data.longitude
-        if data.type is not None:
-            existing_property.type = data.type
+
         if data.room_type_id is not None:
             room_type = await self.room_type_service.get_by_public_id(data.room_type_id, flush=True)
             if not room_type:
@@ -226,21 +141,51 @@ class UpdatePropertyUseCase(BaseUseCase):
             else:
                 existing_property.room_type_id = None
 
+        if data.price_per_night is not None:
+            existing_property.price_per_night = data.price_per_night
+        if data.price is not None:
+            existing_property.price_per_night = data.price
+        if data.sale_per_night is not None:
+            existing_property.sale_per_night = data.sale_per_night
+        if data.sale_price is not None:
+            existing_property.sale_per_night = data.sale_price
+        if data.currency is not None:
+            existing_property.currency = data.currency.upper()
+        if data.latitude is not None:
+            existing_property.latitude = data.latitude
+        if data.longitude is not None:
+            existing_property.longitude = data.longitude
+        if data.is_featured is not None:
+            existing_property.is_featured = data.is_featured
+        if data.type is not None:
+            existing_property.type = data.type
+        if data.status is not None:
+            existing_property.status = self._normalize_status(data.status)
+
         existing_property.updated_by = self.current_user.id
         updated_property = await self.property_service.update(existing_property)
         await self._sync_child_records(updated_property.id, data)
+
         return await self.property_service.get_by_public_id(
             updated_property.public_id,
-            with_relations={"vendor": True, "city": True, "location": True, "room_type": True, "amenities": True, "facilities": True, "food_options": True},
+            with_relations={"vendor": True, "city": True, "location": True, "room_type": True},
             flush=True,
         ) or updated_property
 
     async def _sync_child_records(self, property_id: int, data: PropertyUpdateDTO) -> None:
-        if data.amenity_ids is not None:
-            existing_amenities = await self.property_amenity_service.get_by_property_id(property_id, flush=True)
-            for item in existing_amenities:
-                await self.property_amenity_service.delete(item, commit=True)
+        existing_amenities = await self.property_amenity_service.get_by_property_id(property_id, flush=True)
+        for item in existing_amenities:
+            await self.property_amenity_service.delete(item, commit=True)
 
+        existing_facilities = await self.property_facility_service.get_by_property_id(property_id, flush=True)
+        for item in existing_facilities:
+            await self.property_facility_service.delete(item, commit=True)
+
+        existing_food_options = await self.property_food_option_service.get_by_property_id(property_id, flush=True)
+        for item in existing_food_options:
+            await self.property_food_option_service.delete(item, commit=True)
+
+        if data.amenity_ids:
             for amenity_id in data.amenity_ids:
                 amenity = await self.amenity_service.get_by_public_id(amenity_id, flush=True)
                 if not amenity:
@@ -255,11 +200,7 @@ class UpdatePropertyUseCase(BaseUseCase):
                     commit=True,
                 )
 
-        if data.facility_ids is not None:
-            existing_facilities = await self.property_facility_service.get_by_property_id(property_id, flush=True)
-            for item in existing_facilities:
-                await self.property_facility_service.delete(item, commit=True)
-
+        if data.facility_ids:
             for facility_id in data.facility_ids:
                 facility = await self.facility_service.get_by_public_id(facility_id, flush=True)
                 if not facility:
@@ -274,11 +215,7 @@ class UpdatePropertyUseCase(BaseUseCase):
                     commit=True,
                 )
 
-        if data.food_option_ids is not None:
-            existing_food_options = await self.property_food_option_service.get_by_property_id(property_id, flush=True)
-            for item in existing_food_options:
-                await self.property_food_option_service.delete(item, commit=True)
-
+        if data.food_option_ids:
             for food_name in data.food_option_ids:
                 await self.property_food_option_service.create(
                     PropertyFoodOption(
@@ -289,36 +226,3 @@ class UpdatePropertyUseCase(BaseUseCase):
                     ),
                     commit=True,
                 )
-
-
-class UpdateStatusPropertyUseCase(BaseUseCase):
-    def __init__(self, property_service: PropertyService, current_user: CurrentUser):
-        self.property_service = property_service
-        self.current_user = current_user
-
-    @staticmethod
-    def _normalize_status(status_value: str) -> PropertyStatus:
-        status_text = (status_value or "").strip().lower()
-        valid_statuses = {item.value for item in PropertyStatus}
-        if status_text not in valid_statuses:
-            raise AppException(
-                status_code=422,
-                message="Status must be one of: draft, active, inactive, archived.",
-                field="status",
-                error_code="STATUS_INVALID",
-            )
-        return PropertyStatus(status_text)
-
-    async def execute(self, property_id: str, status: str) -> Property:
-        existing_property = await self.property_service.get_by_public_id(property_id, flush=False)
-        if not existing_property:
-            raise AppException(
-                status_code=404,
-                message="Property not found.",
-                field="property_id",
-                error_code="PROPERTY_NOT_FOUND",
-            )
-
-        existing_property.status = self._normalize_status(status)
-        existing_property.updated_by = self.current_user.id
-        return await self.property_service.update(existing_property)

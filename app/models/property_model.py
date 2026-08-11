@@ -65,7 +65,7 @@ class Property(Base):
     vendor_id = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=False, index=True)
     location_id = Column(BigInteger, ForeignKey("locations.id", ondelete="SET NULL"), nullable=True, index=True)
     city_id = Column(BigInteger, ForeignKey("cities.id", ondelete="SET NULL"), nullable=True, index=True)
-    room_type_id = Column(BigInteger, ForeignKey("room_types.id", ondelete="SET NULL"), nullable=True, index=True)
+    
 
     name = Column(String(255), nullable=False, index=True)
     slug = Column(String(255), nullable=False, index=True)
@@ -93,7 +93,12 @@ class Property(Base):
     vendor = relationship("User", foreign_keys=[vendor_id])
     location = relationship("Location")
     city = relationship("City")
-    room_type = relationship("RoomType")
+    
+    property_room_types = relationship(
+        "PropertyRoomType",
+        back_populates="property",
+        cascade="all, delete-orphan",
+    )
 
     property_assets = relationship(
         "PropertyAsset",
