@@ -7,6 +7,7 @@ from app.deps.auth import CurrentUser
 from app.models.property_amenity_model import PropertyAmenity
 from app.models.property_facility_model import PropertyFacility
 from app.models.property_food_option_model import PropertyFoodOption, PropertyFoodOptionStatus
+from app.models.property_room_type_model import PropertyRoomType
 from app.models.property_model import Property, PropertyStatus
 from app.services.amenity_service import AmenityService
 from app.services.city_service import CityService
@@ -15,6 +16,7 @@ from app.services.location_service import LocationService
 from app.services.property_amenity_service import PropertyAmenityService
 from app.services.property_facility_service import PropertyFacilityService
 from app.services.property_food_option_service import PropertyFoodOptionService
+from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.property_service import PropertyService
 from app.services.room_type_service import RoomTypeService
 from app.utils.slug import generate_slug
@@ -32,6 +34,7 @@ class UpdatePropertyUseCase(BaseUseCase):
         property_amenity_service: PropertyAmenityService,
         property_facility_service: PropertyFacilityService,
         property_food_option_service: PropertyFoodOptionService,
+        property_room_type_service: PropertyRoomTypeService,
         current_user: CurrentUser,
     ):
         self.property_service = property_service
@@ -43,6 +46,7 @@ class UpdatePropertyUseCase(BaseUseCase):
         self.property_amenity_service = property_amenity_service
         self.property_facility_service = property_facility_service
         self.property_food_option_service = property_food_option_service
+        self.property_room_type_service = property_room_type_service
         self.current_user = current_user
 
     @staticmethod
@@ -116,30 +120,6 @@ class UpdatePropertyUseCase(BaseUseCase):
                     error_code="CITY_NOT_FOUND",
                 )
             existing_property.city_id = city.id
-
-        if data.room_type_id is not None:
-            room_type = await self.room_type_service.get_by_public_id(data.room_type_id, flush=True)
-            if not room_type:
-                raise AppException(
-                    status_code=404,
-                    message="Room type not found.",
-                    field="room_type_id",
-                    error_code="ROOM_TYPE_NOT_FOUND",
-                )
-            existing_property.room_type_id = room_type.id
-        elif data.room_type_ids is not None:
-            if data.room_type_ids:
-                room_type = await self.room_type_service.get_by_public_id(data.room_type_ids[0], flush=True)
-                if not room_type:
-                    raise AppException(
-                        status_code=404,
-                        message="Room type not found.",
-                        field="room_type_ids",
-                        error_code="ROOM_TYPE_NOT_FOUND",
-                    )
-                existing_property.room_type_id = room_type.id
-            else:
-                existing_property.room_type_id = None
 
         if data.price_per_night is not None:
             existing_property.price_per_night = data.price_per_night
@@ -246,3 +226,25 @@ class UpdatePropertyUseCase(BaseUseCase):
                     commit=True,
                 )
 
+        room_type_ids = data.room_type_ids
+        if room_type_ids is None and data.room_type_id is not None:
+            room_type_ids = [data.room_type_id]
+
+        if room_type_ids is not None:
+            existing_room_types = await self.property_room_type_service.get_by_property_id(property_id, flush=True)
+            for item in existing_room_types:
+                await self.property_room_type_service.delete(item, commit=True)
+
+            for room_type_id in room_type_ids:
+                room_type = await self.room_type_service.get_by_public_id(room_type_id, flush=True)
+                if not room_type:
+                    raise AppException(
+                        status_code=404,
+                        message="Room type not found.",
+                        field="room_type_ids",
+                        error_code="ROOM_TYPE_NOT_FOUND",
+                    )
+                await self.property_room_type_service.create(
+                    PropertyRoomType(property_id=property_id, room_type_id=room_type.id),
+                    commit=True,
+                )

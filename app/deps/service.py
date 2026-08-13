@@ -14,6 +14,7 @@ from app.repositories.company_repository import CompanyRepository
 from app.repositories.address_repository import AddressRepository
 from app.repositories.property_repository import PropertyRepository
 from app.repositories.property_asset_repository import PropertyAssetRepository
+from app.repositories.property_room_type_repository import PropertyRoomTypeRepository
 from app.repositories.property_facility_repository import PropertyFacilityRepository
 from app.repositories.property_amenity_repository import PropertyAmenityRepository
 from app.repositories.property_food_option_repository import PropertyFoodOptionRepository
@@ -27,6 +28,7 @@ from fastapi.params import Depends
 from app.deps.repository import (
     get_attribute_repository,
     get_amenity_repository,
+    get_property_room_type_repository,
     get_room_type_repository,
     get_country_repository, 
     get_setting_repository,
@@ -63,6 +65,7 @@ from app.services.company_service import CompanyService
 from app.services.address_service import AddressService
 from app.services.property_service import PropertyService
 from app.services.property_asset_service import PropertyAssetService
+from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.property_facility_service import PropertyFacilityService
 from app.services.property_amenity_service import PropertyAmenityService
 from app.services.property_food_option_service import PropertyFoodOptionService
@@ -136,6 +139,12 @@ async def get_property_asset_service(
     property_asset_repository: PropertyAssetRepository = Depends(get_property_asset_repository),
 ) -> PropertyAssetService:
     return PropertyAssetService(property_asset_repository)
+
+
+async def get_property_room_type_service(
+    property_room_type_repository: PropertyRoomTypeRepository = Depends(get_property_room_type_repository),
+) -> PropertyRoomTypeService:
+    return PropertyRoomTypeService(property_room_type_repository)
 
 
 async def get_property_facility_service(

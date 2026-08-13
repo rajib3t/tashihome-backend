@@ -1,4 +1,6 @@
-from sqlalchemy import Column, BigInteger, ForeignKey, DateTime, func, UniqueConstraint
+import uuid
+
+from sqlalchemy import UUID, Column, BigInteger, ForeignKey, DateTime, func, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -6,6 +8,13 @@ class PropertyRoomType(Base):
     __tablename__ = "property_room_types"
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
+    public_id = Column(
+            UUID(as_uuid=True),
+            default=uuid.uuid4,
+            unique=True,
+            nullable=False,
+            index=True,
+        )
     property_id = Column(BigInteger, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     room_type_id = Column(BigInteger, ForeignKey("room_types.id", ondelete="CASCADE"), nullable=False, index=True)
     

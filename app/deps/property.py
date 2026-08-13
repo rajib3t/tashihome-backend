@@ -22,6 +22,7 @@ from app.deps.service import (
     get_property_asset_service,
     get_property_service,
     get_storage_service,
+    get_property_room_type_service,
     get_room_type_service,
     get_user_service,
 )
@@ -36,6 +37,7 @@ from app.services.property_amenity_service import PropertyAmenityService
 from app.services.property_facility_service import PropertyFacilityService
 from app.services.property_food_option_service import PropertyFoodOptionService
 from app.services.property_asset_service import PropertyAssetService
+from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.user_service import UserService
 
 
@@ -84,6 +86,7 @@ async def get_update_property_use_case(
     property_amenity_service: PropertyAmenityService = Depends(get_property_amenity_service),
     property_facility_service: PropertyFacilityService = Depends(get_property_facility_service),
     property_food_option_service: PropertyFoodOptionService = Depends(get_property_food_option_service),
+    property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
     current_user: CurrentUser = Depends(require_admin),
 ) -> UpdatePropertyUseCase:
     return UpdatePropertyUseCase(
@@ -96,6 +99,7 @@ async def get_update_property_use_case(
         property_amenity_service=property_amenity_service,
         property_facility_service=property_facility_service,
         property_food_option_service=property_food_option_service,
+        property_room_type_service=property_room_type_service,
         current_user=current_user,
     )
 

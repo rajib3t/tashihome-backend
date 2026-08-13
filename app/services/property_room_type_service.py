@@ -1,7 +1,7 @@
 
 from app.repositories.property_room_type_repository import PropertyRoomTypeRepository
 from app.models.property_room_type_model import PropertyRoomType
-from app.repositories.base_repository import WithRelations
+from app.repositories.property_room_type_repository import WithRelations
 from typing import Optional
 
 class PropertyRoomTypeService:

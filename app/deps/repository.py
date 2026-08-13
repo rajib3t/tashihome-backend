@@ -15,6 +15,7 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.location_repository import LocationRepository
 from app.repositories.property_repository import PropertyRepository
 from app.repositories.property_asset_repository import PropertyAssetRepository
+from app.repositories.property_room_type_repository import PropertyRoomTypeRepository
 from app.repositories.property_facility_repository import PropertyFacilityRepository
 from app.repositories.property_amenity_repository import PropertyAmenityRepository
 from app.repositories.property_food_option_repository import PropertyFoodOptionRepository
@@ -93,6 +94,12 @@ async def get_property_asset_repository(
     db: AsyncSession = Depends(get_db),
 ) -> PropertyAssetRepository:
     return PropertyAssetRepository(db)
+
+
+async def get_property_room_type_repository(
+    db: AsyncSession = Depends(get_db),
+) -> PropertyRoomTypeRepository:
+    return PropertyRoomTypeRepository(db)
 
 
 async def get_property_facility_repository(

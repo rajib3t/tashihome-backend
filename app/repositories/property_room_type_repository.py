@@ -1,3 +1,7 @@
+from typing import Optional, TypedDict
+
+from sqlalchemy import select
+
 from app.models.property_room_type_model import PropertyRoomType
 from app.repositories.base_repository import BaseRepository
 
@@ -98,3 +102,12 @@ class PropertyRoomTypeRepository(BaseRepository[PropertyRoomType]):
 
         await self.db.refresh(property_room_type)
         return property_room_type
+
+    async def delete(
+        self,
+        property_room_type: PropertyRoomType,
+        commit: bool = True,
+    ) -> None:
+        await self.db.delete(property_room_type)
+        if commit:
+            await self.db.commit()
