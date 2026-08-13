@@ -4,6 +4,7 @@ from typing import Optional, Any, Generic, TypeVar, Sequence
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.strategy_options import Load
 from sqlalchemy.sql import Select
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -52,7 +53,8 @@ class BaseRepository(Generic[ModelT]):
 
         for relation, enabled in with_relations.items():
             if enabled and relation in relation_map:
-                query = query.options(selectinload(relation_map[relation]))
+                loader = relation_map[relation]
+                query = query.options(loader if isinstance(loader, Load) else selectinload(loader))
 
         return query
 

@@ -3,6 +3,9 @@ from typing import Optional, TypedDict
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.models.property_amenity_model import PropertyAmenity
+from app.models.property_facility_model import PropertyFacility
+from app.models.property_room_type_model import PropertyRoomType
 from app.models.property_model import Property
 from app.repositories.base_repository import BaseRepository, Page
 
@@ -19,17 +22,24 @@ class WithRelations(TypedDict, total=False):
 
 
 class PropertyRepository(BaseRepository[Property]):
-    _relation_map = {
-        "vendor": Property.vendor,
-        "location": Property.location,
-        "city": Property.city,
-        "property_room_types": Property.property_room_types,
-        "property_assets": Property.property_assets,
-        "property_facilities": Property.property_facilities,
-        "property_amenities": Property.property_amenities,
-        "property_food_options": Property.property_food_options,
-    }
+    @property
+    def _relation_map(self):
+        from app.models.property_amenity_model import PropertyAmenity
+        from app.models.property_facility_model import PropertyFacility
+        from app.models.property_room_type_model import PropertyRoomType
+        return {
+            "vendor": Property.vendor,
+            "location": Property.location,
+            "city": Property.city,
+            "property_room_types": selectinload(Property.property_room_types).selectinload(PropertyRoomType.room_type),
+            "property_assets": selectinload(Property.property_assets),
+            "property_facilities": selectinload(Property.property_facilities).selectinload(PropertyFacility.facility),
+            "property_amenities": selectinload(Property.property_amenities).selectinload(PropertyAmenity.amenity),
+            "property_food_options": selectinload(Property.property_food_options),
+        }
+
     _filter_map = {
+
         "name": Property.name,
         "slug": Property.slug,
         "status": Property.status,
@@ -155,4 +165,3 @@ class PropertyRepository(BaseRepository[Property]):
     async def get_all_by_vendor(self, vendor_id: int) -> list[Property]:
         query = select(Property).where(Property.vendor_id == vendor_id)
         return await self._fetch_all(query)
-

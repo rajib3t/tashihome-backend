@@ -181,26 +181,24 @@ class UpdatePropertyUseCase(BaseUseCase):
         ) or updated_property
 
     async def _sync_child_records(self, property_id: int, data: PropertyUpdateDTO) -> None:
-        existing_amenities = await self.property_amenity_service.get_by_property_id(property_id, flush=True)
-        for item in existing_amenities:
-            await self.property_amenity_service.delete(item, commit=True)
+        # The update DTO has `amenities: List[PropertyAmenitiesDTO]` (objects with .id)
+        # and `amenity_ids: List[str]` (flat strings). Support both.
+        amenity_ids = data.amenity_ids
+        if amenity_ids is None and data.amenities is not None:
+            amenity_ids = [a.id for a in data.amenities]
 
-        existing_facilities = await self.property_facility_service.get_by_property_id(property_id, flush=True)
-        for item in existing_facilities:
-            await self.property_facility_service.delete(item, commit=True)
+        if amenity_ids is not None:
+            existing_amenities = await self.property_amenity_service.get_by_property_id(property_id, flush=True)
+            for item in existing_amenities:
+                await self.property_amenity_service.delete(item, commit=True)
 
-        existing_food_options = await self.property_food_option_service.get_by_property_id(property_id, flush=True)
-        for item in existing_food_options:
-            await self.property_food_option_service.delete(item, commit=True)
-
-        if data.amenity_ids:
-            for amenity_id in data.amenity_ids:
+            for amenity_id in amenity_ids:
                 amenity = await self.amenity_service.get_by_public_id(amenity_id, flush=True)
                 if not amenity:
                     raise AppException(
                         status_code=404,
                         message="Amenity not found.",
-                        field="amenity_ids",
+                        field="amenities",
                         error_code="AMENITY_NOT_FOUND",
                     )
                 await self.property_amenity_service.create(
@@ -208,14 +206,23 @@ class UpdatePropertyUseCase(BaseUseCase):
                     commit=True,
                 )
 
-        if data.facility_ids:
-            for facility_id in data.facility_ids:
+        # The update DTO has `facility: List[PropertyFacilityDTO]` and `facility_ids: List[str]`
+        facility_ids = data.facility_ids
+        if facility_ids is None and data.facility is not None:
+            facility_ids = [f.id for f in data.facility]
+
+        if facility_ids is not None:
+            existing_facilities = await self.property_facility_service.get_by_property_id(property_id, flush=True)
+            for item in existing_facilities:
+                await self.property_facility_service.delete(item, commit=True)
+
+            for facility_id in facility_ids:
                 facility = await self.facility_service.get_by_public_id(facility_id, flush=True)
                 if not facility:
                     raise AppException(
                         status_code=404,
                         message="Facility not found.",
-                        field="facility_ids",
+                        field="facility",
                         error_code="FACILITY_NOT_FOUND",
                     )
                 await self.property_facility_service.create(
@@ -223,7 +230,11 @@ class UpdatePropertyUseCase(BaseUseCase):
                     commit=True,
                 )
 
-        if data.food_option_ids:
+        if data.food_option_ids is not None:
+            existing_food_options = await self.property_food_option_service.get_by_property_id(property_id, flush=True)
+            for item in existing_food_options:
+                await self.property_food_option_service.delete(item, commit=True)
+
             for food_name in data.food_option_ids:
                 await self.property_food_option_service.create(
                     PropertyFoodOption(
@@ -234,3 +245,4 @@ class UpdatePropertyUseCase(BaseUseCase):
                     ),
                     commit=True,
                 )
+

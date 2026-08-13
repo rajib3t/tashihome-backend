@@ -20,6 +20,18 @@ def configure_logging():
                 "level": level,
             }
         },
+        "loggers": {
+            "sqlalchemy.engine": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "sqlalchemy.pool": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
         "root": {
             "handlers": ["console"],
             "level": level,

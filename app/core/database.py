@@ -1,4 +1,5 @@
 from __future__ import annotations
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional, AsyncGenerator
 
@@ -44,6 +45,7 @@ class Database:
         self.engine = create_async_engine(self.db_url, echo=True)
         self.async_session = async_sessionmaker(self.engine, expire_on_commit=False)
         logger.info("Database connection established")
+
     async def disconnect(self) -> None:
         if self.engine is not None:
             await self.engine.dispose()
@@ -63,6 +65,12 @@ class Base(DeclarativeBase):
 
 
 db = Database(get_database_url())
+
+
+@asynccontextmanager
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    async with db.get_session() as session:
+        yield session
 
 
 

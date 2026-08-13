@@ -71,8 +71,7 @@ class PropertyRoomTypeSchema(BaseModel):
         validation_alias=AliasChoices("public_id", "id"),
         serialization_alias="id",
     )
-    name: str | None = None
-    capacity: int | None = None
+    room_type: Optional["RoomTypeNestedSchema"] = None
     model_config = ConfigDict(from_attributes=True)
 
     @field_validator("id", mode="before")
@@ -84,13 +83,14 @@ class PropertyRoomTypeSchema(BaseModel):
             return str(value)
         return str(value)
 
+
 class PropertyAmenitySchema(BaseModel):
     id: UUID | str | None = Field(
         default=None,
         validation_alias=AliasChoices("public_id", "id"),
         serialization_alias="id",
     )
-    name: str | None = None
+    amenity: Optional["AmenityNestedSchema"] = None
     model_config = ConfigDict(from_attributes=True)
 
     @field_validator("id", mode="before")
@@ -109,7 +109,7 @@ class PropertyFacilitySchema(BaseModel):
         validation_alias=AliasChoices("public_id", "id"),
         serialization_alias="id",
     )
-    name: str | None = None
+    facility: Optional["FacilityNestedSchema"] = None
     model_config = ConfigDict(from_attributes=True)
 
     @field_validator("id", mode="before")
@@ -120,6 +120,8 @@ class PropertyFacilitySchema(BaseModel):
         if isinstance(value, UUID):
             return str(value)
         return str(value)
+
+
 class PropertyFoodOptionSchema(BaseModel):
     id: UUID | str | None = Field(
         default=None,
@@ -138,6 +140,73 @@ class PropertyFoodOptionSchema(BaseModel):
         if isinstance(value, UUID):
             return str(value)
         return str(value)
+
+
+class RoomTypeNestedSchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    name: str | None = None
+    capacity: int | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return str(value)
+
+
+class AmenityNestedSchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    name: str | None = None
+    icon_url: str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return str(value)
+
+
+class FacilityNestedSchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    name: str | None = None
+    icon_url: str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return str(value)
+
+
+PropertyRoomTypeSchema.model_rebuild()
+PropertyAmenitySchema.model_rebuild()
+PropertyFacilitySchema.model_rebuild()
+
+
 class PropertyBase(BaseModel):
     name: str
     slug: str
