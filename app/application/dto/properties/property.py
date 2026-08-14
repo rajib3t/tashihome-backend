@@ -167,4 +167,11 @@ class PropertyUpdateDTO(PropertyDTO):
 @dataclass(config=ConfigDict(extra="forbid"))
 class AssetsDTO:
     name: str 
-    file: UploadFile
+    file: Optional[UploadFile] = None
+
+
+@dataclass(config=ConfigDict(extra="forbid"))
+class PropertyAssetsDTO:
+    gallery_images: Optional[List[AssetsDTO]] = None
+    feature_image: Optional[AssetsDTO] = None
+    cover_image: Optional[AssetsDTO] = None

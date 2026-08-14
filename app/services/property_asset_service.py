@@ -1,6 +1,6 @@
 from typing import Optional
 
-from app.models.property_asset_model import PropertyAsset
+from app.models.property_asset_model import PropertyAsset, PropertyAssetUseFor
 from app.repositories.base_repository import Page
 from app.repositories.property_asset_repository import PropertyAssetRepository, WithRelations
 
@@ -41,6 +41,15 @@ class PropertyAssetService:
     ) -> list[PropertyAsset]:
         return await self.property_asset_repository.get_by_property_id(property_id, with_relations=with_relations, flush=flush)
 
+    async def get_by_property_id_and_use_for(
+        self,
+        property_id: int,
+        use_for: PropertyAssetUseFor,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> list[PropertyAsset]:
+        return await self.property_asset_repository.get_by_property_id_and_use_for(property_id, use_for, with_relations=with_relations, flush=flush)
+
     async def update(
         self,
         property_asset: PropertyAsset,
@@ -48,6 +57,13 @@ class PropertyAssetService:
         commit: bool = True,
     ) -> PropertyAsset:
         return await self.property_asset_repository.update(property_asset, with_relations=with_relations, commit=commit)
+
+    async def delete(
+        self,
+        property_asset: PropertyAsset,
+        commit: bool = True,
+    ) -> None:
+        await self.property_asset_repository.delete(property_asset, commit=commit)
 
     async def delete(
         self,

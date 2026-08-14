@@ -29,6 +29,11 @@ class PropertyAssetStatus(str, enum.Enum):
     INACTIVE = "inactive"
 
 
+class PropertyAssetUseFor(str, enum.Enum):
+    GALLERY = "gallery"
+    FEATURE = "feature"
+    COVER = "cover"
+
 class PropertyAsset(Base):
     __tablename__ = "property_assets"
 
@@ -43,6 +48,7 @@ class PropertyAsset(Base):
 
     property_id = Column(BigInteger, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     asset_type = Column(Enum(PropertyAssetType), default=PropertyAssetType.IMAGE, nullable=False, index=True)
+    use_for = Column(Enum(PropertyAssetUseFor), default=PropertyAssetUseFor.GALLERY, nullable=True )
     file_url = Column(String(500), nullable=False)
     title = Column(String(255), nullable=True)
     is_primary = Column(Boolean, nullable=False, default=False)

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 
 from app.api.base_controller import BaseController
-from app.application.dto.properties.property import PropertyDTO, PropertyQueryDTO, PropertyUpdateDTO
+from app.application.dto.properties.property import AssetsDTO, PropertyAssetsDTO, PropertyDTO, PropertyQueryDTO, PropertyUpdateDTO
 from app.application.use_case.admin.properties.get_properties_use_case import GetPropertiesUseCase
 from app.application.use_case.admin.properties.get_property_use_case import GetPropertyUseCase
 from app.application.use_case.admin.properties.property_use_case import (
@@ -98,6 +98,17 @@ class PropertyController(BaseController):
         )
 
     @handle_api_exceptions
+    async def _update_property_image(
+        self,
+        property_id: str,
+        galley_image: UploadFile = File(...),
+        feature_image: UploadFile = File(...),
+        cover_image: UploadFile = File(...),
+        # use_case: UploadPropertyAssetsUseCase = Depends(get_upload_property_assets_use_case),
+    ):
+        pass
+
+    @handle_api_exceptions
     async def _update_property_status(
         self,
         property_id: str,
@@ -114,11 +125,17 @@ class PropertyController(BaseController):
     async def _upload_property_media(
         self,
         property_id: str,
-        files: list[UploadFile] = File(...),
-        primary_index: int = Form(0),
+        gallery_images: list[UploadFile] = File(default=[]),
+        feature_image: UploadFile | None = File(default=None),
+        cover_image: UploadFile | None = File(default=None),
         use_case: UploadPropertyAssetsUseCase = Depends(get_upload_property_assets_use_case),
     ):
-        assets = await use_case.execute(property_id, files, primary_index=primary_index)
+        assets_dto = PropertyAssetsDTO(
+            gallery_images=[AssetsDTO(name=image.filename or "gallery", file=image) for image in gallery_images],
+            feature_image=AssetsDTO(name=feature_image.filename or "feature", file=feature_image) if feature_image else None,
+            cover_image=AssetsDTO(name=cover_image.filename or "cover", file=cover_image) if cover_image else None,
+        )
+        assets = await use_case.execute(property_id, assets_dto)
         return self.build_response(
             message="Property media uploaded successfully.",
             data=assets,

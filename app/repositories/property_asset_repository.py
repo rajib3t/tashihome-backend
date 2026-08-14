@@ -2,7 +2,7 @@ from typing import Optional, TypedDict
 
 from sqlalchemy import select
 
-from app.models.property_asset_model import PropertyAsset
+from app.models.property_asset_model import PropertyAsset, PropertyAssetUseFor
 from app.repositories.base_repository import BaseRepository, Page
 
 
@@ -20,6 +20,7 @@ class PropertyAssetRepository(BaseRepository[PropertyAsset]):
         "status": PropertyAsset.status,
         "is_primary": PropertyAsset.is_primary,
         "public_id": PropertyAsset.public_id,
+        "use_for": PropertyAsset.use_for,
     }
 
     async def create(
@@ -68,6 +69,23 @@ class PropertyAssetRepository(BaseRepository[PropertyAsset]):
     ) -> list[PropertyAsset]:
         query = self._apply_relations(
             select(PropertyAsset).where(PropertyAsset.property_id == property_id).order_by(PropertyAsset.sort_order.asc(), PropertyAsset.created_at.desc()),
+            with_relations,
+            self._relation_map,
+        )
+        return await self._fetch_all(query, flush=flush)
+
+    async def get_by_property_id_and_use_for(
+        self,
+        property_id: int,
+        use_for: PropertyAssetUseFor,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> list[PropertyAsset]:
+        query = self._apply_relations(
+            select(PropertyAsset).where(
+                PropertyAsset.property_id == property_id,
+                PropertyAsset.use_for == use_for
+            ).order_by(PropertyAsset.created_at.desc()),
             with_relations,
             self._relation_map,
         )
