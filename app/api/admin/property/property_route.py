@@ -136,9 +136,22 @@ class PropertyController(BaseController):
             cover_image=AssetsDTO(name=cover_image.filename or "cover", file=cover_image) if cover_image else None,
         )
         assets = await use_case.execute(property_id, assets_dto)
+        # Validate the assets data against the schema
+        from app.schemas.property_asset_schema import PropertyAssetSchema, PropertyAssetUploadResponse
+        validated_assets = [PropertyAssetSchema(**asset) for asset in assets["assets"]]
+        validated_gallery = [PropertyAssetSchema(**asset) for asset in assets["gallery_images"]]
+        validated_feature = PropertyAssetSchema(**assets["feature_image"]) if assets["feature_image"] else None
+        validated_cover = PropertyAssetSchema(**assets["cover_image"]) if assets["cover_image"] else None
+        
+        validated_response = PropertyAssetUploadResponse(
+            assets=validated_assets,
+            gallery_images=validated_gallery,
+            feature_image=validated_feature,
+            cover_image=validated_cover
+        )
         return self.build_response(
             message="Property media uploaded successfully.",
-            data=assets,
+            data=validated_response,
         )
 
 

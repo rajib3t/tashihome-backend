@@ -32,7 +32,7 @@ class UploadPropertyAssetsUseCase(BaseUseCase):
         self,
         property_id: str,
         data: PropertyAssetsDTO,
-    ) -> list[PropertyAsset]:
+    ) -> dict:
         property_ = await self.property_service.get_by_public_id(property_id, flush=True)
         if not property_:
             raise AppException(
@@ -78,7 +78,11 @@ class UploadPropertyAssetsUseCase(BaseUseCase):
                 error_code="INVALID_FILE",
             )
 
-        created_assets: list[PropertyAsset] = []
+        created_assets: list[dict] = []
+        gallery_images = []
+        feature_image = None
+        cover_image = None
+        
         for index, (asset_input, use_for) in enumerate(asset_entries):
             upload = asset_input.file
             if upload is None:
@@ -100,6 +104,39 @@ class UploadPropertyAssetsUseCase(BaseUseCase):
                 created_by=self.current_user.id,
                 updated_by=self.current_user.id,
             )
-            created_assets.append(await self.property_asset_service.create(asset, commit=True))
+            created_asset = await self.property_asset_service.create(asset, commit=True)
+            
+            # Generate presigned URL for the file
+            file_url = file_key
+            try:
+                file_url = await self.storage_service.generate_presigned_url(file_key)
+            except Exception:
+                # If presigned URL generation fails, keep the original file_url
+                pass
+            
+            asset_dict = {
+                "id": str(created_asset.public_id),
+                "asset_type": created_asset.asset_type.value if hasattr(created_asset.asset_type, "value") else created_asset.asset_type,
+                "use_for": created_asset.use_for.value if hasattr(created_asset.use_for, "value") else created_asset.use_for,
+                "file_url": file_url,
+                "title": created_asset.title,
+                "is_primary": created_asset.is_primary,
+                "sort_order": created_asset.sort_order,
+                "status": created_asset.status.value if hasattr(created_asset.status, "value") else created_asset.status,
+            }
+            created_assets.append(asset_dict)
+            
+            # Separate by use_for
+            if use_for == PropertyAssetUseFor.GALLERY:
+                gallery_images.append(asset_dict)
+            elif use_for == PropertyAssetUseFor.FEATURE:
+                feature_image = asset_dict
+            elif use_for == PropertyAssetUseFor.COVER:
+                cover_image = asset_dict
 
-        return created_assets
+        return {
+            "assets": created_assets,
+            "gallery_images": gallery_images,
+            "feature_image": feature_image,
+            "cover_image": cover_image,
+        }

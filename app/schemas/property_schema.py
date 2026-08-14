@@ -226,6 +226,10 @@ class PropertyBase(BaseModel):
     property_amenities: Optional[list[PropertyAmenitySchema]] = None
     property_facilities: Optional[list[PropertyFacilitySchema]] = None
     property_food_options: Optional[list[PropertyFoodOptionSchema]] = None
+    property_assets: Optional[list[dict]] = None
+    gallery_images: Optional[list[dict]] = None
+    feature_image: Optional[dict] = None
+    cover_image: Optional[dict] = None
 
     status: str
     model_config = ConfigDict(from_attributes=True)

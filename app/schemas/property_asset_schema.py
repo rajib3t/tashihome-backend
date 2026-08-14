@@ -13,6 +13,7 @@ class PropertyAssetSchema(BaseModel):
     )
     property_id: int | None = None
     asset_type: str | None = None
+    use_for: str | None = None
     file_url: str | None = None
     title: str | None = None
     is_primary: bool | None = None
@@ -30,5 +31,11 @@ class PropertyAssetSchema(BaseModel):
         return str(value)
 
 
+class PropertyAssetUploadResponse(BaseModel):
+    assets: list[PropertyAssetSchema]
+    gallery_images: list[PropertyAssetSchema]
+    feature_image: Optional[PropertyAssetSchema] = None
+    cover_image: Optional[PropertyAssetSchema] = None
+
 class PropertyAssetResponseSchema(BaseResponse):
-    data: list[PropertyAssetSchema]
+    data: PropertyAssetUploadResponse

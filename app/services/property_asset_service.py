@@ -65,13 +65,6 @@ class PropertyAssetService:
     ) -> None:
         await self.property_asset_repository.delete(property_asset, commit=commit)
 
-    async def delete(
-        self,
-        property_asset: PropertyAsset,
-        commit: bool = True,
-    ) -> None:
-        await self.property_asset_repository.delete(property_asset, commit=commit)
-
     async def list(
         self,
         page: int = 1,

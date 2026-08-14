@@ -16,7 +16,7 @@ class GetPropertyUseCase(BaseUseCase):
         self.property_service = property_service
         self.storage_service = storage_service
 
-    async def execute(self, property_id: str) -> Optional[Property]:
+    async def execute(self, property_id: str) -> Optional[dict]:
         property_data = await self.property_service.get_by_public_id(
             property_id,
             with_relations={
@@ -27,6 +27,7 @@ class GetPropertyUseCase(BaseUseCase):
                 "property_amenities": True,
                 "property_facilities": True,
                 "property_food_options": True,
+                "property_assets": True,
             },
         )
         
@@ -34,6 +35,7 @@ class GetPropertyUseCase(BaseUseCase):
             "facilities:", len(property_data.property_facilities or []),
             "amenities:", len(property_data.property_amenities or []),
             "room_types:", len(property_data.property_room_types or []),
+            "assets:", len(property_data.property_assets or []),
         )
         if not property_data:
             raise AppException(
@@ -42,10 +44,9 @@ class GetPropertyUseCase(BaseUseCase):
                 status_code=404,
             )
 
-        return self._serialize_property(property_data)
+        return await self._serialize_property(property_data)
 
-    @staticmethod
-    def _serialize_property(property_data: Property) -> dict:
+    async def _serialize_property(self, property_data: Property) -> dict:
         return {
             "internal_id": property_data.id,
             "id": str(property_data.public_id),
@@ -138,13 +139,53 @@ class GetPropertyUseCase(BaseUseCase):
                 }
                 for item in (property_data.property_food_options or [])
             ],
-            "debug_counts": {
-                "property_room_types": len(property_data.property_room_types or []),
-                "property_amenities": len(property_data.property_amenities or []),
-                "property_facilities": len(property_data.property_facilities or []),
-                "property_food_options": len(property_data.property_food_options or []),
-            },
+            "property_assets": await self._serialize_property_assets(property_data.property_assets or []),
+            "gallery_images": await self._serialize_assets_by_use_for(property_data.property_assets or [], "gallery"),
+            "feature_image": await self._serialize_single_asset_by_use_for(property_data.property_assets or [], "feature"),
+            "cover_image": await self._serialize_single_asset_by_use_for(property_data.property_assets or [], "cover"),
             "status": property_data.status.value if hasattr(property_data.status, "value") else property_data.status,
         }
+
+    async def _serialize_property_assets(self, property_assets) -> list[dict]:
+        assets = []
+        for asset in property_assets:
+            asset_dict = {
+                "id": str(asset.public_id) if getattr(asset, "public_id", None) is not None else None,
+                "asset_type": asset.asset_type.value if hasattr(asset.asset_type, "value") else asset.asset_type,
+                "use_for": asset.use_for.value if hasattr(asset.use_for, "value") else asset.use_for,
+                "file_url": asset.file_url,
+                "title": asset.title,
+                "is_primary": asset.is_primary,
+                "sort_order": asset.sort_order,
+                "status": asset.status.value if hasattr(asset.status, "value") else asset.status,
+            }
+            # Generate presigned URL for the file
+            if asset.file_url:
+                try:
+                    asset_dict["file_url"] = await self.storage_service.generate_presigned_url(asset.file_url)
+                except Exception:
+                    # If presigned URL generation fails, keep the original file_url
+                    pass
+            assets.append(asset_dict)
+        return assets
+
+    async def _serialize_assets_by_use_for(self, property_assets, use_for: str) -> list[dict]:
+        """Serialize assets filtered by use_for type (e.g., gallery images)"""
+        filtered_assets = [
+            asset for asset in property_assets
+            if hasattr(asset, 'use_for') and asset.use_for.value == use_for
+        ]
+        return await self._serialize_property_assets(filtered_assets)
+
+    async def _serialize_single_asset_by_use_for(self, property_assets, use_for: str) -> dict | None:
+        """Serialize a single asset by use_for type (e.g., feature or cover image)"""
+        filtered_assets = [
+            asset for asset in property_assets
+            if hasattr(asset, 'use_for') and asset.use_for.value == use_for
+        ]
+        if filtered_assets:
+            serialized = await self._serialize_property_assets(filtered_assets)
+            return serialized[0] if serialized else None
+        return None
 
         
