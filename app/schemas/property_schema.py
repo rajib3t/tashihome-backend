@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.response import BaseResponse, PaginationResponse
+from app.schemas.property_asset_schema import PropertyAssetSchema
 
 
 class PropertyVendorSchema(BaseModel):
@@ -226,10 +227,10 @@ class PropertyBase(BaseModel):
     property_amenities: Optional[list[PropertyAmenitySchema]] = None
     property_facilities: Optional[list[PropertyFacilitySchema]] = None
     property_food_options: Optional[list[PropertyFoodOptionSchema]] = None
-    property_assets: Optional[list[dict]] = None
-    gallery_images: Optional[list[dict]] = None
-    feature_image: Optional[dict] = None
-    cover_image: Optional[dict] = None
+    property_assets: Optional[list[PropertyAssetSchema]] = None
+    gallery_images: Optional[list[PropertyAssetSchema]] = None
+    feature_image: Optional[PropertyAssetSchema] = None
+    cover_image: Optional[PropertyAssetSchema] = None
 
     status: str
     model_config = ConfigDict(from_attributes=True)

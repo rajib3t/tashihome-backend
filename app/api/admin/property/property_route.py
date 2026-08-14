@@ -40,7 +40,7 @@ class PropertyController(BaseController):
             ("get", "/{property_id}", self._get_property, {"response_model": PropertyResponseSchema}),
             ("put", "/{property_id}", self._update_property, {"response_model": PropertyResponseSchema}),
             ("patch", "/{property_id}/{status}", self._update_property_status, {"response_model": PropertyResponseSchema}),
-            ("post", "/{property_id}/media", self._upload_property_media, {"response_model": PropertyAssetResponseSchema, "status_code": 201}),
+            ("post", "/{property_id}/media", self._upload_property_media, {"response_model": PropertyResponseSchema, "status_code": 201}),
         ]
 
         for method, path, handler, route_kwargs in routes:
@@ -135,23 +135,10 @@ class PropertyController(BaseController):
             feature_image=AssetsDTO(name=feature_image.filename or "feature", file=feature_image) if feature_image else None,
             cover_image=AssetsDTO(name=cover_image.filename or "cover", file=cover_image) if cover_image else None,
         )
-        assets = await use_case.execute(property_id, assets_dto)
-        # Validate the assets data against the schema
-        from app.schemas.property_asset_schema import PropertyAssetSchema, PropertyAssetUploadResponse
-        validated_assets = [PropertyAssetSchema(**asset) for asset in assets["assets"]]
-        validated_gallery = [PropertyAssetSchema(**asset) for asset in assets["gallery_images"]]
-        validated_feature = PropertyAssetSchema(**assets["feature_image"]) if assets["feature_image"] else None
-        validated_cover = PropertyAssetSchema(**assets["cover_image"]) if assets["cover_image"] else None
-        
-        validated_response = PropertyAssetUploadResponse(
-            assets=validated_assets,
-            gallery_images=validated_gallery,
-            feature_image=validated_feature,
-            cover_image=validated_cover
-        )
+        updated_property = await use_case.execute(property_id, assets_dto)
         return self.build_response(
             message="Property media uploaded successfully.",
-            data=validated_response,
+            data=updated_property,
         )
 
 

@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
@@ -37,5 +38,10 @@ class PropertyAssetUploadResponse(BaseModel):
     feature_image: Optional[PropertyAssetSchema] = None
     cover_image: Optional[PropertyAssetSchema] = None
 
+
+PropertyAssetUploadResponse.model_rebuild()
+
+
 class PropertyAssetResponseSchema(BaseResponse):
     data: PropertyAssetUploadResponse
+

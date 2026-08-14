@@ -60,6 +60,7 @@ async def get_create_property_use_case(
     property_amenity_service: PropertyAmenityService = Depends(get_property_amenity_service),
     property_facility_service: PropertyFacilityService = Depends(get_property_facility_service),
     property_food_option_service: PropertyFoodOptionService = Depends(get_property_food_option_service),
+    storage_service: StorageService = Depends(get_storage_service),
     current_user: CurrentUser = Depends(require_admin),
 ) -> CreatePropertyUseCase:
     return CreatePropertyUseCase(
@@ -72,6 +73,7 @@ async def get_create_property_use_case(
         property_amenity_service=property_amenity_service,
         property_facility_service=property_facility_service,
         property_food_option_service=property_food_option_service,
+        storage_service=storage_service,
         current_user=current_user,
     )
 
@@ -87,6 +89,7 @@ async def get_update_property_use_case(
     property_facility_service: PropertyFacilityService = Depends(get_property_facility_service),
     property_food_option_service: PropertyFoodOptionService = Depends(get_property_food_option_service),
     property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
+    storage_service: StorageService = Depends(get_storage_service),
     current_user: CurrentUser = Depends(require_admin),
 ) -> UpdatePropertyUseCase:
     return UpdatePropertyUseCase(
@@ -100,15 +103,21 @@ async def get_update_property_use_case(
         property_facility_service=property_facility_service,
         property_food_option_service=property_food_option_service,
         property_room_type_service=property_room_type_service,
+        storage_service=storage_service,
         current_user=current_user,
     )
 
 
 async def get_update_property_status_use_case(
     property_service: PropertyService = Depends(get_property_service),
+    storage_service: StorageService = Depends(get_storage_service),
     current_user: CurrentUser = Depends(require_admin),
 ) -> UpdateStatusPropertyUseCase:
-    return UpdateStatusPropertyUseCase(property_service=property_service, current_user=current_user)
+    return UpdateStatusPropertyUseCase(
+        property_service=property_service,
+        storage_service=storage_service,
+        current_user=current_user,
+    )
 
 
 

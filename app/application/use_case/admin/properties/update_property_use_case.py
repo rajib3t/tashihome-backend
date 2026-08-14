@@ -2,6 +2,7 @@ from typing import Optional
 
 from app.application.dto.properties.property import PropertyUpdateDTO
 from app.application.use_case.base_use_case import BaseUseCase
+from app.application.use_case.admin.properties.property_serializer_mixin import PropertySerializerMixin
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.property_amenity_model import PropertyAmenity
@@ -19,10 +20,11 @@ from app.services.property_food_option_service import PropertyFoodOptionService
 from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.property_service import PropertyService
 from app.services.room_type_service import RoomTypeService
+from app.services.storage_service import StorageService
 from app.utils.slug import generate_slug
 
 
-class UpdatePropertyUseCase(BaseUseCase):
+class UpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
     def __init__(
         self,
         property_service: PropertyService,
@@ -35,6 +37,7 @@ class UpdatePropertyUseCase(BaseUseCase):
         property_facility_service: PropertyFacilityService,
         property_food_option_service: PropertyFoodOptionService,
         property_room_type_service: PropertyRoomTypeService,
+        storage_service: StorageService,
         current_user: CurrentUser,
     ):
         self.property_service = property_service
@@ -47,6 +50,7 @@ class UpdatePropertyUseCase(BaseUseCase):
         self.property_facility_service = property_facility_service
         self.property_food_option_service = property_food_option_service
         self.property_room_type_service = property_room_type_service
+        self.storage_service = storage_service
         self.current_user = current_user
 
     @staticmethod
@@ -62,7 +66,7 @@ class UpdatePropertyUseCase(BaseUseCase):
             )
         return PropertyStatus(status_text)
 
-    async def execute(self, property_id: str, data: PropertyUpdateDTO) -> Property:
+    async def execute(self, property_id: str, data: PropertyUpdateDTO) -> dict:
         existing_property = await self.property_service.get_by_public_id(property_id, flush=False)
         if not existing_property:
             raise AppException(
@@ -155,7 +159,7 @@ class UpdatePropertyUseCase(BaseUseCase):
         updated_property = await self.property_service.update(existing_property)
         await self._sync_child_records(updated_property.id, data)
 
-        return await self.property_service.get_by_public_id(
+        full_property = await self.property_service.get_by_public_id(
             updated_property.public_id,
             with_relations={
                 "vendor": True,
@@ -165,9 +169,11 @@ class UpdatePropertyUseCase(BaseUseCase):
                 "property_amenities": True,
                 "property_facilities": True,
                 "property_food_options": True,
+                "property_assets": True,
             },
             flush=True,
         ) or updated_property
+        return await self.serialize_property(full_property)
 
     async def _sync_child_records(self, property_id: int, data: PropertyUpdateDTO) -> None:
         # The update DTO has `amenities: List[PropertyAmenitiesDTO]` (objects with .id)

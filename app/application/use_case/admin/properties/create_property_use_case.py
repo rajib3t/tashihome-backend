@@ -1,4 +1,5 @@
 from app.application.use_case.base_use_case import BaseUseCase
+from app.application.use_case.admin.properties.property_serializer_mixin import PropertySerializerMixin
 from app.models.property_model import Property
 from app.models.property_amenity_model import PropertyAmenity
 from app.models.property_facility_model import PropertyFacility
@@ -11,6 +12,7 @@ from app.services.property_facility_service import PropertyFacilityService
 from app.services.property_food_option_service import PropertyFoodOptionService
 from app.services.location_service import LocationService
 from app.services.property_service import PropertyService
+from app.services.storage_service import StorageService
 from app.deps.auth import CurrentUser
 from app.application.dto.properties.property import PropertyDTO
 from typing import Optional
@@ -19,7 +21,7 @@ from app.services.user_service import UserService
 from app.utils.slug import generate_slug
 
 
-class CreatePropertyUseCase(BaseUseCase):
+class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
     def __init__(
         self,
         property_service: PropertyService,
@@ -31,7 +33,8 @@ class CreatePropertyUseCase(BaseUseCase):
         property_amenity_service: PropertyAmenityService,
         property_facility_service: PropertyFacilityService,
         property_food_option_service: PropertyFoodOptionService,
-        current_user: CurrentUser
+        storage_service: StorageService,
+        current_user: CurrentUser,
     ):
         self.property_service = property_service
         self.user_service = user_service
@@ -42,9 +45,10 @@ class CreatePropertyUseCase(BaseUseCase):
         self.property_amenity_service = property_amenity_service
         self.property_facility_service = property_facility_service
         self.property_food_option_service = property_food_option_service
+        self.storage_service = storage_service
         self.current_user = current_user
 
-    async def execute(self, property_dto: PropertyDTO) -> Optional[Property]:
+    async def execute(self, property_dto: PropertyDTO) -> Optional[dict]:
         # Validate and resolve IDs
 
         if property_dto.vendor_id is None:
@@ -135,7 +139,7 @@ class CreatePropertyUseCase(BaseUseCase):
 
         created_property = await self.property_service.create(payload, commit=True)
         await self._sync_child_records(created_property.id, property_dto)
-        return await self.property_service.get_by_public_id(
+        full_property = await self.property_service.get_by_public_id(
             created_property.public_id,
             with_relations={
                 "vendor": True,
@@ -145,9 +149,11 @@ class CreatePropertyUseCase(BaseUseCase):
                 "property_amenities": True,
                 "property_facilities": True,
                 "property_food_options": True,
+                "property_assets": True,
             },
             flush=True,
         ) or created_property
+        return await self.serialize_property(full_property)
 
     
 

@@ -1,14 +1,16 @@
 from app.application.dto.properties.property import AssetsDTO, PropertyAssetsDTO
 from app.application.use_case.base_use_case import BaseUseCase
+from app.application.use_case.admin.properties.property_serializer_mixin import PropertySerializerMixin
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.property_asset_model import PropertyAsset, PropertyAssetType, PropertyAssetUseFor
+from app.models.property_model import Property
 from app.services.property_asset_service import PropertyAssetService
 from app.services.property_service import PropertyService
 from app.services.storage_service import StorageService
 
 
-class UploadPropertyAssetsUseCase(BaseUseCase):
+class UploadPropertyAssetsUseCase(PropertySerializerMixin, BaseUseCase):
     FILE_UPLOAD_RULES = {
         "files": {
             "allowed_prefixes": ("image/",),
@@ -32,7 +34,7 @@ class UploadPropertyAssetsUseCase(BaseUseCase):
         self,
         property_id: str,
         data: PropertyAssetsDTO,
-    ) -> dict:
+    ) -> Property:
         property_ = await self.property_service.get_by_public_id(property_id, flush=True)
         if not property_:
             raise AppException(
@@ -54,20 +56,16 @@ class UploadPropertyAssetsUseCase(BaseUseCase):
         # Handle FEATURE and COVER replacement logic
         use_for_types_to_replace = {PropertyAssetUseFor.FEATURE, PropertyAssetUseFor.COVER}
         for use_for in use_for_types_to_replace:
-            # Check if this use_for type is in the new uploads
             has_new_upload = any(asset_use_for == use_for for _, asset_use_for in asset_entries)
             if has_new_upload:
-                # Find existing assets with the same use_for for this property
                 existing_assets = await self.property_asset_service.get_by_property_id_and_use_for(
                     property_.id, use_for, flush=True
                 )
                 for existing_asset in existing_assets:
-                    # Delete from storage
                     try:
                         await self.storage_service.delete_object(existing_asset.file_url)
                     except Exception:
                         pass
-                    # Delete from database
                     await self.property_asset_service.delete(existing_asset, commit=True)
 
         if not asset_entries:
@@ -78,11 +76,6 @@ class UploadPropertyAssetsUseCase(BaseUseCase):
                 error_code="INVALID_FILE",
             )
 
-        created_assets: list[dict] = []
-        gallery_images = []
-        feature_image = None
-        cover_image = None
-        
         for index, (asset_input, use_for) in enumerate(asset_entries):
             upload = asset_input.file
             if upload is None:
@@ -104,39 +97,21 @@ class UploadPropertyAssetsUseCase(BaseUseCase):
                 created_by=self.current_user.id,
                 updated_by=self.current_user.id,
             )
-            created_asset = await self.property_asset_service.create(asset, commit=True)
-            
-            # Generate presigned URL for the file
-            file_url = file_key
-            try:
-                file_url = await self.storage_service.generate_presigned_url(file_key)
-            except Exception:
-                # If presigned URL generation fails, keep the original file_url
-                pass
-            
-            asset_dict = {
-                "id": str(created_asset.public_id),
-                "asset_type": created_asset.asset_type.value if hasattr(created_asset.asset_type, "value") else created_asset.asset_type,
-                "use_for": created_asset.use_for.value if hasattr(created_asset.use_for, "value") else created_asset.use_for,
-                "file_url": file_url,
-                "title": created_asset.title,
-                "is_primary": created_asset.is_primary,
-                "sort_order": created_asset.sort_order,
-                "status": created_asset.status.value if hasattr(created_asset.status, "value") else created_asset.status,
-            }
-            created_assets.append(asset_dict)
-            
-            # Separate by use_for
-            if use_for == PropertyAssetUseFor.GALLERY:
-                gallery_images.append(asset_dict)
-            elif use_for == PropertyAssetUseFor.FEATURE:
-                feature_image = asset_dict
-            elif use_for == PropertyAssetUseFor.COVER:
-                cover_image = asset_dict
+            await self.property_asset_service.create(asset, commit=True)
 
-        return {
-            "assets": created_assets,
-            "gallery_images": gallery_images,
-            "feature_image": feature_image,
-            "cover_image": cover_image,
-        }
+        # Re-fetch the full property with all relations, matching the standard property response
+        full_property = await self.property_service.get_by_public_id(
+            property_id,
+            with_relations={
+                "vendor": True,
+                "city": True,
+                "location": True,
+                "property_room_types": True,
+                "property_amenities": True,
+                "property_facilities": True,
+                "property_food_options": True,
+                "property_assets": True,
+            },
+            flush=True,
+        ) or property_
+        return await self.serialize_property(full_property)
