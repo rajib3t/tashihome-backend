@@ -1,3 +1,5 @@
+from app.deps.property import get_delete_property_asset_use_case
+from app.application.use_case.admin.properties.upload_property_assets_use_case import DeletePropertyAssetUseCase
 from fastapi import APIRouter, Depends, File, UploadFile
 
 from app.api.base_controller import BaseController
@@ -41,6 +43,7 @@ class PropertyController(BaseController):
             ("put", "/{property_id}", self._update_property, {"response_model": PropertyResponseSchema}),
             ("patch", "/{property_id}/{status}", self._update_property_status, {"response_model": PropertyResponseSchema}),
             ("post", "/{property_id}/media", self._upload_property_media, {"response_model": PropertyResponseSchema, "status_code": 201}),
+            ("delete", "/{property_id}/assets/{asset_id}", self._delete_property_asset, {"response_model": PropertyResponseSchema}),
         ]
 
         for method, path, handler, route_kwargs in routes:
@@ -141,6 +144,18 @@ class PropertyController(BaseController):
             data=updated_property,
         )
 
+    @handle_api_exceptions
+    async def _delete_property_asset(
+        self,
+        property_id: str,
+        asset_id: str,
+        use_case: DeletePropertyAssetUseCase = Depends(get_delete_property_asset_use_case),
+    ):
+        deleted_asset = await use_case.execute(property_id, asset_id)
+        return self.build_response(
+            message="Property asset deleted successfully.",
+            data=deleted_asset,
+        )
 
 controller = PropertyController()
 router = controller.router

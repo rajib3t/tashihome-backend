@@ -1,3 +1,4 @@
+from app.application.use_case.admin.properties.upload_property_assets_use_case import DeletePropertyAssetUseCase
 from fastapi import Depends
 
 from app.application.use_case.admin.properties.get_properties_use_case import GetPropertiesUseCase
@@ -135,6 +136,20 @@ async def get_upload_property_assets_use_case(
     current_user: CurrentUser = Depends(require_admin),
 ) -> UploadPropertyAssetsUseCase:
     return UploadPropertyAssetsUseCase(
+        property_service=property_service,
+        property_asset_service=property_asset_service,
+        storage_service=storage_service,
+        current_user=current_user,
+    )
+
+
+async def get_delete_property_asset_use_case(
+    property_service: PropertyService = Depends(get_property_service),
+    property_asset_service: PropertyAssetService = Depends(get_property_asset_service),
+    storage_service: StorageService = Depends(get_storage_service),
+    current_user: CurrentUser = Depends(require_admin),
+) -> DeletePropertyAssetUseCase:
+    return DeletePropertyAssetUseCase(
         property_service=property_service,
         property_asset_service=property_asset_service,
         storage_service=storage_service,

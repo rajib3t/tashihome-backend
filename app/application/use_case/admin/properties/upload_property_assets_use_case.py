@@ -115,3 +115,65 @@ class UploadPropertyAssetsUseCase(PropertySerializerMixin, BaseUseCase):
             flush=True,
         ) or property_
         return await self.serialize_property(full_property)
+
+
+class DeletePropertyAssetUseCase(PropertySerializerMixin, BaseUseCase):
+    def __init__(
+        self,
+        property_service: PropertyService,
+        property_asset_service: PropertyAssetService,
+        storage_service: StorageService,
+        current_user: CurrentUser,
+    ):
+        self.property_service = property_service
+        self.property_asset_service = property_asset_service
+        self.storage_service = storage_service
+        self.current_user = current_user
+
+    async def execute(self, property_id: str, asset_id: str) -> Property:
+        property_ = await self.property_service.get_by_public_id(property_id, flush=True)
+        if not property_:
+            raise AppException(
+                status_code=404,
+                message="Property not found.",
+                field="property_id",
+                error_code="PROPERTY_NOT_FOUND",
+            )
+
+        asset = await self.property_asset_service.get_by_public_id(asset_id, flush=True)
+        if not asset:
+            raise AppException(
+                status_code=404,
+                message="Property asset not found.",
+                field="asset_id",
+                error_code="PROPERTY_ASSET_NOT_FOUND",
+            )
+        if asset.property_id != property_.id:
+            raise AppException(
+                status_code=403,
+                message="You are not authorized to delete this property asset.",
+                field="asset_id",
+                error_code="PROPERTY_ASSET_NOT_FOUND",
+            )
+        try:
+            await self.storage_service.delete_object(asset.file_url)
+        except Exception:
+            pass
+        await self.property_asset_service.delete(asset, commit=True)
+
+        # Re-fetch the full property with all relations, matching the standard property response
+        full_property = await self.property_service.get_by_public_id(
+            property_id,
+            with_relations={
+                "vendor": True,
+                "city": True,
+                "location": True,
+                "property_room_types": True,
+                "property_amenities": True,
+                "property_facilities": True,
+                "property_food_options": True,
+                "property_assets": True,
+            },
+            flush=True,
+        )
+        return await self.serialize_property(full_property)
