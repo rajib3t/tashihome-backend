@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.models.token_model import TokenType
 
@@ -10,8 +10,7 @@ class TokenSchema(BaseModel):
     expires_at: str
     is_revoked: bool
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AccessTokenSchema(BaseModel):
