@@ -218,6 +218,7 @@ class PropertyBase(BaseModel):
     type: Optional[str] = None
     price_per_night: Optional[float] = None
     sale_per_night: Optional[float] = None
+    address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     description: Optional[str] = None

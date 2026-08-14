@@ -123,6 +123,7 @@ class CreatePropertyUseCase(BaseUseCase):
             description=property_dto.description,
             city_id=city.id,
             type=property_dto.type,
+            address=property_dto.address,
             latitude=property_dto.latitude,
             longitude=property_dto.longitude,
             price_per_night=property_dto.price_per_night or property_dto.price or 0,

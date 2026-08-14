@@ -81,6 +81,7 @@ class GetPropertyUseCase(BaseUseCase):
             "type": property_data.type.value if hasattr(property_data.type, "value") else property_data.type,
             "price_per_night": float(property_data.price_per_night) if property_data.price_per_night is not None else None,
             "sale_per_night": float(property_data.sale_per_night) if property_data.sale_per_night is not None else None,
+            "address": property_data.address,
             "latitude": float(property_data.latitude) if property_data.latitude is not None else None,
             "longitude": float(property_data.longitude) if property_data.longitude is not None else None,
             "description": property_data.description,

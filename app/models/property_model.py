@@ -70,6 +70,7 @@ class Property(Base):
     name = Column(String(255), nullable=False, index=True)
     slug = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
+    address = Column(String(1000), nullable=True)
     latitude = Column(Numeric(10, 6), nullable=True)
     longitude = Column(Numeric(10, 6), nullable=True)
     price_per_night = Column(Numeric(12, 2), nullable=False, default=0)

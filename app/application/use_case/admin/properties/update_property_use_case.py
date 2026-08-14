@@ -120,7 +120,8 @@ class UpdatePropertyUseCase(BaseUseCase):
                     error_code="CITY_NOT_FOUND",
                 )
             existing_property.city_id = city.id
-
+        if data.address is not None:
+            existing_property.address = data.address.strip()
         if data.price_per_night is not None:
             existing_property.price_per_night = data.price_per_night
         if data.price is not None:
@@ -129,6 +130,14 @@ class UpdatePropertyUseCase(BaseUseCase):
             existing_property.sale_per_night = data.sale_per_night
         if data.sale_price is not None:
             existing_property.sale_per_night = data.sale_price
+
+        if data.price_per_night > 0 and data.sale_per_night is not None and data.sale_per_night > data.price_per_night:
+            raise AppException(
+                status_code=422,
+                message="Sale price per night cannot be greater than the regular price per night.",
+                field="sale_per_night",
+                error_code="SALE_PRICE_INVALID",
+            )
         if data.currency is not None:
             existing_property.currency = data.currency.upper()
         if data.latitude is not None:
