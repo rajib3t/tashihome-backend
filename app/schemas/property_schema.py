@@ -233,6 +233,7 @@ class PropertyBase(BaseModel):
     cover_image: Optional[PropertyAssetSchema] = None
 
     status: str
+    is_featured: Optional[bool] = None
     model_config = ConfigDict(from_attributes=True)
 
 

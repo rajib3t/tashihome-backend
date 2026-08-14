@@ -59,7 +59,7 @@ class CreateVendorHandler:
             app_name_setting = await setting_service.get_by_key("app_name")
             logo_setting = await setting_service.get_by_key("app_logo")
             app_name = app_name_setting.value
-            logo_url = storage_service.generate_presigned_url(logo_setting.value) if logo_setting else None
+            logo_url = (await storage_service.get_display_url(logo_setting.value)) if logo_setting else None
             values = {
                 "logo_url": logo_url,
                 "full_name": username,

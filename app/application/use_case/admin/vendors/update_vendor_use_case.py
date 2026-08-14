@@ -210,7 +210,7 @@ class UpdateVendorUseCase(BaseUseCase):
             )
             await session.flush()
 
-            profile_image_url = self.storage_service.get_display_url(
+            profile_image_url = await self.storage_service.get_display_url(
                 updated_vendor.is_profile_image_url
             )
             return await self.user_service.build_vendor_response(

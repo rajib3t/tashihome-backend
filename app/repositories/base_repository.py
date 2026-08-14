@@ -98,14 +98,22 @@ class BaseRepository(Generic[ModelT]):
             return query
 
         for item in filters:
-            field_name = item.get("name")
-            value = item.get("value")
+            if isinstance(item, dict):
+                field_name = item.get("name")
+                value = item.get("value")
+            else:
+                field_name = getattr(item, "name", None)
+                value = getattr(item, "value", None)
 
             if not field_name or field_name not in allowed_fields:
                 continue
 
             column = allowed_fields[field_name]
             python_type = getattr(column.type, "python_type", None)
+            enum_class = getattr(column.type, "enum_class", None)
+
+            if enum_class is not None and hasattr(value, "value"):
+                value = value.value
 
             if isinstance(value, str) and python_type is str:
                 query = query.where(func.lower(column) == value.strip().lower())

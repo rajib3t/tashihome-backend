@@ -137,7 +137,7 @@ class UpdateSettingUseCase(BaseUseCase):
                 "coming_background_image",
                 "coming_soon_video",
             }:
-                value = self.storage_service.generate_presigned_url(value)
+                value = await self.storage_service.get_display_url(value)
             elif setting.key == "is_enabled_coming_soon":
                 value = str(value).lower()
 

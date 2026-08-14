@@ -182,6 +182,7 @@ class GetPropertiesUseCase(BaseUseCase):
             "feature_image": await self._serialize_single_asset_by_use_for(property_data.property_assets or [], "feature"),
             "cover_image": await self._serialize_single_asset_by_use_for(property_data.property_assets or [], "cover"),
             "status": property_data.status.value if hasattr(property_data.status, "value") else property_data.status,
+            "is_featured": property_data.is_featured ,
         }
 
     async def _serialize_property_assets(self, property_assets) -> list[dict]:

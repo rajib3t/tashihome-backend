@@ -111,6 +111,42 @@ class PropertySerializerMixin:
             "feature_image": await self._serialize_single_asset_by_use_for(property_data.property_assets or [], "feature"),
             "cover_image": await self._serialize_single_asset_by_use_for(property_data.property_assets or [], "cover"),
             "status": property_data.status.value if hasattr(property_data.status, "value") else property_data.status,
+            "is_featured": property_data.is_featured,
+        }
+
+    async def serialize_property_list_item(self, property_data: Property) -> dict:
+        """Lightweight serializer for list views to avoid lazy-loading unneeded relations"""
+        return {
+            "internal_id": property_data.id,
+            "id": str(property_data.public_id),
+            "name": property_data.name,
+            "slug": property_data.slug,
+            "location": (
+                {
+                    "id": str(property_data.location.public_id),
+                    "name": property_data.location.name,
+                }
+                if getattr(property_data, "location", None)
+                else None
+            ),
+            "city": (
+                {
+                    "id": str(property_data.city.public_id),
+                    "name": property_data.city.name,
+                }
+                if getattr(property_data, "city", None)
+                else None
+            ),
+            "currency": property_data.currency,
+            "type": property_data.type.value if hasattr(property_data.type, "value") else property_data.type,
+            "price_per_night": float(property_data.price_per_night) if property_data.price_per_night is not None else None,
+            "sale_per_night": float(property_data.sale_per_night) if property_data.sale_per_night is not None else None,
+            "address": property_data.address,
+            "latitude": float(property_data.latitude) if property_data.latitude is not None else None,
+            "longitude": float(property_data.longitude) if property_data.longitude is not None else None,
+            "description": property_data.description,
+            "feature_image": await self._serialize_single_asset_by_use_for(getattr(property_data, "property_assets", []), "feature"),
+            "status": property_data.status.value if hasattr(property_data.status, "value") else property_data.status,
         }
 
     async def _serialize_assets(self, assets) -> list[dict]:
