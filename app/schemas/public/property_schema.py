@@ -16,6 +16,26 @@ class PropertyAssetSchema(BaseModel):
         serialization_alias="id",
     )
     file_url: str | None = None
+
+class PropertyVendorSchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    full_name: str | None = None
+    email: str | None = None
+    is_profile_image_url : Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return str(value)
 class PublicPropertyBase(BaseModel):
     
     name: str
@@ -173,7 +193,7 @@ class PublicPropertyDetailResponse(PublicPropertyBase):
     )
     name: str
     slug: str
-    
+    vendor: Optional[dict] = None
     location: Optional[PropertyLocationSchema] = None
     city: Optional[PropertyCitySchema] = None
     room_type: Optional[PropertyRoomTypeSchema] = None

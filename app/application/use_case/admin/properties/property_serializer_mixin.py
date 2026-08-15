@@ -24,6 +24,7 @@ class PropertySerializerMixin:
                     "id": str(property_data.vendor.public_id),
                     "full_name": property_data.vendor.full_name,
                     "email": property_data.vendor.email,
+                    "is_profile_image_url": await self.storage_service.generate_presigned_url(property_data.vendor.is_profile_image_url) if property_data.vendor.is_profile_image_url else None,
                 }
                 if property_data.vendor
                 else None
