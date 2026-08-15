@@ -87,7 +87,18 @@ class PropertyRepository(BaseRepository[Property]):
             self._relation_map,
         )
         return await self._fetch_one(query, flush=flush)
-
+    async def get_by_slug(
+            self,
+            slug: str,
+            with_relations: Optional[WithRelations] = None,
+            flush: bool = False,
+        ) -> Optional[Property]:
+            query = self._apply_relations(
+                select(Property).where(Property.slug == slug),
+                with_relations,
+                self._relation_map,
+            )
+            return await self._fetch_one(query, flush=flush)
     async def get_by_vendor_and_slug(
         self,
         vendor_id: int,
@@ -101,6 +112,7 @@ class PropertyRepository(BaseRepository[Property]):
             self._relation_map,
         )
         return await self._fetch_one(query, flush=flush)
+
 
     async def get_by_vendor_and_name(
         self,

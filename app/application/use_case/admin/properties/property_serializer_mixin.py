@@ -75,7 +75,7 @@ class PropertySerializerMixin:
                         {
                             "id": str(item.amenity.public_id),
                             "name": item.amenity.name,
-                            "icon_url": item.amenity.icon_url,
+                            "icon_url": await self.storage_service.generate_presigned_url(item.amenity.icon_url),
                         }
                         if getattr(item, "amenity", None)
                         else None
@@ -90,7 +90,7 @@ class PropertySerializerMixin:
                         {
                             "id": str(item.facility.public_id),
                             "name": item.facility.name,
-                            "icon_url": item.facility.icon_url,
+                            "icon_url": await self.storage_service.generate_presigned_url(item.facility.icon_url),
                         }
                         if getattr(item, "facility", None)
                         else None

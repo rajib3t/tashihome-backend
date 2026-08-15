@@ -125,8 +125,9 @@ async def get_update_property_status_use_case(
 async def get_property_use_case(
     property_service: PropertyService = Depends(get_property_service),
     storage_service: StorageService = Depends(get_storage_service),
+    current_user: CurrentUser = Depends(require_admin),
 ) -> GetPropertyUseCase:
-    return GetPropertyUseCase(property_service=property_service, storage_service=storage_service)
+    return GetPropertyUseCase(property_service=property_service, storage_service=storage_service, current_user=current_user)
 
 
 async def get_upload_property_assets_use_case(
