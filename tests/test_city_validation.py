@@ -22,6 +22,77 @@ def test_city_dto_validation_repeating_chars():
         CityDTO(name="Pariiiis", country_id="country-id")
     assert exc_info.value.detail.get("error_code") == "CITY_NAME_REPETITIVE"
 
+
+def test_city_dto_short_description_and_tag_line():
+    # Valid short description and tag line
+    dto = CityDTO(
+        name="Kabul",
+        country_id="country-id",
+        short_description="dad adad dad",
+        tag_line="da ad add",
+    )
+    assert dto.short_description == "dad adad dad"
+    assert dto.tag_line == "da ad add"
+
+    # None or whitespace values
+    dto_empty = CityDTO(
+        name="Kabul",
+        country_id="country-id",
+        short_description="   ",
+        tag_line=None,
+    )
+    assert dto_empty.short_description is None
+    assert dto_empty.tag_line is None
+
+    # Invalid characters / script tags
+    with pytest.raises(AppException) as exc_info:
+        CityDTO(
+            name="Kabul",
+            country_id="country-id",
+            short_description="<script>alert(1)</script>",
+        )
+    assert exc_info.value.detail.get("error_code") == "SHORT_DESCRIPTION_INVALID"
+
+    # Repetitive characters
+    with pytest.raises(AppException) as exc_info:
+        CityDTO(
+            name="Kabul",
+            country_id="country-id",
+            short_description="Great ciiityyyyy",
+        )
+    assert exc_info.value.detail.get("error_code") == "SHORT_DESCRIPTION_REPETITIVE"
+
+    # Too long
+    with pytest.raises(AppException) as exc_info:
+        CityDTO(
+            name="Kabul",
+            country_id="country-id",
+            tag_line="a" * 80,
+        )
+    assert exc_info.value.detail.get("error_code") == "TAG_LINE_TOO_LONG"
+
+
+def test_city_dto_is_featured():
+    # String 'true' converts to bool True
+    dto1 = CityDTO(name="Kabul", country_id="cid", is_featured="true")
+    assert dto1.is_featured is True
+
+    # String 'false' converts to bool False
+    dto2 = CityDTO(name="Kabul", country_id="cid", is_featured="false")
+    assert dto2.is_featured is False
+
+    # Boolean True
+    dto3 = CityDTO(name="Kabul", country_id="cid", is_featured=True)
+    assert dto3.is_featured is True
+
+    # Boolean False
+    dto4 = CityDTO(name="Kabul", country_id="cid", is_featured=False)
+    assert dto4.is_featured is False
+
+    # None defaults to False
+    dto5 = CityDTO(name="Kabul", country_id="cid", is_featured=None)
+    assert dto5.is_featured is False
+
 def test_create_city_use_case_similarity():
     async def run_test():
         city_service = AsyncMock()

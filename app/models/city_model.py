@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import UUID, BigInteger, Column, DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import UUID,Boolean, BigInteger, Column, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -30,6 +30,9 @@ class City(Base):
         nullable=False,
         
         )
+    tag_line = Column(String(255), nullable=True)
+    short_description = Column(String(500), nullable=True)
+    is_featured = Column(Boolean,  nullable=True)
     
     status = Column(Enum(CityStatus), default=CityStatus.ACTIVE, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

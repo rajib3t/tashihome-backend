@@ -9,7 +9,7 @@ from app.deps.locations import (
 from fastapi import Depends
 from app.application.use_case.admin.locations.city.create_city_use_case import CreateCityUseCase
 from fastapi import APIRouter, File, Form, UploadFile
-from typing import Optional
+from typing import Optional, Union
 
 from app.api.base_controller import BaseController
 from app.application.dto.locations.city import CityDTO, CityQueryDTO
@@ -55,6 +55,9 @@ class CityController(BaseController):
         self,
         name: str = Form(...),
         country_id: str = Form(...),
+        short_description: str = Form(...),
+        tag_line: str = Form(...),
+        is_featured: Optional[Union[bool, str]] = Form(False),
         image_url: Optional[UploadFile] = File(None),
         use_case : CreateCityUseCase = Depends(get_create_city_use)
     ):
@@ -62,6 +65,9 @@ class CityController(BaseController):
         payload = CityDTO(
             name=name,
             country_id=country_id,
+            short_description=short_description,
+            tag_line=tag_line,
+            is_featured=is_featured,
             image_url=image_url
         )
         city = await use_case.execute(payload)
@@ -75,6 +81,9 @@ class CityController(BaseController):
         city_id: str,
         name: str = Form(...),
         country_id : str = Form(...),
+        short_description: str = Form(...),
+        tag_line: str = Form(...),
+        is_featured: Optional[Union[bool, str]] = Form(False),
         image_url : Optional[UploadFile] = File(None),
         use_case: UpdateCityUseCase = Depends(get_update_city_use_case),
     ):
@@ -82,6 +91,9 @@ class CityController(BaseController):
             name=name,
             country_id=country_id,
             image_url=image_url,
+            tag_line=tag_line,
+            short_description=short_description,
+            is_featured=is_featured,
         )
         city = await use_case.execute(city_id, payload)
         return self.build_response(

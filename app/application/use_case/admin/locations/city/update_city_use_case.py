@@ -97,6 +97,23 @@ class UpdateCityUseCase(BaseUseCase):
         existing_city.country_id = country.id
         existing_city.image_url = image_url
         existing_city.updated_by = self.current_user.id
+        existing_city.short_description = data.short_description
+        existing_city.tag_line = data.tag_line
+        is_featured = bool(data.is_featured)
+        if isinstance(data.is_featured, str):
+            is_featured = data.is_featured.strip().lower() in ("true", "1", "yes", "t")
+        existing_city.is_featured = is_featured
+
+        if is_featured:
+            features = await self.service.get_city_with_is_featured(with_relations={"country" : True})
+            other_featured = [f for f in features if f.id != existing_city.id]
+            if len(other_featured) >= 4:
+                raise AppException(
+                    status_code=409,
+                    message="Already 4 featured cities exist",
+                    error_code="FEATURED_CITIES_LIMIT_EXCEEDED",
+                    field="is_featured",
+                )
 
         return await self.service.update(
             existing_city,
@@ -136,7 +153,7 @@ class UpdateStatusCityUseCase(BaseUseCase):
                 field="status",
                 error_code="STATUS_INVALID",
             )
-
+        
         existing_city.status = (
             CityStatus.ACTIVE if normalized_status == "active" else CityStatus.INACTIVE
         )

@@ -87,3 +87,5 @@ class CityService:
     async def get_all(self) -> list[City]:
         return await self.city_repository.get_all()
 
+    async def get_city_with_is_featured(self, with_relations: Optional[WithRelations] = None) -> list[City]:
+        return await self.city_repository.get_city_with_is_featured(with_relations)

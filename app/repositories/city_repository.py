@@ -122,3 +122,11 @@ class CityRepository(BaseRepository[City]):
         query = select(City)
         return await self._fetch_all(query)
 
+    async def get_city_with_is_featured(self, with_relations: Optional[WithRelations] = None) -> list[City]:
+        query = self._apply_relations(
+            select(City).where(City.is_featured == True),
+            with_relations,
+            self._relation_map,
+        )
+        return await self._fetch_all(query)
+

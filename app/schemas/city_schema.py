@@ -9,6 +9,9 @@ class CityBase(BaseModel):
     name: str
     country: CountrySchema | None = None
     image_url: str | None = None
+    tag_line: str | None = None
+    short_description: str | None = None
+    is_featured: bool | None = None
     status: str
 
     

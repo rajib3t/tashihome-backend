@@ -56,7 +56,13 @@ def validate_name_field(value: str, field_name: str = "name", max_length: int = 
         )
     return cleaned
 
-def validate_description(value: Optional[str], required: bool = False, max_length: int = 512) -> Optional[str]:
+def validate_description(
+    value: Optional[str],
+    required: bool = False,
+    max_length: int = 512,
+    field_name: str = "description",
+    error_code_prefix: str = "DESCRIPTION",
+) -> Optional[str]:
     """
     Validates description field to prevent XSS and code injection attacks.
     
@@ -69,6 +75,8 @@ def validate_description(value: Optional[str], required: bool = False, max_lengt
         value: The description text to validate
         required: Whether description is required
         max_length: Maximum allowed length (default 512)
+        field_name: Field name for error reporting (default "description")
+        error_code_prefix: Error code prefix (default "DESCRIPTION")
         
     Returns:
         Sanitized description text
@@ -76,32 +84,36 @@ def validate_description(value: Optional[str], required: bool = False, max_lengt
     Raises:
         AppException: If description contains dangerous content
     """
+    field_label = field_name.replace("_", " ").capitalize()
+
     if value is None:
         if required:
             raise AppException(
                 status_code=422,
-                message="Description is required.",
-                field="description",
-                error_code="DESCRIPTION_REQUIRED",
+                message=f"{field_label} is required.",
+                field=field_name,
+                error_code=f"{error_code_prefix}_REQUIRED",
             )
         return value
 
     value = value.strip()
 
-    if required and not value:
-        raise AppException(
-            status_code=422,
-            message="Description is required.",
-            field="description",
-            error_code="DESCRIPTION_REQUIRED",
-        )
+    if not value:
+        if required:
+            raise AppException(
+                status_code=422,
+                message=f"{field_label} is required.",
+                field=field_name,
+                error_code=f"{error_code_prefix}_REQUIRED",
+            )
+        return None
 
-    if value and len(value) > max_length:
+    if len(value) > max_length:
         raise AppException(
             status_code=422,
-            message=f"Description must not exceed {max_length} characters.",
-            field="description",
-            error_code="DESCRIPTION_TOO_LONG",
+            message=f"{field_label} must not exceed {max_length} characters.",
+            field=field_name,
+            error_code=f"{error_code_prefix}_TOO_LONG",
         )
 
     # Dangerous patterns to check for (case-insensitive)
@@ -133,9 +145,9 @@ def validate_description(value: Optional[str], required: bool = False, max_lengt
         if re.search(pattern, value_lower):
             raise AppException(
                 status_code=422,
-                message="Description contains invalid characters or patterns (HTML tags, JavaScript code, etc.).",
-                field="description",
-                error_code="DESCRIPTION_INVALID_CHARACTERS",
+                message=f"{field_label} contains invalid characters.",
+                field=field_name,
+                error_code=f"{error_code_prefix}_INVALID",
             )
 
     return value

@@ -163,7 +163,7 @@ class PropertyUpdateDTO(PropertyDTO):
     food_options: Optional[List[FoodOptionDTO]] = None
     status: Optional[str] = None
 
-
+    
 @dataclass(config=ConfigDict(extra="forbid"))
 class AssetsDTO:
     name: str 

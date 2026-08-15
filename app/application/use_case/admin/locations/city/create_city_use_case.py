@@ -28,10 +28,14 @@ class CreateCityUseCase(BaseUseCase):
         self.country_service = country_service
     
     async def execute(self, city_data: CityDTO ) -> City:
+
         payload = {
             "name": city_data.name,
             "country_id": city_data.country_id,
             "image_url": city_data.image_url,
+            "short_description": city_data.short_description,
+            "tag_line": city_data.tag_line,
+            "is_featured": city_data.is_featured,
         }
 
         if await self.city_service.get_by_name(payload["name"].lower()):
@@ -68,10 +72,26 @@ class CreateCityUseCase(BaseUseCase):
                 field="country_id",
             )
 
+        is_featured = bool(payload.get("is_featured"))
+        if isinstance(payload.get("is_featured"), str):
+            is_featured = payload["is_featured"].strip().lower() in ("true", "1", "yes", "t")
+
+        if is_featured:
+            features = await self.city_service.get_city_with_is_featured(with_relations={"country" : True})
+            if len(features) >= 4:
+                raise AppException(
+                    status_code=409,
+                    message="Already 4 featured cities exist",
+                    error_code="FEATURED_CITIES_LIMIT_EXCEEDED",
+                    field="is_featured",
+                )
         city_obj = City(
             name=payload["name"],
             image_url=payload["image_url"],
             country_id=country.id,
+            short_description=payload["short_description"],
+            tag_line=payload["tag_line"],
+            is_featured=is_featured,
             created_by = self.current_user.id,
             updated_by = self.current_user.id
         )
