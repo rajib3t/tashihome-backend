@@ -13,7 +13,7 @@ class PropertySerializerMixin:
 
     storage_service: StorageService
 
-    async def serialize_property(self, property_data: Property) -> dict:
+    async def serialize_property(self, property_data: Property, vendor_email_disabled: bool = False) -> dict:
         return {
             "internal_id": property_data.id,
             "id": str(property_data.public_id),
@@ -23,7 +23,7 @@ class PropertySerializerMixin:
                 {
                     "id": str(property_data.vendor.public_id),
                     "full_name": property_data.vendor.full_name,
-                    "email": property_data.vendor.email,
+                    "email":  property_data.vendor.email if not vendor_email_disabled else None,
                     "is_profile_image_url": await self.storage_service.generate_presigned_url(property_data.vendor.is_profile_image_url) if property_data.vendor.is_profile_image_url else None,
                 }
                 if property_data.vendor

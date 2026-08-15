@@ -38,4 +38,4 @@ class PublicGetPropertyUseCase(BaseUseCase, PropertySerializerMixin):
                 status_code=404,
             )
 
-        return await self.serialize_property(property_data)
+        return await self.serialize_property(property_data, vendor_email_disabled=True)
