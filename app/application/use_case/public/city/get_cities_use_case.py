@@ -7,6 +7,7 @@ from app.application.dto.locations.public.city import PublicCityQueryDTO
 from app.application.use_case.base_use_case import BaseUseCase
 from app.services.storage_service import StorageService
 from app.services.city_service import CityService
+import copy
 class PublicGetCitiesUseCase(BaseUseCase):
     def __init__(
         self,
@@ -44,14 +45,14 @@ class PublicGetCitiesUseCase(BaseUseCase):
                 },
             )
         
-        items = []
+        updated_items = []
         for city in cities_page.items:
-            
+            display_city = copy.copy(city)
             if city.image_url:
-                city.image_url = await self.storage_service.get_display_url(city.image_url)
-            items.append(city)
+                display_city.image_url = await self.storage_service.get_display_url(city.image_url)
+            updated_items.append(display_city)
 
-        cities_page.items = items
+        cities_page.items = updated_items
         return cities_page
         
 

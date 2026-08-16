@@ -7,6 +7,7 @@ from app.services.city_service import CityService
 from app.services.country_service import CountryService
 from app.services.storage_service import StorageService
 from app.application.dto.locations.city import CityDTO
+import copy
 
 
 class UpdateCityUseCase(BaseUseCase):
@@ -115,11 +116,18 @@ class UpdateCityUseCase(BaseUseCase):
                     field="is_featured",
                 )
 
-        return await self.service.update(
+        city = await self.service.update(
             existing_city,
             with_relations={"country": True},
             commit=True,
         )
+        
+        if city.image_url:
+            display_city = copy.copy(city)
+            display_city.image_url = await self.storage_service.get_display_url(city.image_url)
+            return display_city
+        
+        return city
 
 
 class UpdateStatusCityUseCase(BaseUseCase):

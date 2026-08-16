@@ -7,6 +7,7 @@ from app.repositories.base_repository import Page
 from app.services.city_service import CityService
 from app.services.country_service import CountryService
 from app.services.storage_service import StorageService
+import copy
 
 
 class GetCitiesUseCase(BaseUseCase):
@@ -62,13 +63,13 @@ class GetCitiesUseCase(BaseUseCase):
             flush=True,
         )
 
-        items = []
+        updated_items = []
         for city in cities.items:
-        
+            display_city = copy.copy(city)
             if city.image_url:
-                city.image_url = await self.storage_service.get_display_url(city.image_url)
-            items.append(city)
+                display_city.image_url = await self.storage_service.get_display_url(city.image_url)
+            updated_items.append(display_city)
 
-        cities.items = items
+        cities.items = updated_items
         return cities
         

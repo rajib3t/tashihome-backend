@@ -7,6 +7,7 @@ from app.application.dto.locations.city import CityDTO
 from app.deps.auth import CurrentUser
 from app.services.storage_service import StorageService
 from app.services.city_service import CityService
+import copy
 class CreateCityUseCase(BaseUseCase):
     FILE_UPLOAD_RULES = {
         "image_url": {
@@ -102,6 +103,12 @@ class CreateCityUseCase(BaseUseCase):
             }, 
             commit=True
         )
-        return city 
+        
+        if city.image_url:
+            display_city = copy.copy(city)
+            display_city.image_url = await self.storage_service.get_display_url(city.image_url)
+            return display_city
+        
+        return city
         
         
