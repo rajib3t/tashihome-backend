@@ -1,18 +1,16 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile, Response
 from typing import Optional
 
 from app.api.base_controller import BaseController
 from app.application.dto.setting import SettingUpdateDTO
 from app.application.use_case.admin.settings.get_setting_use_case import GetSettingUseCase
 from app.application.use_case.admin.settings.update_setting_use_case import UpdateSettingUseCase
-from app.deps.service import get_setting_service
 from app.deps.settings import get_get_setting_use_case, get_update_setting_use_case
 from app.schemas.setting_schema import SettingResponseSchema
-from app.services.setting_service import SettingService
 import logging
-
+from app.core.csrf import issue_csrf_cookie
 from app.utils.exception_decorate import handle_api_exceptions
 
 logger = logging.getLogger(__name__)
@@ -84,8 +82,10 @@ class SettingsController(BaseController):
     @handle_api_exceptions
     async def _get_settings(
         self,
+        response: Response,
         use_case: GetSettingUseCase = Depends(get_get_setting_use_case),
     ):
+        issue_csrf_cookie(response)  # issue CSRF token on successful login
         result = await use_case.execute()
         return self.build_response(
             "Settings fetched successfully",
