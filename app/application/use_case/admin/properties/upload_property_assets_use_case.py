@@ -13,7 +13,7 @@ from app.services.storage_service import StorageService
 class UploadPropertyAssetsUseCase(PropertySerializerMixin, BaseUseCase):
     FILE_UPLOAD_RULES = {
         "files": {
-            "allowed_prefixes": ("image/",),
+            "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg"),
             "max_size_bytes": 5 * 1024 * 1024,
         },
     }

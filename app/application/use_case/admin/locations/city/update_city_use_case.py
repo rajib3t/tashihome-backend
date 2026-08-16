@@ -12,7 +12,7 @@ from app.application.dto.locations.city import CityDTO
 class UpdateCityUseCase(BaseUseCase):
     FILE_UPLOAD_RULES = {
         "image_url": {
-            "allowed_prefixes": ("image/",),
+            "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg"),
             "max_size_bytes": 2 * 1024 * 1024,
         },
     }

@@ -222,7 +222,7 @@ class UpdateVendorUseCase(BaseUseCase):
 class UploadVendorProfileImageUseCase(BaseUseCase):
     FILE_UPLOAD_RULES = {
         "profile_image_file": {
-            "allowed_prefixes": ("image/",),
+            "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg"),
             "max_size_bytes": 2 * 1024 * 1024,  # 2 MB  2 MB
         },
     }
