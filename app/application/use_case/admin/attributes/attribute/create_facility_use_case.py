@@ -56,7 +56,7 @@ class CreateFacilityUseCase(BaseUseCase):
 
         if facility.icon_url:
             display_facility = copy.copy(facility)
-            display_facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
+            display_facility.icon_url = facility.icon_url
             return display_facility
 
         return facility

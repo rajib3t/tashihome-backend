@@ -1,5 +1,7 @@
 
 
+from typing import Optional
+
 from pydantic import BaseModel
 
 from app.schemas.response import BaseResponse
@@ -21,3 +23,11 @@ class LoginData(BaseModel):
 
 class RefreshTokenResponse(BaseResponse):
     data: AccessTokenSchema
+
+class RegisterUserResponseData(BaseModel):
+    full_name: str
+    email: str
+    phone: Optional[str] = None
+
+class RegisterResponse(BaseResponse):
+    data: RegisterUserResponseData

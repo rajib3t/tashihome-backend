@@ -3,18 +3,18 @@ import logging
 from fastapi import APIRouter, Depends, Request, Response
 
 from app.api.base_controller import BaseController
-from app.application.dto.auth import AuthDTO
+from app.application.dto.auth import AuthDTO, RegisterDTO
 from app.application.use_case.auth.login_use_case import LoginUseCase
 from app.application.use_case.auth.logout_use_case import LogoutUseCase
 from app.application.use_case.auth.refresh_token_use_case import RefreshTokenUseCase
 from app.core.config import settings
-from app.core.csrf import issue_csrf_cookie, verify_csrf
-from app.deps.auth import get_login_use_case, get_logout_use_case, get_refresh_token_use_case
+from app.core.csrf import  verify_csrf
+from app.deps.auth import get_login_use_case, get_logout_use_case, get_refresh_token_use_case, get_register_use_case
 from app.models.token_model import TokenType
-from app.schemas.auth_schema import LoginResponse, LoginResponseData, RefreshTokenResponse
+from app.schemas.auth_schema import LoginResponse, LoginResponseData, RefreshTokenResponse, RegisterResponse
 from app.schemas.token_schema import AccessTokenSchema
 from app.utils.exception_decorate import handle_api_exceptions
-
+from app.application.use_case.auth.register_use_case import RegisterUseCase
 logger = logging.getLogger(__name__)
 
 class AuthController(BaseController):
@@ -36,11 +36,24 @@ class AuthController(BaseController):
                     "dependencies": [Depends(verify_csrf)],  # protect state-changing route
                 },
             ),
+            {
+                "post": "register",
+                "handler": self._register,
+                "route_kwargs": {"response_model": RegisterResponse, "response_model_by_alias": False, "status_code": 201},
+            },
             ("post", "/logout", self.logout, {"response_model": dict}),  # protect state-changing route
         ]
-        for method, path, handler, route_kwargs in routes:
-            self.router.add_api_route(path, handler, methods=[method.upper()], **route_kwargs)
+        for route in routes:
+            if isinstance(route, dict):
+                method = route["post"]
+                handler = route["handler"]
+                route_kwargs = route.get("route_kwargs", {})
+                self.router.add_api_route(f"/{method}", handler, methods=["POST"], **route_kwargs)
+            else:
+                method, path, handler, route_kwargs = route
+                self.router.add_api_route(path, handler, methods=[method.upper()], **route_kwargs)
 
+    
 
     def _set_auth_cookie(self, response: Response, name: str, value: str, max_age: int) -> None:
         response.set_cookie(
@@ -53,7 +66,20 @@ class AuthController(BaseController):
             domain=settings.COOKIE_DOMAIN,
         )
 
-
+    @handle_api_exceptions
+    async def _register(
+        self,  
+        data: RegisterDTO, 
+        use_case: RegisterUseCase = Depends(get_register_use_case)
+    ):
+        user = await use_case.execute(data)
+        response_data = {
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone": user.phone,
+        }
+        return self.build_response(message="Registration successful & Check your email for a verification link , it will expire in 24 hours.", data=response_data)
+    
     @handle_api_exceptions
     async def _login(self, request: Request, data: AuthDTO, response: Response, use_case: LoginUseCase = Depends(get_login_use_case)):
         login_data = await use_case.execute(email=data.email, password=data.password, request=request)
@@ -62,7 +88,7 @@ class AuthController(BaseController):
         if data.rememberMe:
             self._set_auth_cookie(response, TokenType.ACCESS.value, login_data.token.access_token, 60 * 30)
 
-        issue_csrf_cookie(response)  # issue CSRF token on successful login
+        
 
         login_response = LoginResponseData(user=login_data.user, token=login_data.token.access_token)
         return self.build_response(message="Login successful", data=login_response)

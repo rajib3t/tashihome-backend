@@ -106,7 +106,7 @@ class CreateCityUseCase(BaseUseCase):
         
         if city.image_url:
             display_city = copy.copy(city)
-            display_city.image_url = await self.storage_service.get_display_url(city.image_url)
+            display_city.image_url = city.image_url
             return display_city
         
         return city

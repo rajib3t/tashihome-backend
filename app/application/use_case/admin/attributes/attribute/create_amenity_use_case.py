@@ -57,7 +57,7 @@ class CreateAmenityUseCase(BaseUseCase):
 
         if amenity.icon_url:
             display_amenity = copy.copy(amenity)
-            display_amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
+            display_amenity.icon_url = amenity.icon_url
             return display_amenity
 
         return amenity

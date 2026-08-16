@@ -53,7 +53,7 @@ class ListAmenitiesUseCase(BaseUseCase):
         for amenity in amenities_page.items:
             display_amenity = copy.copy(amenity)
             if amenity.icon_url:
-                display_amenity.icon_url = await self.storage_service.get_display_url(amenity.icon_url)
+                display_amenity.icon_url = amenity.icon_url
             updated_items.append(display_amenity)
 
         amenities_page.items = updated_items

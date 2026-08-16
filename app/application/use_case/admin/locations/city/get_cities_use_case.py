@@ -67,7 +67,7 @@ class GetCitiesUseCase(BaseUseCase):
         for city in cities.items:
             display_city = copy.copy(city)
             if city.image_url:
-                display_city.image_url = await self.storage_service.get_display_url(city.image_url)
+                display_city.image_url = city.image_url
             updated_items.append(display_city)
 
         cities.items = updated_items

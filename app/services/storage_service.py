@@ -176,3 +176,28 @@ class StorageService:
 
         file_data = validate_data_url_file(base64_string)
         return file_data.raw, file_data.mime_type
+
+
+    async def get_object_bytes(
+    self,
+    key: str,
+    ) -> tuple[bytes, str]:
+
+        async with self.session.client(
+            "s3",
+            **self.client_params,
+        ) as client:
+
+            response = await client.get_object(
+                Bucket=self.bucket,
+                Key=key,
+            )
+
+            data = await response["Body"].read()
+
+            content_type = response.get(
+                "ContentType",
+                "application/octet-stream",
+            )
+
+            return data, content_type

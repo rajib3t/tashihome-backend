@@ -57,7 +57,7 @@ class ListFacilitiesUseCase(BaseUseCase):
         for facility in facilities_page.items:
             display_facility = copy.copy(facility)
             if facility.icon_url:
-                display_facility.icon_url = await self.storage_service.get_display_url(facility.icon_url)
+                display_facility.icon_url = facility.icon_url
             updated_items.append(display_facility)
 
         facilities_page.items = updated_items

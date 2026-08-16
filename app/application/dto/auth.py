@@ -4,6 +4,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
 from app.core.exceptions import AppException
 from pydantic.dataclasses import dataclass
+from app.utils.validation import validate_name_field
 # ---------------------------------------------------------------------
 # Login
 # ---------------------------------------------------------------------
@@ -23,3 +24,90 @@ class AuthDTO(BaseModel):
         if isinstance(value, str):
             return normalize_email(value)
         return value
+
+
+class RegisterDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+    full_name: str
+    password: str
+    phone: Optional[str] = None
+    is_subscriber: bool = False
+    is_terms_accept: bool = False
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def email_validator(cls, value: str):
+        if isinstance(value, str):
+            return normalize_email(value)
+        return value
+    
+    @field_validator("full_name", mode="before")
+    @classmethod
+    def full_name_validator(cls, value: str):
+        if isinstance(value, str):
+            return validate_name_field(value, field_name="full_name", max_length=50, error_code_prefix="FULL_NAME")
+        return value
+    
+    @field_validator("password", mode="before")
+    @classmethod
+    def password_validator(cls, value: str):
+        if isinstance(value, str):
+            if not value or not value.strip():
+                raise AppException(
+                    status_code=422,
+                    message="Password cannot be empty.",
+                    field="password",
+                    error_code="PASSWORD_EMPTY",
+                )
+            if len(value.strip()) < 8:
+                raise AppException(
+                    status_code=422,
+                    message="Password must be at least 8 characters long.",
+                    field="password",
+                    error_code="PASSWORD_TOO_SHORT",
+                )
+            return value.strip()
+        return value
+    
+    
+    @field_validator("phone", mode="before")
+    @classmethod
+    def phone_validator(cls, value: Optional[str]):
+        if value is None:
+            return value
+        if isinstance(value, str):
+            phone = value.strip()
+            if phone and not re.match(r'^\+?[\d\s\-()]+$', phone):
+                raise AppException(
+                    status_code=422,
+                    message="Phone number contains invalid characters.",
+                    field="phone",
+                    error_code="PHONE_INVALID",
+                )
+            return phone if phone else None
+        return value
+    
+    @field_validator("is_subscriber", mode="before")
+    @classmethod
+    def is_subscriber_validator(cls, value: bool):
+        if isinstance(value, bool):
+            return value
+        return value
+    
+    @field_validator("is_terms_accept", mode="before")
+    @classmethod
+    def is_terms_accept_validator(cls, value: bool):
+        if isinstance(value, bool):
+            if not value:
+                raise AppException(
+                    status_code=422,
+                    message="You must accept the terms and conditions.",
+                    field="is_terms_accept",
+                    error_code="TERMS_NOT_ACCEPTED",
+                )
+            return value
+        return value
+    
+   
+    

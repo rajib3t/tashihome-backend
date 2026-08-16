@@ -24,7 +24,7 @@ class PropertySerializerMixin:
                     "id": str(property_data.vendor.public_id),
                     "full_name": property_data.vendor.full_name,
                     "email":  property_data.vendor.email if not vendor_email_disabled else None,
-                    "is_profile_image_url": await self.storage_service.generate_presigned_url(property_data.vendor.is_profile_image_url) if property_data.vendor.is_profile_image_url else None,
+                    "is_profile_image_url": property_data.vendor.is_profile_image_url if property_data.vendor.is_profile_image_url else None,
                 }
                 if property_data.vendor
                 else None
@@ -165,7 +165,7 @@ class PropertySerializerMixin:
             }
             if asset.file_url:
                 try:
-                    asset_dict["file_url"] = await self.storage_service.generate_presigned_url(asset.file_url)
+                    asset_dict["file_url"] = asset.file_url 
                 except Exception:
                     pass
             result.append(asset_dict)

@@ -210,9 +210,7 @@ class UpdateVendorUseCase(BaseUseCase):
             )
             await session.flush()
 
-            profile_image_url = await self.storage_service.get_display_url(
-                updated_vendor.is_profile_image_url
-            )
+            profile_image_url = updated_vendor.is_profile_image_url
             return await self.user_service.build_vendor_response(
                 updated_vendor,
                 profile_image_url=profile_image_url,
@@ -275,11 +273,7 @@ class UploadVendorProfileImageUseCase(BaseUseCase):
             commit=True,
         )
 
-        profile_image_url = (
-            await self.storage_service.get_display_url(data.is_profile_image_url)
-            if data.is_profile_image_url
-            else None
-        )
+        profile_image_url = data.is_profile_image_url
 
         return await self.user_service.build_vendor_response(
             data,
@@ -345,11 +339,7 @@ class UpdateStatusVendorUseCase(BaseUseCase):
             commit=True,
         )
 
-        profile_image_url = (
-            await self.storage_service.get_display_url(updated_vendor.is_profile_image_url)
-            if updated_vendor.is_profile_image_url
-            else None
-        )
+        profile_image_url = updated_vendor.is_profile_image_url
 
         return await self.user_service.build_vendor_response(
             updated_vendor,

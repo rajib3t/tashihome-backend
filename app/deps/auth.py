@@ -17,7 +17,8 @@ from app.services.ip_service import IpService
 from app.services.login_log_service import LoginLogService
 from app.services.token_service import TokenService
 from app.services.user_service import UserService
-
+from app.application.use_case.auth.register_use_case import RegisterUseCase
+from app.deps.event_bus import get_event_bus
 if TYPE_CHECKING:
     from app.application.use_case.auth.logout_use_case import LogoutUseCase
 
@@ -32,6 +33,7 @@ async def get_login_use_case(
     ip_service: IpService = Depends(get_ip_service),
 ) -> LoginUseCase:
     return LoginUseCase(user_service, token_service, login_log_service, ip_service)
+
 
 
 async def get_refresh_token_use_case(
@@ -173,3 +175,12 @@ async def get_logout_use_case(
     from app.application.use_case.auth.logout_use_case import LogoutUseCase
 
     return LogoutUseCase(token_service, verify_csrf, current_user)
+
+async def get_register_use_case(
+    user_service: UserService = Depends(get_user_service),
+    event_bus: EventBus = Depends(get_event_bus),
+    verify_csrf = Depends(verify_csrf),
+) -> RegisterUseCase:
+    
+
+    return RegisterUseCase(user_service, event_bus, verify_csrf)

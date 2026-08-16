@@ -1,3 +1,4 @@
+from app.events.handles.users.create_user_handler import CreateUserHandler
 from app.events.handles.users.create_vendor_handler import CreateVendorHandler
 import asyncio
 import json
@@ -12,6 +13,7 @@ EventHandler = Callable[[dict], Awaitable[None]]
 
 HANDLERS: dict[str, EventHandler] = {
    "user.vendor.created": CreateVendorHandler.handle,
+   "user.created": CreateUserHandler.handle,
 }
 
 

@@ -44,7 +44,7 @@ class GetSettingUseCase:
                 "coming_background_image",
                 "coming_soon_video",
             }:
-                value = await self.storage_service.get_display_url(value)
+                value = value
             elif setting.key == "is_enabled_coming_soon":
                 value = str(value).lower()
 
