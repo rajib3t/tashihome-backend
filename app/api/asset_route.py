@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, Response
+from urllib.parse import unquote, urlparse
+
+from fastapi import APIRouter, HTTPException, Response, Request
 
 from app.api.base_controller import BaseController
 from app.services.storage_service import StorageService
@@ -36,14 +38,26 @@ class AssetRoute(BaseController):
 
     async def get_asset(
         self,
+        request: Request,
         file_path: str,
     ):
-        print("ASSET FILE:", file_path)
+        normalized_path = unquote(file_path).lstrip("/")
+        parsed = urlparse(normalized_path)
+        if parsed.scheme and parsed.netloc:
+            normalized_path = parsed.path.lstrip("/")
+
+        # Support callers that accidentally include the route prefix in the key.
+        for prefix in ("api/v1/assets/", "assets/"):
+            if normalized_path.startswith(prefix):
+                normalized_path = normalized_path[len(prefix):]
+                break
+
+        print("ASSET FILE:", normalized_path)
 
         try:
             data, content_type = (
                 await self.storage_service.get_object_bytes(
-                    file_path
+                    normalized_path
                 )
             )
 
@@ -60,7 +74,9 @@ class AssetRoute(BaseController):
                 "ASSET ERROR:",
                 repr(exc),
                 "FILE:",
-                file_path,
+                normalized_path,
+                "URL:",
+                str(request.url),
             )
 
             raise HTTPException(

@@ -10,6 +10,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "boto3>=1.40.61",
     "brevo-python>=5.0.1",
+    "cryptography>=50.0.0",
     "email-validator>=2.3.0",
     "fastapi>=0.139.2",
     "greenlet>=3.0.0",

@@ -7,10 +7,12 @@ from app.api.base_controller import BaseController
 from app.application.dto.setting import SettingUpdateDTO
 from app.application.use_case.admin.settings.get_setting_use_case import GetSettingUseCase
 from app.application.use_case.admin.settings.update_setting_use_case import UpdateSettingUseCase
+from app.core.config import settings
 from app.deps.settings import get_get_setting_use_case, get_update_setting_use_case
 from app.schemas.setting_schema import SettingResponseSchema
 import logging
 from app.core.csrf import issue_csrf_cookie
+from app.services.cloudfront_service import CloudFrontService
 from app.utils.exception_decorate import handle_api_exceptions
 
 logger = logging.getLogger(__name__)
@@ -85,6 +87,31 @@ class SettingsController(BaseController):
         response: Response,
         use_case: GetSettingUseCase = Depends(get_get_setting_use_case),
     ):
+        if (
+            settings.CLOUDFRONT_DOMAIN
+            and settings.CLOUDFRONT_KEY_PAIR_ID
+            and settings.CLOUDFRONT_PRIVATE_KEY_PATH
+        ):
+            cloudfront_service = CloudFrontService(
+                domain=settings.CLOUDFRONT_DOMAIN,
+                key_pair_id=settings.CLOUDFRONT_KEY_PAIR_ID,
+                private_key_path=settings.CLOUDFRONT_PRIVATE_KEY_PATH,
+                cookie_ttl=settings.CLOUDFRONT_COOKIE_TTL or 3600,
+            )
+            cookies = cloudfront_service.create_signed_cookies()
+            for name, value in cookies.items():
+                response.set_cookie(
+                    key=name,
+                    value=value,
+                    domain=settings.CLOUDFRONT_COOKIE_DOMAIN,
+                    secure=settings.SECURE_COOKIES,
+                    httponly=True,
+                    samesite=settings.cookie_samesite,
+                    max_age=settings.CLOUDFRONT_COOKIE_TTL or 3600,
+                    path="/",
+                )
+        else:
+            logger.info("CloudFront signing skipped because configuration is incomplete")
         issue_csrf_cookie(response)  # issue CSRF token on successful login
         result = await use_case.execute()
         return self.build_response(

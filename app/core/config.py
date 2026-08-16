@@ -90,7 +90,13 @@ class Settings(BaseSettings):
     # Brevo
     BREVO_API_KEY: Optional[str] = None
 
-    
+    CLOUDFRONT_DOMAIN: Optional[str] = None
+    CLOUDFRONT_KEY_PAIR_ID: Optional[str] = None
+    CLOUDFRONT_PRIVATE_KEY_PATH: Optional[str] = None
+    CLOUDFRONT_COOKIE_DOMAIN: Optional[str]  = ".tashihomes.in"
+    CLOUDFRONT_COOKIE_TTL: Optional[int]  = 3600
+
+
     @property
     def allowed_hosts(self) -> List[str]:
         if not self.ALLOWED_HOSTS:
