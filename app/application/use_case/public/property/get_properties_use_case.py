@@ -58,7 +58,7 @@ class PublicPropertiesUseCase(BaseUseCase, PropertySerializerMixin):
             else:
                 filters.append({"name": "is_featured", "value": False})
         
-        print(f"Filters applied: {filters}")  # Debugging line to check filters
+          # Debugging line to check filters
         properties_page = await self.property_service.list(
                 page=params.page,
                 page_size=params.size,

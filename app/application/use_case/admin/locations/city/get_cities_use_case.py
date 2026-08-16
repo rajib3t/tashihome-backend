@@ -4,7 +4,6 @@ from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.city_model import City, CityStatus
 from app.repositories.base_repository import Page
-from app.schemas.city_schema import CitySchema
 from app.services.city_service import CityService
 from app.services.country_service import CountryService
 from app.services.storage_service import StorageService
@@ -65,10 +64,10 @@ class GetCitiesUseCase(BaseUseCase):
 
         items = []
         for city in cities.items:
-            city_schema = CitySchema.model_validate(city, from_attributes=True)
-            if city_schema.image_url:
-                city_schema.image_url = await self.storage_service.generate_presigned_url(city_schema.image_url)
-            items.append(city_schema)
+        
+            if city.image_url:
+                city.image_url = await self.storage_service.get_display_url(city.image_url)
+            items.append(city)
 
         cities.items = items
         return cities
