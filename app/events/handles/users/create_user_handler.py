@@ -1,7 +1,9 @@
+import asyncio
 import logging
 from typing import Any
 from app.deps.service import get_email_service, get_storage_service
 from app.deps.service import get_email_template_service
+from app.services.email_service import BrevoEmailService
 from app.models.token_model import TokenType
 from app.core.security import TokenManager
 from app.core.config import settings
@@ -16,6 +18,19 @@ from datetime import datetime
 from datetime import date
 
 logger = logging.getLogger(__name__)
+
+BREVO_FIRST_NAME_ATTRIBUTE = "FIRSTNAME"
+BREVO_LAST_NAME_ATTRIBUTE = "LASTNAME"
+
+
+def split_full_name(full_name: str) -> tuple[str, str]:
+    parts = [part for part in full_name.strip().split() if part]
+    if not parts:
+        return "User", ""
+    if len(parts) == 1:
+        return parts[0], ""
+    return parts[0], " ".join(parts[1:])
+
 class CreateUserHandler:
     @staticmethod
     async def handle(payload: dict[str, Any]) -> None:
@@ -95,3 +110,24 @@ class CreateUserHandler:
                     exc,
                     exc_info=True,
                 )
+
+            if settings.EMAIL_PROVIDER.lower() == "brevo" and payload.get("is_subscribed"):
+                try:
+                    if isinstance(email_service, BrevoEmailService):
+                        first_name, last_name = split_full_name(username)
+                        await asyncio.to_thread(
+                            email_service.create_contact,
+                            email,
+                            attributes={
+                                BREVO_FIRST_NAME_ATTRIBUTE: first_name,
+                                BREVO_LAST_NAME_ATTRIBUTE: last_name,
+                            },
+                        )
+                        logger.info("Brevo contact created for subscribed user %s", email)
+                except Exception as exc:
+                    logger.error(
+                        "Failed to create Brevo contact for %s: %s",
+                        email,
+                        exc,
+                        exc_info=True,
+                    )

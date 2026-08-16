@@ -2,8 +2,12 @@ import logging
 import smtplib
 from email.message import EmailMessage
 import asyncio
-import httpx
-from brevo import transactional_emails
+from brevo import AsyncBrevo, Brevo
+
+from brevo.transactional_emails import (
+    SendTransacEmailRequestSender,
+    SendTransacEmailRequestToItem,
+)
 from mailgun.client import Client
 from typing import Optional, List, Sequence, Union
 from dataclasses import dataclass
@@ -266,11 +270,73 @@ class MailgunEmailService(BaseEmailService):
 
 
 class BrevoEmailService(BaseEmailService):
-    BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
-
     def __init__(self, api_key: str, from_email: Optional[str], from_name: Optional[str]):
         super().__init__(from_email, from_name)
         self.api_key = api_key
+
+    async def _send_email_async(
+        self,
+        to_email: str,
+        subject: str,
+        text: str,
+        html: Optional[str] = None,
+        cc: Optional[List[str]] = None,
+        bcc: Optional[List[str]] = None,
+    ) -> None:
+        client = AsyncBrevo(api_key=self.api_key)
+        payload = {
+            "sender": SendTransacEmailRequestSender(
+                email=self.from_email,
+                name=self.from_name,
+            ),
+            "to": [
+                SendTransacEmailRequestToItem(
+                    email=to_email,
+                )
+            ],
+            "subject": subject,
+            "text_content": text,
+        }
+
+        if html:
+            payload["html_content"] = html
+        if cc:
+            payload["cc"] = [
+                SendTransacEmailRequestToItem(email=address)
+                for address in cc
+            ]
+        if bcc:
+            payload["bcc"] = [
+                SendTransacEmailRequestToItem(email=address)
+                for address in bcc
+            ]
+
+        await client.transactional_emails.send_transac_email(
+            **payload,
+        )
+        logger.info("Brevo email sent to %s", to_email)
+
+    def create_contact(
+        self,
+        email: str,
+        *,
+        attributes: Optional[dict] = None,
+        list_ids: Optional[List[int]] = None,
+        update_enabled: bool = True,
+    ):
+        client = Brevo(api_key=self.api_key)
+        payload = {
+            "email": email,
+            "update_enabled": update_enabled,
+        }
+        if attributes:
+            payload["attributes"] = attributes
+        if list_ids:
+            payload["list_ids"] = list_ids
+
+        result = client.contacts.create_contact(**payload)
+        logger.info("Brevo contact created/updated for %s", email)
+        return result
 
     def _send_email_sync(
         self,
@@ -281,31 +347,29 @@ class BrevoEmailService(BaseEmailService):
         cc: Optional[List[str]] = None,
         bcc: Optional[List[str]] = None
     ):
-        payload = transactional_emails.SendTransacEmailRequestToItem(email=to_email)
-        sender = transactional_emails.SendTransacEmailRequestSender(
-            name=self.from_name, email=self.from_email
-        )
-        body = {
-            "sender": sender.model_dump(),
-            "to": [payload.model_dump()],
-            "subject": subject,
-            "textContent": text
-        }
-        if html:
-            body["htmlContent"] = html
-        if cc:
-            body["cc"] = [{"email": addr} for addr in cc]
-        if bcc:
-            body["bcc"] = [{"email": addr} for addr in bcc]
-
         try:
-            with httpx.Client() as client:
-                response = client.post(
-                    self.BREVO_API_URL,
-                    json=body,
-                    headers={"api-key": self.api_key, "Content-Type": "application/json"}
+            asyncio.run(
+                self._send_email_async(
+                    to_email=to_email,
+                    subject=subject,
+                    text=text,
+                    html=html,
+                    cc=cc,
+                    bcc=bcc,
                 )
-                response.raise_for_status()
-                print(f"Brevo success dispatch to {to_email}")
-        except Exception as e:
-            print(f"Brevo error to {to_email}: {e}")
+            )
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(
+                    self._send_email_async(
+                        to_email=to_email,
+                        subject=subject,
+                        text=text,
+                        html=html,
+                        cc=cc,
+                        bcc=bcc,
+                    )
+                )
+            finally:
+                loop.close()

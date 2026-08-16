@@ -34,6 +34,8 @@ class RegisterUseCase:
                 error_code="PHONE_ALREADY_EXISTS",
                 field="phone",
             )
+
+       
         payload = User(
             full_name=data.full_name,
             email=data.email,
@@ -41,6 +43,8 @@ class RegisterUseCase:
             password= await self.password_hasher.hash_password(data.password),  # Hash the password before storing
             role=UserRole.USER,  # Assuming you have a UserStatus enum for roles
             status=UserStatus.INACTIVE,  # Assuming you have a UserStatus enum for status
+            is_subscribed = data.is_subscriber,
+            is_terms_accepted=data.is_terms_accept
         )
 
         user = await self.user_service.create_user(payload)

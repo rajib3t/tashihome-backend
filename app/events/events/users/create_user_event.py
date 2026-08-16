@@ -10,5 +10,6 @@ class CreateUserEvent(DomainEvent):
             "full_name": user.full_name,
             "email": user.email,
             "phone": user.phone,
+            "is_subscribed":user.is_subscribed
         }
         super().__init__(name="user.created", payload=payload)
