@@ -3,6 +3,7 @@ from urllib.parse import unquote, urlparse
 from fastapi import APIRouter, HTTPException, Response, Request
 
 from app.api.base_controller import BaseController
+from app.core.config import settings
 from app.services.storage_service import StorageService
 
 
@@ -16,7 +17,8 @@ class AssetRoute(BaseController):
 
         self.storage_service = StorageService()
 
-        self._register_routes()
+        if getattr(settings, "ENV", "").lower() == "development":
+            self._register_routes()
 
     def _register_routes(self):
         routes = [
@@ -41,6 +43,12 @@ class AssetRoute(BaseController):
         request: Request,
         file_path: str,
     ):
+        if getattr(settings, "ENV", "").lower() != "development":
+            raise HTTPException(
+                status_code=404,
+                detail="Asset endpoint is only available in development",
+            )
+
         normalized_path = unquote(file_path).lstrip("/")
         parsed = urlparse(normalized_path)
         if parsed.scheme and parsed.netloc:
