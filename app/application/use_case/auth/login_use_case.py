@@ -42,7 +42,7 @@ class LoginUseCase:
         if user.status != UserStatus.ACTIVE:
             raise AppException(
                 status_code=403, 
-                message="User account is not active.",
+                message="Your account is currently inactive. Please check your email to complete the verification process. If you have already verified your email and are still experiencing this issue, kindly reach out to our support team for assistance.",
                 error_code="USER_INACTIVE"
             )
 

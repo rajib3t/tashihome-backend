@@ -1,3 +1,5 @@
+from app.deps.auth import get_active_account_use_case
+from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase
 import logging
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -42,12 +44,19 @@ class AuthController(BaseController):
                 "route_kwargs": {"response_model": RegisterResponse, "response_model_by_alias": False, "status_code": 201},
             },
             ("post", "/logout", self.logout, {"response_model": dict}),  # protect state-changing route
+            (
+                "post", "/activate-account/{token}", self._active_account,
+                {
+                    "response_model": dict
+                }
+            )
         ]
         for route in routes:
             if isinstance(route, dict):
                 method = route["post"]
                 handler = route["handler"]
                 route_kwargs = route.get("route_kwargs", {})
+                # pyrefly: ignore [bad-unpacking]
                 self.router.add_api_route(f"/{method}", handler, methods=["POST"], **route_kwargs)
             else:
                 method, path, handler, route_kwargs = route
@@ -144,6 +153,16 @@ class AuthController(BaseController):
         response.delete_cookie("csrf_token")  # Clear CSRF token cookie if used
         user_logged_out = await use_case.execute()
         return self.build_response(message="Logout successful", data=None)
+
+
+    @handle_api_exceptions
+    async def _active_account(
+        self,
+        token:str,
+        use_case: ActiveAccountUseCase = Depends(get_active_account_use_case)
+    ): 
+        user_data = await use_case.execute(token)
+        return self.build_response("Account activated successfully", user_data)
 
 controller = AuthController()
 router = controller.router

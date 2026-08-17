@@ -1,3 +1,5 @@
+from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase
+from app.core.events import EventBus
 from dataclasses import dataclass
 import logging
 import uuid
@@ -184,3 +186,10 @@ async def get_register_use_case(
     
 
     return RegisterUseCase(user_service, event_bus, verify_csrf)
+
+async def get_active_account_use_case(
+    user_service: UserService = Depends(get_user_service),
+    token_service: TokenService = Depends(get_token_service),
+    verify_csrf = Depends(verify_csrf),    
+) -> ActiveAccountUseCase:
+    return ActiveAccountUseCase(user_service, token_service, verify_csrf)
