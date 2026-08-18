@@ -38,31 +38,54 @@ class Application:
         try:
             await redis_client.connect()
             app.state.redis = redis_client
-            # Only start event subscriber in the first worker to avoid duplicate email sending
-            # Check if we're running in a multi-worker environment
-            import os
-            worker_id = os.environ.get("WORKER_ID", "0")
-            if worker_id == "0":
+            
+            # Leader election to ensure only one worker runs the event subscriber
+            # This prevents duplicate email sends in multi-worker deployments
+            leader_key = "event_subscriber_leader"
+            worker_id = f"worker_{id(app)}"
+            
+            # Try to acquire leadership with a 30 second TTL
+            is_leader = await redis_client.client.set(
+                leader_key, 
+                worker_id, 
+                nx=True, 
+                ex=30
+            )
+            
+            if is_leader:
+                logger.info("Worker %s acquired leadership for event subscriber", worker_id)
                 app.state.redis_event_subscriber_task = asyncio.create_task(start_event_subscriber())
-                logger.info("Event subscriber started in worker %s", worker_id)
+                # Start a background task to renew leadership every 20 seconds
+                async def renew_leadership():
+                    while True:
+                        await asyncio.sleep(20)
+                        await redis_client.client.expire(leader_key, 30)
+                
+                app.state.leadership_renewal_task = asyncio.create_task(renew_leadership())
             else:
-                logger.info("Event subscriber skipped in worker %s (only worker 0 runs it)", worker_id)
+                logger.info("Worker %s is not the leader, skipping event subscriber", worker_id)
+                app.state.redis_event_subscriber_task = None
         except Exception:
             logger.warning("Redis connection could not be established at startup")
 
 
         yield
 
-
+        if hasattr(app.state, "leadership_renewal_task") and app.state.leadership_renewal_task is not None:
+            task = app.state.leadership_renewal_task
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        
         if hasattr(app.state, "redis_event_subscriber_task") and app.state.redis_event_subscriber_task is not None:
             task = app.state.redis_event_subscriber_task
             task.cancel()
             try:
                 await task
             except asyncio.CancelledError:
-                logger.info("Event subscriber task cancelled")
-            except Exception as e:
-                logger.error("Error cancelling event subscriber task: %s", e)
+                pass
 
         if hasattr(app.state, "db") and app.state.db is not None:
             await app.state.db.disconnect()
