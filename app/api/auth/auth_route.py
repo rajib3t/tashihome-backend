@@ -1,5 +1,6 @@
-from app.deps.auth import get_forgot_password_use_case
+from app.deps.auth import get_forgot_password_use_case, get_reset_password_use_case
 from app.application.use_case.auth.forgot_password_use_case import ForgotPasswordUseCase
+from app.application.use_case.auth.reset_password_use_case import ResetPasswordUseCase
 from app.deps.auth import get_active_account_use_case
 from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase
 import logging
@@ -7,7 +8,7 @@ import logging
 from fastapi import APIRouter, Depends, Request, Response
 
 from app.api.base_controller import BaseController
-from app.application.dto.auth import AuthDTO, RegisterDTO, ForgotPasswordDTO
+from app.application.dto.auth import AuthDTO, RegisterDTO, ForgotPasswordDTO, ResetPasswordDTO
 from app.application.use_case.auth.login_use_case import LoginUseCase
 from app.application.use_case.auth.logout_use_case import LogoutUseCase
 from app.application.use_case.auth.refresh_token_use_case import RefreshTokenUseCase
@@ -55,6 +56,12 @@ class AuthController(BaseController):
             ),
             (
                 "post", "/forgot-password", self._forgot_password, 
+                {
+                    "response_model": dict
+                }
+            ),
+            (
+                "post", "/reset-password", self._reset_password,
                 {
                     "response_model": dict
                 }
@@ -183,5 +190,15 @@ class AuthController(BaseController):
         await use_case.execute(data)
         return self.build_response("Password reset email sent successfully")    
 
+
+    @handle_api_exceptions
+    async def _reset_password(
+        self,
+        request: Request,
+        data:ResetPasswordDTO,
+        use_case: ResetPasswordUseCase = Depends(get_reset_password_use_case)
+    ):
+        await use_case.execute(data, request)
+        return self.build_response("Password reset successfully")
 controller = AuthController()
 router = controller.router

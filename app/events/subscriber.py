@@ -1,6 +1,7 @@
 from app.events.handles.users.forgot_password_handler import ForgotPasswordHandler
 from app.events.handles.users.create_user_handler import CreateUserHandler
 from app.events.handles.users.create_vendor_handler import CreateVendorHandler
+from app.events.handles.users.password_reset_handle import ResetPasswordHandler
 import asyncio
 import json
 import logging
@@ -16,6 +17,7 @@ HANDLERS: dict[str, EventHandler] = {
    "user.vendor.created": CreateVendorHandler.handle,
    "user.created": CreateUserHandler.handle,
    "user.forgot_password": ForgotPasswordHandler.handle,
+   "user.reset_password": ResetPasswordHandler.handle,
 }
 
 

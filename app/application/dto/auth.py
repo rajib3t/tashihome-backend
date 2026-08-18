@@ -147,3 +147,86 @@ class ForgotPasswordDTO(BaseModel):
             )
 
         return email
+
+
+class ResetPasswordDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: str
+    password: str
+    confirm_password: str
+
+    @field_validator("token", mode="before")
+    @classmethod
+    def token_validator(cls, value: str):
+        if not isinstance(value, str):
+            raise AppException(
+                status_code=422,
+                message="Token must be a string.",
+                field="token",
+                error_code="TOKEN_INVALID",
+            )
+        if not value.strip():
+            raise AppException(
+                status_code=422,
+                message="Token cannot be empty.",
+                field="token",
+                error_code="TOKEN_EMPTY",
+            )
+        return value.strip()
+    
+    @field_validator("password", mode="before")
+    @classmethod
+    def password_validator(cls, value: str):
+        if not isinstance(value, str):
+            raise AppException(
+                status_code=422,
+                message="Password must be a string.",
+                field="password",
+                error_code="PASSWORD_INVALID",
+            )
+        if not value.strip():
+            raise AppException(
+                status_code=422,
+                message="Password cannot be empty.",
+                field="password",
+                error_code="PASSWORD_EMPTY",
+            )
+        if len(value.strip()) < 8:
+            raise AppException(
+                status_code=422,
+                message="Password must be at least 8 characters long.",
+                field="password",
+                error_code="PASSWORD_TOO_SHORT",
+            )
+        return value.strip()
+    
+    @field_validator("confirm_password", mode="before")
+    @classmethod
+    def confirm_password_validator(cls, value: str):
+        if not isinstance(value, str):
+            raise AppException(
+                status_code=422,
+                message="Confirm password must be a string.",
+                field="confirm_password",
+                error_code="CONFIRM_PASSWORD_INVALID",
+            )
+        if not value.strip():
+            raise AppException(
+                status_code=422,
+                message="Confirm password cannot be empty.",
+                field="confirm_password",
+                error_code="CONFIRM_PASSWORD_EMPTY",
+            )
+        return value.strip()
+    
+    @model_validator(mode="after")
+    def check_passwords_match(self) -> "ResetPasswordDTO":
+        if self.password != self.confirm_password:
+            raise AppException(
+                status_code=422,
+                message="Passwords do not match.",
+                field="confirm_password",
+                error_code="PASSWORDS_MISMATCH",
+            )
+        return self
