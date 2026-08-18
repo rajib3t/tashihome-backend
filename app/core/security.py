@@ -100,7 +100,7 @@ class TokenManager:
         to_encode.update({"iat": now, "exp": expire, "type": TokenType.ACCOUNT_ACTIVATION})
         return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
 
-    async def generate_reset_token(self, public_id: int, expires_at: datetime) -> str:
+    async def generate_reset_token(self, public_id: str, expires_at: datetime) -> str:
         to_encode = await self._normalize_claims({"sub": public_id})
         expire = expires_at
         to_encode.update({"iat": datetime.now(timezone.utc), "exp": expire, "type": TokenType.PASSWORD_RESET})

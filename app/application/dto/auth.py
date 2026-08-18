@@ -111,3 +111,39 @@ class RegisterDTO(BaseModel):
     
    
     
+
+class ForgotPasswordDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def email_validator(cls, value):
+        if not isinstance(value, str):
+            raise AppException(
+                status_code=422,
+                message="Email must be a string.",
+                field="email",
+                error_code="EMAIL_INVALID",
+            )
+
+        email = value.strip().lower()
+
+        if not email:
+            raise AppException(
+                status_code=422,
+                message="Email cannot be empty.",
+                field="email",
+                error_code="EMAIL_EMPTY",
+            )
+
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+            raise AppException(
+                status_code=422,
+                message="Invalid email format.",
+                field="email",
+                error_code="EMAIL_INVALID",
+            )
+
+        return email

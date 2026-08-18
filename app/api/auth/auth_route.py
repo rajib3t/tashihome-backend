@@ -1,3 +1,5 @@
+from app.deps.auth import get_forgot_password_use_case
+from app.application.use_case.auth.forgot_password_use_case import ForgotPasswordUseCase
 from app.deps.auth import get_active_account_use_case
 from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase
 import logging
@@ -5,7 +7,7 @@ import logging
 from fastapi import APIRouter, Depends, Request, Response
 
 from app.api.base_controller import BaseController
-from app.application.dto.auth import AuthDTO, RegisterDTO
+from app.application.dto.auth import AuthDTO, RegisterDTO, ForgotPasswordDTO
 from app.application.use_case.auth.login_use_case import LoginUseCase
 from app.application.use_case.auth.logout_use_case import LogoutUseCase
 from app.application.use_case.auth.refresh_token_use_case import RefreshTokenUseCase
@@ -17,6 +19,7 @@ from app.schemas.auth_schema import LoginResponse, LoginResponseData, RefreshTok
 from app.schemas.token_schema import AccessTokenSchema
 from app.utils.exception_decorate import handle_api_exceptions
 from app.application.use_case.auth.register_use_case import RegisterUseCase
+
 logger = logging.getLogger(__name__)
 
 class AuthController(BaseController):
@@ -46,6 +49,12 @@ class AuthController(BaseController):
             ("post", "/logout", self.logout, {"response_model": dict}),  # protect state-changing route
             (
                 "post", "/activate-account/{token}", self._active_account,
+                {
+                    "response_model": dict
+                }
+            ),
+            (
+                "post", "/forgot-password", self._forgot_password, 
                 {
                     "response_model": dict
                 }
@@ -163,6 +172,16 @@ class AuthController(BaseController):
     ): 
         user_data = await use_case.execute(token)
         return self.build_response("Account activated successfully", user_data)
+
+    
+    @handle_api_exceptions
+    async def _forgot_password(
+        self,
+        data:ForgotPasswordDTO,
+        use_case: ForgotPasswordUseCase = Depends(get_forgot_password_use_case)
+    ):
+        await use_case.execute(data)
+        return self.build_response("Password reset email sent successfully")    
 
 controller = AuthController()
 router = controller.router

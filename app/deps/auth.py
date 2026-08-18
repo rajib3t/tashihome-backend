@@ -1,3 +1,4 @@
+from app.application.use_case.auth.forgot_password_use_case import ForgotPasswordUseCase
 from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase
 from app.core.events import EventBus
 from dataclasses import dataclass
@@ -193,3 +194,11 @@ async def get_active_account_use_case(
     verify_csrf = Depends(verify_csrf),    
 ) -> ActiveAccountUseCase:
     return ActiveAccountUseCase(user_service, token_service, verify_csrf)
+
+async def get_forgot_password_use_case(
+    user_service: UserService = Depends(get_user_service),
+    token_service: TokenService = Depends(get_token_service),
+    event_bus: EventBus = Depends(get_event_bus),
+    verify_csrf = Depends(verify_csrf),
+) -> ForgotPasswordUseCase:
+    return ForgotPasswordUseCase(user_service, token_service, event_bus, verify_csrf)
