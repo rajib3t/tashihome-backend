@@ -46,14 +46,14 @@ class ForgotPasswordHandler:
             values = {
                 "logo_url": logo_url,
                 "full_name": username,
-                "activation_url": active_link,
-                "expires_in": settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS,
+                "reset_url": active_link,
+                "expires_in": settings.RESET_PASSWORD_TOKEN_EXPIRE_MINUTES,
                 "app_name": app_name,
                 "year": current_year,
             }
             email_template_service = await get_email_template_service()
             html_content = await email_template_service.render_template(
-                "forgot_password_email",
+                "forgot_password",
                 values,
                 strict=True,
             )
