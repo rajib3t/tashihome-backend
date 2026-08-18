@@ -38,7 +38,15 @@ class Application:
         try:
             await redis_client.connect()
             app.state.redis = redis_client
-            app.state.redis_event_subscriber_task = asyncio.create_task(start_event_subscriber())
+            # Only start event subscriber in the first worker to avoid duplicate email sending
+            # Check if we're running in a multi-worker environment
+            import os
+            worker_id = os.environ.get("WORKER_ID", "0")
+            if worker_id == "0":
+                app.state.redis_event_subscriber_task = asyncio.create_task(start_event_subscriber())
+                logger.info("Event subscriber started in worker %s", worker_id)
+            else:
+                logger.info("Event subscriber skipped in worker %s (only worker 0 runs it)", worker_id)
         except Exception:
             logger.warning("Redis connection could not be established at startup")
 
@@ -52,7 +60,9 @@ class Application:
             try:
                 await task
             except asyncio.CancelledError:
-                pass
+                logger.info("Event subscriber task cancelled")
+            except Exception as e:
+                logger.error("Error cancelling event subscriber task: %s", e)
 
         if hasattr(app.state, "db") and app.state.db is not None:
             await app.state.db.disconnect()
