@@ -1,8 +1,13 @@
-from app.deps.auth import get_forgot_password_use_case, get_reset_password_use_case
+from app.deps.auth import (
+    get_check_reset_password_token_use_case,
+    get_forgot_password_use_case,
+    get_get_active_account_use_case,
+    get_reset_password_use_case,
+)
 from app.application.use_case.auth.forgot_password_use_case import ForgotPasswordUseCase
-from app.application.use_case.auth.reset_password_use_case import ResetPasswordUseCase
+from app.application.use_case.auth.reset_password_use_case import CheckResetPasswordTokenUseCase, ResetPasswordUseCase
 from app.deps.auth import get_active_account_use_case
-from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase
+from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase, GetActiveAccountUseCase
 import logging
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -55,6 +60,12 @@ class AuthController(BaseController):
                 }
             ),
             (
+                "get", "/check-active-account/{token}", self._get_check_active_account,
+                {
+                    "response_model": dict
+                }
+            ),
+            (
                 "post", "/forgot-password", self._forgot_password, 
                 {
                     "response_model": dict
@@ -65,7 +76,13 @@ class AuthController(BaseController):
                 {
                     "response_model": dict
                 }
-            )
+            ),
+            (
+                "get", "/check-reset-password-token/{token}", self._check_reset_password_token,
+                {
+                    "response_model": dict
+                }
+            ),
         ]
         for route in routes:
             if isinstance(route, dict):
@@ -180,6 +197,14 @@ class AuthController(BaseController):
         user_data = await use_case.execute(token)
         return self.build_response("Account activated successfully", user_data)
 
+    @handle_api_exceptions
+    async def _get_check_active_account(
+        self,
+        token:str,
+        use_case: GetActiveAccountUseCase = Depends(get_get_active_account_use_case)
+    ): 
+        user_data = await use_case.execute(token)
+        return self.build_response("Account is active", user_data)
     
     @handle_api_exceptions
     async def _forgot_password(
@@ -190,6 +215,15 @@ class AuthController(BaseController):
         await use_case.execute(data)
         return self.build_response("Password reset email sent successfully")    
 
+    @handle_api_exceptions
+    async def _check_reset_password_token(
+        self,
+        token:str,
+        use_case: CheckResetPasswordTokenUseCase = Depends(get_check_reset_password_token_use_case),
+    ):
+        is_valid = await use_case.execute(token)
+        message = "Token is valid" if is_valid else "Token is invalid or expired"
+        return self.build_response(message, {"is_valid": is_valid})
 
     @handle_api_exceptions
     async def _reset_password(

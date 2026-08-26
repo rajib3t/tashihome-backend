@@ -116,3 +116,103 @@ class ActiveAccountUseCase:
                 "email": user.email,
             },
         }
+
+
+class GetActiveAccountUseCase:
+    def __init__(
+        self,
+        user_service: UserService,
+        token_service: TokenService,
+        verify_csrf: bool,
+    ):
+        self.user_service = user_service
+        self.token_service = token_service
+        self.verify_csrf = verify_csrf
+        self.token_manager = TokenManager()
+
+    async def execute(self, token: str) -> Optional[dict]:
+        # Activation revokes its persisted token. For this frontend status check,
+        # use the signed JWT's public user ID rather than that revoked record.
+        token_data = await self.token_manager.decode_token(token)
+        if token_data.get("type") != TokenType.ACCOUNT_ACTIVATION:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Invalid token type.",
+                error_code="INVALID_TOKEN_TYPE",
+                field="token",
+            )
+
+        public_id = token_data.get("sub")
+        if not public_id:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Token does not contain a user identifier.",
+                error_code="INVALID_TOKEN",
+                field="token",
+            )
+
+        user = await self.user_service.get_user_by_public_id(public_id)
+        if not user:
+            raise AppException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="User not found.",
+                field="user",
+                error_code="USER_NOT_FOUND",
+            )
+        
+        # An activated account can be reported immediately. Its activation token
+        # is expected to be revoked by the activation endpoint.
+        if user.status == UserStatus.ACTIVE:
+            return {
+                "user": {
+                    "id": user.public_id,
+                    "name": user.full_name,
+                    "email": user.email,
+                },
+            }
+
+        # For inactive accounts, verify that this is still a usable activation
+        # token before allowing the frontend to continue the activation flow.
+        token_obj = await self.token_service.get_by_token(token, flush=True)
+        if not token_obj:
+            raise AppException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Token not found.",
+                field="token",
+                error_code="TOKEN_NOT_FOUND",
+            )
+
+        if token_obj.type != TokenType.ACCOUNT_ACTIVATION:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Invalid token type.",
+                error_code="INVALID_TOKEN_TYPE",
+                field="token",
+            )
+
+        if token_obj.is_revoked:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Account activation token has been revoked",
+                error_code="REVOKED_ACCOUNT_ACTIVATION_TOKEN",
+                field="token",
+            )
+
+        expires_at = token_obj.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Account activation token has expired",
+                error_code="EXPIRED_ACCOUNT_ACTIVATION_TOKEN",
+                field="token",
+            )
+
+        return {
+            "user": {
+                "id": user.public_id,
+                "name": user.full_name,
+                "email": user.email,
+            },
+        }

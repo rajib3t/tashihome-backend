@@ -147,3 +147,63 @@ class ResetPasswordUseCase:
                 "full_name": user.full_name,
             },
         }
+
+class CheckResetPasswordTokenUseCase:
+    def __init__(
+            self, 
+            token_service: TokenService,
+            verify_csrf: bool,
+        ):
+        self.token_service = token_service
+        self.verify_csrf = verify_csrf
+        self.token_manager = TokenManager()
+
+    async def execute(self, token_str: str) -> bool:
+        # Validate and decode JWT token signature and expiry
+        decoded_token = await self.token_manager.decode_token(token_str)
+        if decoded_token.get("type") != TokenType.PASSWORD_RESET:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Invalid token type",
+                error_code="INVALID_TOKEN_TYPE",
+                field="token",
+            )
+
+        token = await self.token_service.get_by_token(token_str)
+        if not token:
+            raise AppException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Token not found",
+                error_code="TOKEN_NOT_FOUND",
+                field="token",
+            )
+
+        if token.type != TokenType.PASSWORD_RESET:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Invalid token type",
+                error_code="INVALID_TOKEN_TYPE",
+                field="token",
+            )
+
+        if token.is_revoked:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Password reset token has been revoked",
+                error_code="REVOKED_PASSWORD_RESET_TOKEN",
+                field="token",
+            )
+
+        expires_at = token.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        if expires_at < datetime.now(timezone.utc):
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Token has expired",
+                error_code="TOKEN_EXPIRED",
+                field="token",
+            )
+
+        return True
