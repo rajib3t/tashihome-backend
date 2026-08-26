@@ -193,7 +193,7 @@ class AuthController(BaseController):
         use_case: GetActiveAccountUseCase = Depends(get_get_active_account_use_case)
     ): 
         user_data = await use_case.execute(token)
-        return self.build_response("Account is no active", user_data)
+        return self.build_response("Account is active", user_data)
     
     @handle_api_exceptions
     async def _forgot_password(
