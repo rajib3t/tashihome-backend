@@ -22,19 +22,30 @@ class UpdateSettingUseCase(BaseUseCase):
 
     FILE_UPLOAD_RULES = {
         "app_logo": {
-            "allowed_prefixes": ("image/",),
+            "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"),
             "max_size_bytes": 2 * 1024 * 1024,
         },
         "white_logo": {
-            "allowed_prefixes": ("image/",),
+            "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"),
             "max_size_bytes": 2 * 1024 * 1024,
         },
         "app_favicon": {
-            "allowed_prefixes": ("image/",),
+            "allowed_prefixes": (
+                "image/png",
+                "image/x-icon",
+                "image/ico",
+                "image/icon",
+                "image/vnd.microsoft.icon",
+                "image/x-ico",
+                "image/svg+xml",
+                "image/jpeg",
+                "image/jpg",
+                "image/webp",
+            ),
             "max_size_bytes": 1 * 1024 * 1024,
         },
         "coming_background_image": {
-            "allowed_prefixes": ("image/",),
+            "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg", "image/webp"),
             "max_size_bytes": 4 * 1024 * 1024,
         },
         "coming_soon_video": {

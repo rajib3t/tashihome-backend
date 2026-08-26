@@ -19,6 +19,26 @@ DATA_URL_PATTERN = re.compile(
 )
 
 
+mimetypes.add_type("image/x-icon", ".ico")
+mimetypes.add_type("image/vnd.microsoft.icon", ".ico")
+mimetypes.add_type("image/ico", ".ico")
+mimetypes.add_type("image/icon", ".ico")
+mimetypes.add_type("image/x-ico", ".ico")
+
+KNOWN_MIME_EXTENSIONS = {
+    "image/x-icon": ".ico",
+    "image/vnd.microsoft.icon": ".ico",
+    "image/ico": ".ico",
+    "image/icon": ".ico",
+    "image/x-ico": ".ico",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/webp": ".webp",
+    "image/svg+xml": ".svg",
+}
+
+
 def validate_data_url_file(data_url: str, *, allowed_prefixes: Optional[tuple[str, ...]] = None) -> DataUrlFile:
     if not data_url or not isinstance(data_url, str):
         raise AppException(
@@ -56,5 +76,12 @@ def validate_data_url_file(data_url: str, *, allowed_prefixes: Optional[tuple[st
             field="file",
         ) from exc
 
-    extension = mimetypes.guess_extension(mime_type) or f".{mime_type.split('/')[-1]}"
+    extension = (
+        KNOWN_MIME_EXTENSIONS.get(mime_type)
+        or mimetypes.guess_extension(mime_type)
+        or f".{mime_type.split('/')[-1]}"
+    )
+    if extension == ".cur" and ("icon" in mime_type or "ico" in mime_type):
+        extension = ".ico"
+
     return DataUrlFile(raw=raw, mime_type=mime_type, extension=extension)
