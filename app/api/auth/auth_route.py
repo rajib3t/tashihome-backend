@@ -1,8 +1,8 @@
-from app.deps.auth import get_forgot_password_use_case, get_reset_password_use_case
+from app.deps.auth import get_forgot_password_use_case, get_get_active_account_use_case, get_reset_password_use_case
 from app.application.use_case.auth.forgot_password_use_case import ForgotPasswordUseCase
 from app.application.use_case.auth.reset_password_use_case import ResetPasswordUseCase
 from app.deps.auth import get_active_account_use_case
-from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase
+from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase, GetActiveAccountUseCase
 import logging
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -50,6 +50,12 @@ class AuthController(BaseController):
             ("post", "/logout", self.logout, {"response_model": dict}),  # protect state-changing route
             (
                 "post", "/activate-account/{token}", self._active_account,
+                {
+                    "response_model": dict
+                }
+            ),
+            (
+                "get", "/check-active-account/{token}", self._get_check_active_account,
                 {
                     "response_model": dict
                 }
@@ -180,6 +186,14 @@ class AuthController(BaseController):
         user_data = await use_case.execute(token)
         return self.build_response("Account activated successfully", user_data)
 
+    @handle_api_exceptions
+    async def _get_check_active_account(
+        self,
+        token:str,
+        use_case: GetActiveAccountUseCase = Depends(get_get_active_account_use_case)
+    ): 
+        user_data = await use_case.execute(token)
+        return self.build_response("Account is no active", user_data)
     
     @handle_api_exceptions
     async def _forgot_password(

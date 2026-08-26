@@ -116,3 +116,90 @@ class ActiveAccountUseCase:
                 "email": user.email,
             },
         }
+
+
+class GetActiveAccountUseCase:
+    def __init__(
+        self,
+        user_service: UserService,
+        token_service: TokenService,
+        verify_csrf: bool,
+    ):
+        self.user_service = user_service
+        self.token_service = token_service
+        self.verify_csrf = verify_csrf
+        self.token_manager = TokenManager()
+
+    async def execute(self, token: str) -> Optional[dict]:
+        # Decode and validate JWT expiration and signature
+        await self.token_manager.decode_token(token)
+
+        token_obj = await self.token_service.get_by_token(token, flush=True)
+        if not token_obj:
+            raise AppException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Token not found.",
+                field="token",
+                error_code="TOKEN_NOT_FOUND",
+            )
+
+        if token_obj.type != TokenType.ACCOUNT_ACTIVATION:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Invalid token type.",
+                error_code="INVALID_TOKEN_TYPE",
+                field="token",
+            )
+
+        if token_obj.is_revoked:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Account activation token has been revoked",
+                error_code="REVOKED_ACCOUNT_ACTIVATION_TOKEN",
+                field="token",
+            )
+
+        expires_at = token_obj.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Account activation token has expired",
+                error_code="EXPIRED_ACCOUNT_ACTIVATION_TOKEN",
+                field="token",
+            )
+
+        if token_obj.user_id is None:
+            raise AppException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="User not found for verification",
+                error_code="USER_NOT_FOUND",
+                field="email",
+            )
+
+        user = await self.user_service.get_user_by_id(token_obj.user_id)
+        if not user:
+            raise AppException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="User not found.",
+                field="user",
+                error_code="USER_NOT_FOUND",
+            )
+
+        if user.status == UserStatus.ACTIVE:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="User account is already active.",
+                error_code="USER_ACCOUNT_ACTIVE",
+                field="email",
+            )             
+
+
+        return {
+            "user": {
+                "id": user.public_id,
+                "name": user.full_name,
+                "email": user.email,
+            },
+        }
