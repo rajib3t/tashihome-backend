@@ -1,5 +1,5 @@
 from app.application.use_case.auth.forgot_password_use_case import ForgotPasswordUseCase
-from app.application.use_case.auth.reset_password_use_case import ResetPasswordUseCase
+from app.application.use_case.auth.reset_password_use_case import CheckResetPasswordTokenUseCase, ResetPasswordUseCase
 from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase, GetActiveAccountUseCase
 from app.core.events import EventBus
 from dataclasses import dataclass
@@ -219,3 +219,9 @@ async def get_reset_password_use_case(
 ) -> ResetPasswordUseCase:
     return ResetPasswordUseCase(user_service, token_service, verify_csrf, event_bus, ip_service)
 
+
+async def get_check_reset_password_token_use_case(
+    token_service: TokenService = Depends(get_token_service),
+    verify_csrf = Depends(verify_csrf),
+) -> CheckResetPasswordTokenUseCase:
+    return CheckResetPasswordTokenUseCase(token_service, verify_csrf)
