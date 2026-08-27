@@ -21,7 +21,13 @@ from app.core.config import settings
 from app.core.csrf import  verify_csrf
 from app.deps.auth import get_login_use_case, get_logout_use_case, get_refresh_token_use_case, get_register_use_case
 from app.models.token_model import TokenType
-from app.schemas.auth_schema import LoginResponse, LoginResponseData, RefreshTokenResponse, RegisterResponse
+from app.schemas.auth_schema import (
+    ActiveAccountResponse,
+    LoginResponse,
+    LoginResponseData,
+    RefreshTokenResponse,
+    RegisterResponse,
+)
 from app.schemas.token_schema import AccessTokenSchema
 from app.utils.exception_decorate import handle_api_exceptions
 from app.application.use_case.auth.register_use_case import RegisterUseCase
@@ -56,13 +62,15 @@ class AuthController(BaseController):
             (
                 "post", "/activate-account/{token}", self._active_account,
                 {
-                    "response_model": dict
+                    "response_model": ActiveAccountResponse,
+                    "response_model_by_alias": False,
                 }
             ),
             (
                 "get", "/check-active-account/{token}", self._get_check_active_account,
                 {
-                    "response_model": dict
+                    "response_model": ActiveAccountResponse,
+                    "response_model_by_alias": False,
                 }
             ),
             (
@@ -204,7 +212,7 @@ class AuthController(BaseController):
         use_case: GetActiveAccountUseCase = Depends(get_get_active_account_use_case)
     ): 
         user_data = await use_case.execute(token)
-        return self.build_response("Account is active", user_data)
+        return self.build_response("Account status fetched successfully", user_data)
     
     @handle_api_exceptions
     async def _forgot_password(

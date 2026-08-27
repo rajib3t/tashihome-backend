@@ -31,3 +31,22 @@ class RegisterUserResponseData(BaseModel):
 
 class RegisterResponse(BaseResponse):
     data: RegisterUserResponseData
+
+
+class ActiveAccountUserData(BaseModel):
+    id: str
+    name: Optional[str] = None
+    full_name: Optional[str] = None
+    email: str
+    status: str
+    role: Optional[str] = None
+
+
+class ActiveAccountResponseData(BaseModel):
+    status: str
+    user: ActiveAccountUserData
+
+
+class ActiveAccountResponse(BaseResponse):
+    data: ActiveAccountResponseData
+
