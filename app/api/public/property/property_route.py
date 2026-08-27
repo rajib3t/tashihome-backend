@@ -9,8 +9,8 @@ from app.utils.exception_decorate import handle_api_exceptions
 class PublicPropertyController(BaseController):
     def __init__(self):
         self.router = APIRouter(
-            prefix="/public/properties",
-            tags=["Public Properties"],
+            prefix="/properties",
+            tags=["Public - Properties"],
         )
         self._register_routes()
 

@@ -13,9 +13,9 @@ from app.utils.exception_decorate import handle_api_exceptions
 class FacilityController(BaseController):
     def __init__(self):
         self.router = APIRouter(
-                    prefix="/facilities",
-                    tags=["Facilities"],
-                )
+            prefix="/facilities",
+            tags=["Admin - Facilities"],
+        )
         self._register_routes()
 
     def _register_routes(self):

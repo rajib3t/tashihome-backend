@@ -19,7 +19,7 @@ class LocationController(BaseController):
     def __init__(self):
         self.router = APIRouter(
             prefix="/locations",
-            tags=["Locations"],
+            tags=["Admin - Locations"],
         )
         self._register_routes()
 

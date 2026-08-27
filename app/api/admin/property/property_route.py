@@ -31,7 +31,7 @@ class PropertyController(BaseController):
     def __init__(self):
         self.router = APIRouter(
             prefix="/properties",
-            tags=["Properties"],
+            tags=["Admin - Properties"],
         )
         self._register_routes()
 

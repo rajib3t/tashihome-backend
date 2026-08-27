@@ -15,7 +15,7 @@ class AmenityController(BaseController):
     def __init__(self):
         self.router = APIRouter(
             prefix="/amenities",
-            tags=["Amenities"],
+            tags=["Admin - Amenities"],
         )
         self._register_routes()
 

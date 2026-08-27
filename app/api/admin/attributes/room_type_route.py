@@ -14,7 +14,7 @@ class RoomTypeController(BaseController):
     def __init__(self):
         self.router = APIRouter(
             prefix="/room-types",
-            tags=["Room Types"],
+            tags=["Admin - Room Types"],
         )
         self._register_routes()
 

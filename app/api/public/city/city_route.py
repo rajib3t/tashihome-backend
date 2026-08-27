@@ -10,8 +10,8 @@ from app.api.base_controller import BaseController
 class PublicCityController(BaseController):
     def __init__(self):
         self.router = APIRouter(
-            prefix="/public/cities",
-            tags=["Public Cities"],
+            prefix="/cities",
+            tags=["Public - Cities"],
         )
         self._register_routes()
 

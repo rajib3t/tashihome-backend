@@ -15,7 +15,7 @@ class CountryController(BaseController):
     def __init__(self):
         self.router = APIRouter(
             prefix="/countries",
-            tags=["Countries"],
+            tags=["Admin - Countries"],
         )
         self._register_routes()
 

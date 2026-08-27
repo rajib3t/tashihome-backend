@@ -21,7 +21,7 @@ class CityController(BaseController):
     def __init__(self):
             self.router = APIRouter(
                 prefix="/cities",
-                tags=["Cities"],
+                tags=["Admin - Cities"],
             )
             self._register_routes()
 

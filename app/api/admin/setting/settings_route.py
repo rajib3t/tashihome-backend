@@ -26,7 +26,7 @@ class SettingsController(BaseController):
 
         self.router = APIRouter(
             prefix="/settings",
-            tags=["Settings"],
+            tags=["Admin - Settings"],
         )
         self._register_routes()
 

@@ -17,7 +17,7 @@ class VendorController(BaseController):
 
         self.router = APIRouter(
             prefix="/vendors",
-            tags=["Vendors"],
+            tags=["Admin - Vendors"],
         )
         self._register_routes()
 

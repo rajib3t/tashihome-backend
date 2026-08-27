@@ -12,7 +12,7 @@ class ProfileController(BaseController):
 
         self.router = APIRouter(
             prefix="/profile",
-            tags=["Profile"],
+            tags=["User - Profile"],
         )
         self._register_routes()
 
