@@ -39,7 +39,7 @@ class Application:
         try:
             await redis_client.connect()
             app.state.redis = redis_client
-            app.state.redis_event_subscriber_task = asyncio.create_task(start_event_subscriber())
+            # Continuous leader election: ONLY the single elected leader runs start_event_subscriber
             leader_elector = RedisLeaderElector()
             await leader_elector.start(start_event_subscriber)
             app.state.leader_elector = leader_elector
@@ -49,21 +49,7 @@ class Application:
 
         yield
 
-        if hasattr(app.state, "leadership_renewal_task") and app.state.leadership_renewal_task is not None:
-            task = app.state.leadership_renewal_task
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-        
-        if hasattr(app.state, "redis_event_subscriber_task") and app.state.redis_event_subscriber_task is not None:
-            task = app.state.redis_event_subscriber_task
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+
         if hasattr(app.state, "leader_elector") and app.state.leader_elector is not None:
             await app.state.leader_elector.stop()
 

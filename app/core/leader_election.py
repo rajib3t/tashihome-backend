@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 EXTEND_LOCK_LUA = """
 if redis.call("get", KEYS[1]) == ARGV[1] then
-    return redis.call("expire", KEYS[1], ARGV[2])
+    return redis.call("expire", KEYS[1], tonumber(ARGV[2]))
 else
     return 0
 end
@@ -81,6 +81,13 @@ class RedisLeaderElector:
                     else:
                         # Ensure subscriber task is still running if we are leader
                         if self._subscriber_task is None or self._subscriber_task.done():
+                            if self._subscriber_task and self._subscriber_task.done():
+                                try:
+                                    exc = self._subscriber_task.exception()
+                                    if exc:
+                                        logger.error("Subscriber task exited with error: %s", exc)
+                                except Exception:
+                                    pass
                             logger.info(
                                 "Worker %s restarting subscriber task",
                                 self.worker_id,
@@ -122,6 +129,8 @@ class RedisLeaderElector:
                 await self._subscriber_task
             except asyncio.CancelledError:
                 pass
+            except Exception as e:
+                logger.warning("Error stopping subscriber task on demote: %s", e)
         self._subscriber_task = None
 
     async def stop(self) -> None:
@@ -132,6 +141,8 @@ class RedisLeaderElector:
             try:
                 await self._election_task
             except asyncio.CancelledError:
+                pass
+            except Exception:
                 pass
 
         await self._demote()
@@ -147,4 +158,3 @@ class RedisLeaderElector:
                 logger.info("Worker %s released leadership lock", self.worker_id)
             except Exception as e:
                 logger.warning("Error releasing leader lock on shutdown: %s", e)
-
