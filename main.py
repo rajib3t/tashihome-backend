@@ -9,6 +9,7 @@ from app.core.database import db
 from app.core.exceptions import AppException
 from app.core.logging_config import configure_logging
 from app.core.redis import redis_client
+from app.core.leader_election import RedisLeaderElector
 from app.events.subscriber import start_event_subscriber
 import asyncio
 import logging
@@ -38,33 +39,10 @@ class Application:
         try:
             await redis_client.connect()
             app.state.redis = redis_client
-            
-            # Leader election to ensure only one worker runs the event subscriber
-            # This prevents duplicate email sends in multi-worker deployments
-            leader_key = "event_subscriber_leader"
-            worker_id = f"worker_{id(app)}"
-            
-            # Try to acquire leadership with a 30 second TTL
-            is_leader = await redis_client.client.set(
-                leader_key, 
-                worker_id, 
-                nx=True, 
-                ex=30
-            )
-            
-            if is_leader:
-                logger.info("Worker %s acquired leadership for event subscriber", worker_id)
-                app.state.redis_event_subscriber_task = asyncio.create_task(start_event_subscriber())
-                # Start a background task to renew leadership every 20 seconds
-                async def renew_leadership():
-                    while True:
-                        await asyncio.sleep(20)
-                        await redis_client.client.expire(leader_key, 30)
-                
-                app.state.leadership_renewal_task = asyncio.create_task(renew_leadership())
-            else:
-                logger.info("Worker %s is not the leader, skipping event subscriber", worker_id)
-                app.state.redis_event_subscriber_task = None
+            app.state.redis_event_subscriber_task = asyncio.create_task(start_event_subscriber())
+            leader_elector = RedisLeaderElector()
+            await leader_elector.start(start_event_subscriber)
+            app.state.leader_elector = leader_elector
         except Exception:
             logger.warning("Redis connection could not be established at startup")
 
@@ -86,6 +64,8 @@ class Application:
                 await task
             except asyncio.CancelledError:
                 pass
+        if hasattr(app.state, "leader_elector") and app.state.leader_elector is not None:
+            await app.state.leader_elector.stop()
 
         if hasattr(app.state, "db") and app.state.db is not None:
             await app.state.db.disconnect()
