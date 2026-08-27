@@ -9,6 +9,7 @@ from app.core.database import db
 from app.core.exceptions import AppException
 from app.core.logging_config import configure_logging
 from app.core.redis import redis_client
+from app.core.leader_election import RedisLeaderElector
 from app.events.subscriber import start_event_subscriber
 import asyncio
 import logging
@@ -39,6 +40,9 @@ class Application:
             await redis_client.connect()
             app.state.redis = redis_client
             app.state.redis_event_subscriber_task = asyncio.create_task(start_event_subscriber())
+            leader_elector = RedisLeaderElector()
+            await leader_elector.start(start_event_subscriber)
+            app.state.leader_elector = leader_elector
         except Exception:
             logger.warning("Redis connection could not be established at startup")
 
@@ -53,6 +57,8 @@ class Application:
                 await task
             except asyncio.CancelledError:
                 pass
+        if hasattr(app.state, "leader_elector") and app.state.leader_elector is not None:
+            await app.state.leader_elector.stop()
 
         if hasattr(app.state, "db") and app.state.db is not None:
             await app.state.db.disconnect()
