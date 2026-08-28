@@ -11,9 +11,11 @@ class ListRoomTypesUseCase(BaseUseCase):
     def __init__(
         self,
         room_type_service: RoomTypeService,
+        verify_csrf:bool,
         current_user: CurrentUser,
     ):
         self.room_type_service = room_type_service
+        self.verify_csrf = verify_csrf
         self.current_user = current_user
 
     async def execute(self, request_dto: RoomTypeQueryDTO) -> Page[RoomType]:

@@ -15,10 +15,12 @@ class ListFacilitiesUseCase(BaseUseCase):
         self,
         facility_service: FacilityService,
         storage_service: StorageService,
+        verify_csrf:bool,
         current_user: CurrentUser,
     ):
         self.facility_service = facility_service
         self.storage_service = storage_service
+        self. verify_csrf = verify_csrf
         self.current_user = current_user
 
     async def execute(

@@ -22,10 +22,17 @@ async def get_create_room_type_use_case(
 
 async def get_list_room_types_use_case(
     room_type_service: RoomTypeService = Depends(get_room_type_service),
+    verify_csrf=Depends(verify_csrf),
     current_user: CurrentUser = Depends(require_admin),
-):
-    return ListRoomTypesUseCase(room_type_service, current_user)
+) ->ListRoomTypesUseCase:
+    return ListRoomTypesUseCase(room_type_service, verify_csrf, current_user)
 
+async def get_vendor_list_room_types_use_case(
+    room_type_service: RoomTypeService = Depends(get_room_type_service),
+    verify_csrf=Depends(verify_csrf),
+    current_user: CurrentUser = Depends(require_admin),
+) -> ListRoomTypesUseCase:
+    return ListRoomTypesUseCase(room_type_service, verify_csrf, current_user)
 
 async def get_update_room_type_use_case(
     room_type_service: RoomTypeService = Depends(get_room_type_service),
