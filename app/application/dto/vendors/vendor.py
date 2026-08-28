@@ -51,3 +51,7 @@ class VendorUpdateDTO:
     email: Optional[str] = None
     phone: Optional[str] = None
     company: Optional[VendorCompanyUpdateDTO] = None
+
+@dataclass(config=ConfigDict(extra="forbid"))
+class VendorResetLinkDTO:
+    confirm:str

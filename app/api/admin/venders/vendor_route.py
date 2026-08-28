@@ -1,12 +1,14 @@
+from app.application.use_case.admin.vendors.send_password_reset_link_use_case import SendPasswordResetLinkUseCase
+from app.application.use_case.admin.vendors.send_password_reset_link_use_case import SendPasswordResetLinkUseCase
 from fastapi import APIRouter, Depends, File, UploadFile
 
 from app.api.base_controller import BaseController
-from app.application.dto.vendors.vendor import  VendorDTO, VendorQueryDTO, VendorUpdateDTO
+from app.application.dto.vendors.vendor import  VendorDTO, VendorQueryDTO, VendorResetLinkDTO, VendorUpdateDTO
 from app.application.use_case.admin.vendors.create_vendor_use_case import CreateVendorUseCase
 from app.application.use_case.admin.vendors.get_vendor_use_case import GetVendorUseCase
 from app.application.use_case.admin.vendors.list_vendor_use_case import ListVendorUseCase
 from app.application.use_case.admin.vendors.update_vendor_use_case import UpdateStatusVendorUseCase, UpdateVendorUseCase, UploadVendorProfileImageUseCase
-from app.deps.vendor import get_create_vendor_use_case, get_list_vendor_use_case, get_update_vendor_status_use_case, get_update_vendor_use_case, get_upload_vendor_profile_image_use_case, get_vendor_use_case
+from app.deps.vendor import get_create_vendor_use_case, get_list_vendor_use_case, get_send_password_reset_link_use_case, get_update_vendor_status_use_case, get_update_vendor_use_case, get_upload_vendor_profile_image_use_case, get_vendor_use_case
 from app.schemas.user_schema import UserListResponseSchema, UserResponseSchema
 from app.schemas.vendor_schema import VendorResponseSchema
 from app.utils.exception_decorate import handle_api_exceptions
@@ -31,6 +33,7 @@ class VendorController(BaseController):
             ("put", "/{vendor_id}", self._update_vendor, {"response_model": VendorResponseSchema}),
             ("patch", "/{vendor_id}/profile-image", self._update_vendor_profile_image, {"response_model": VendorResponseSchema}),
             ("patch", "/change/{vendor_id}/{status}", self._update_vendor_status, {"response_model": VendorResponseSchema}),
+            ("post", "/{vendor_id}/password-reset", self._send_password_reset_link, {"response_model": None, "status_code": 200}),
             # Add more routes as needed
         ]
 
@@ -109,6 +112,18 @@ class VendorController(BaseController):
         return self.build_response(
             message="Vendor status updated successfully.",
             data=vendor,
+        )
+    @handle_api_exceptions
+    async def _send_password_reset_link(
+        self,
+        vendor_id: str,
+        data:VendorResetLinkDTO,
+        use_case: SendPasswordResetLinkUseCase = Depends(get_send_password_reset_link_use_case)
+    ):
+        await use_case.execute(vendor_id, data)
+        return self.build_response(
+            message="Password reset link sent successfully.",
+            data=None,
         )
 controller = VendorController()
 router = controller.router
