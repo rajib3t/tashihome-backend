@@ -1,5 +1,5 @@
-from contextvars import Token
-from datetime import datetime, datetime, timedelta, timezone
+from app.models.token_model import Token
+from datetime import datetime, timedelta, timezone
 
 from app.application.dto.vendors.vendor import VendorResetLinkDTO
 from app.core.events import EventBus
@@ -77,7 +77,7 @@ class SendPasswordResetLinkUseCase:
                 # Token is still within time limit, raise exception
                 raise AppException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    message="Password reset email has already been sent. Please check your email.",
+                    message="Password reset email has already been sent. Please ask vendor to check his email.",
                     error_code="RESET_EMAIL_ALREADY_SENT",
                     field="email",
                 )
