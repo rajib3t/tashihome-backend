@@ -1,84 +1,83 @@
 from app.application.dto.properties.property import PropertyQueryDTO
+from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.property_model import Property, PropertyStatus
 from app.repositories.base_repository import Page
 from app.services.property_service import PropertyService
+from app.services.storage_service import StorageService
 
 
-class GetVendorPropertyUseCase:
+
+class GetVendorPropertyUseCase(BaseUseCase):
 
     def __init__(
         self,
         property_service: PropertyService,
-        current_user: CurrentUser
-        
+        storage_service: StorageService,
+        verify_csrf:bool,
+        current_user: CurrentUser,
     ):
         self.property_service = property_service
+        self.storage_service = storage_service
+        self.verify_csrf = verify_csrf
         self.current_user = current_user
 
-
-    async def execute(self, params: PropertyQueryDTO) ->Page:
+    async def execute(self, params: PropertyQueryDTO) -> Page:
         vendor_id = self.current_user.id
         filters = list(params.filters or [])
         filters.append({"name": "vendor_id", "value": vendor_id})
 
         if params.name:
             filters.append({"name": "name", "value": params.name})
-            if params.status:
-                normalized_status = params.status.strip().lower()
-                if normalized_status not in ["active", "inactive","draft","archived"]:
-                    raise ValueError("Invalid status filter. Must be 'active' or 'inactive' or 'draft' or 'archived'.")
-                filters.append({"name": "status", "value": normalized_status})
-    
-    
-            if params.status:
-                normalized_status = params.status.strip().lower()
-                if normalized_status not in ["active", "inactive","draft","archived"]:
-                    raise AppException(
-                        status_code=422,
-                        message="Invalid status filter. Must be 'active' or 'inactive' or 'draft' or 'archived'.",
-                        field="status",
-                        error_code="STATUS_INVALID",
-                    )
-            else:
-                normalized_status = None
-    
-            if normalized_status == "active":
-                filters.append({"name": "status", "value": PropertyStatus.ACTIVE})
-            elif normalized_status == "inactive":
-                filters.append({"name": "status", "value": PropertyStatus.INACTIVE})
-            elif normalized_status == "draft":
-                filters.append({"name": "status", "value": PropertyStatus.DRAFT})
-            elif normalized_status == "archived":
-                filters.append({"name": "status", "value": PropertyStatus.ARCHIVED})
-    
-            properties_page = await self.property_service.list(
-                page=params.page,
-                page_size=params.size,
-                search=params.name,
-                filters=filters,
-                with_relations={
-                    "city": True,
-                    "location": True,
-                    "vendor": False,
-                    "property_room_types": True,
-                    "property_amenities": True,
-                    "property_facilities": True,
-                    "property_food_options": True,
-                    "property_assets": True,
-                },
-                flush=True,
-            )
 
-            # Serialize properties to avoid lazy loading issues during response validation
-            serialized_items = []
-            for property_data in properties_page.items:
-                serialized_property = await self._serialize_property(property_data)
-                serialized_items.append(serialized_property)
-            
-            properties_page.items = serialized_items
-            return properties_page
+        if params.status:
+            normalized_status = params.status.strip().lower()
+            if normalized_status not in ["active", "inactive", "draft", "archived"]:
+                raise AppException(
+                    status_code=422,
+                    message="Invalid status filter. Must be 'active' or 'inactive' or 'draft' or 'archived'.",
+                    field="status",
+                    error_code="STATUS_INVALID",
+                )
+        else:
+            normalized_status = None
+
+        if normalized_status == "active":
+            filters.append({"name": "status", "value": PropertyStatus.ACTIVE})
+        elif normalized_status == "inactive":
+            filters.append({"name": "status", "value": PropertyStatus.INACTIVE})
+        elif normalized_status == "draft":
+            filters.append({"name": "status", "value": PropertyStatus.DRAFT})
+        elif normalized_status == "archived":
+            filters.append({"name": "status", "value": PropertyStatus.ARCHIVED})
+
+        properties_page = await self.property_service.list(
+            page=params.page,
+            page_size=params.size,
+            search=params.name,
+            filters=filters,
+            with_relations={
+                "city": True,
+                "location": True,
+                "vendor": False,
+                "property_room_types": True,
+                "property_amenities": True,
+                "property_facilities": True,
+                "property_food_options": True,
+                "property_assets": True,
+            },
+            flush=True,
+        )
+
+        # Serialize properties to avoid lazy loading issues during response validation
+        serialized_items = []
+        for property_data in properties_page.items:
+            serialized_property = await self._serialize_property(property_data)
+            serialized_items.append(serialized_property)
+
+        properties_page.items = serialized_items
+        return properties_page
 
     async def _serialize_property(self, property_data: Property) -> dict:
             return {

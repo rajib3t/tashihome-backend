@@ -1,4 +1,6 @@
 from app.application.use_case.admin.properties.upload_property_assets_use_case import DeletePropertyAssetUseCase
+from app.application.use_case.vendor.property.get_properties_use_case import GetVendorPropertyUseCase
+from app.core.csrf import verify_csrf
 from fastapi import Depends
 
 from app.application.use_case.admin.properties.get_properties_use_case import GetPropertiesUseCase
@@ -11,7 +13,7 @@ from app.application.use_case.admin.properties.property_use_case import (
 from app.application.use_case.admin.properties.update_property_use_case import UpdatePropertyUseCase
 from app.application.use_case.admin.properties.upload_property_assets_use_case import UploadPropertyAssetsUseCase
 from app.application.use_case.admin.properties.create_property_use_case import CreatePropertyUseCase
-from app.deps.auth import CurrentUser, require_admin
+from app.deps.auth import CurrentUser, require_admin, require_vendor
 from app.deps.service import (
     get_amenity_service,
     get_city_service,
@@ -154,5 +156,20 @@ async def get_delete_property_asset_use_case(
         property_service=property_service,
         property_asset_service=property_asset_service,
         storage_service=storage_service,
+        current_user=current_user,
+    )
+
+
+# Vendor Use Cases
+async def get_vendor_property_list_use_case(
+    property_service: PropertyService = Depends(get_property_service),
+    storage_service: StorageService = Depends(get_storage_service),
+    verify_csrf=Depends(verify_csrf),
+    current_user: CurrentUser = Depends(require_vendor),
+) -> GetVendorPropertyUseCase:
+    return GetVendorPropertyUseCase(
+        property_service=property_service, 
+        storage_service=storage_service, 
+        verify_csrf=verify_csrf,
         current_user=current_user,
     )
