@@ -3,6 +3,10 @@ from app.application.use_case.vendor.property.get_properties_use_case import Get
 from app.application.use_case.vendor.property.create_property_use_case import VendorCreatePropertyUseCase
 from app.application.use_case.vendor.property.update_property_use_case import VendorUpdatePropertyUseCase
 from app.application.use_case.vendor.property.get_property_use_case import VendorGetPropertyUseCase
+from app.application.use_case.vendor.property.upload_property_assets_use_case import (
+    VendorUploadPropertyAssetsUseCase,
+    VendorDeletePropertyAssetUseCase,
+)
 from app.core.csrf import verify_csrf
 from fastapi import Depends
 
@@ -243,6 +247,36 @@ async def get_vendor_get_property_use_case(
 ) -> VendorGetPropertyUseCase:
     return VendorGetPropertyUseCase(
         property_service=property_service,
+        storage_service=storage_service,
+        current_user=current_user,
+    )
+
+
+async def get_vendor_upload_property_assets_use_case(
+    property_service: PropertyService = Depends(get_property_service),
+    property_asset_service: PropertyAssetService = Depends(get_property_asset_service),
+    storage_service: StorageService = Depends(get_storage_service),
+    _csrf=Depends(verify_csrf),
+    current_user: CurrentUser = Depends(require_vendor),
+) -> VendorUploadPropertyAssetsUseCase:
+    return VendorUploadPropertyAssetsUseCase(
+        property_service=property_service,
+        property_asset_service=property_asset_service,
+        storage_service=storage_service,
+        current_user=current_user,
+    )
+
+
+async def get_vendor_delete_property_asset_use_case(
+    property_service: PropertyService = Depends(get_property_service),
+    property_asset_service: PropertyAssetService = Depends(get_property_asset_service),
+    storage_service: StorageService = Depends(get_storage_service),
+    _csrf=Depends(verify_csrf),
+    current_user: CurrentUser = Depends(require_vendor),
+) -> VendorDeletePropertyAssetUseCase:
+    return VendorDeletePropertyAssetUseCase(
+        property_service=property_service,
+        property_asset_service=property_asset_service,
         storage_service=storage_service,
         current_user=current_user,
     )
