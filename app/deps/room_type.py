@@ -7,7 +7,7 @@ from app.application.use_case.admin.attributes.attribute.update_room_type_use_ca
     UpdateStatusRoomTypeUseCase,
 )
 from app.core.csrf import verify_csrf
-from app.deps.auth import CurrentUser, require_admin
+from app.deps.auth import CurrentUser, require_admin, require_vendor
 from app.deps.service import get_room_type_service
 from app.services.room_type_service import RoomTypeService
 
@@ -30,7 +30,7 @@ async def get_list_room_types_use_case(
 async def get_vendor_list_room_types_use_case(
     room_type_service: RoomTypeService = Depends(get_room_type_service),
     verify_csrf=Depends(verify_csrf),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_vendor),
 ) -> ListRoomTypesUseCase:
     return ListRoomTypesUseCase(room_type_service, verify_csrf, current_user)
 

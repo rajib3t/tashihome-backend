@@ -6,7 +6,7 @@ from app.deps.room_type import get_vendor_list_room_types_use_case
 from app.schemas.room_type_schema import RoomTypeListResponseSchema
 from app.utils.exception_decorate import handle_api_exceptions
 from fastapi import APIRouter, Depends
-class RoomTypeController(BaseController):
+class VendorRoomTypeController(BaseController):
     def __init__(self):
         self.router = APIRouter(
             prefix="/room-types",
@@ -33,3 +33,6 @@ class RoomTypeController(BaseController):
             data=room_types.items,
             meta=self.pagination_meta(room_types),
         )
+
+controller = VendorRoomTypeController()
+router = controller.router
