@@ -13,7 +13,7 @@ from app.deps.locations import (
 )
 from app.utils.exception_decorate import handle_api_exceptions
 from app.schemas.location_schema import LocationsResponseSchema, LocationResponseSchema
-from app.application.dto.locations.location import CountryQueryDTO, LocationDTO, UpdateLocationDTO
+from app.application.dto.locations.location import  LocationDTO, LocationQueryDTO, UpdateLocationDTO
 
 class LocationController(BaseController):
     def __init__(self):
@@ -70,7 +70,7 @@ class LocationController(BaseController):
     @handle_api_exceptions
     async def _get_locations(
         self,
-        params: CountryQueryDTO = Depends(),
+        params: LocationQueryDTO = Depends(),
         use_case: GetLocationsUseCase = Depends(get_list_location_use_case)
     ):
 

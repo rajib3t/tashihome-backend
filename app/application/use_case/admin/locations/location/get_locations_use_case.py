@@ -1,4 +1,4 @@
-from app.application.dto.locations.location import CountryQueryDTO
+from app.application.dto.locations.location import LocationQueryDTO
 from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
@@ -20,7 +20,7 @@ class GetLocationsUseCase(BaseUseCase):
         self.service = service
         self.current_user = current_user
         self.city_service = city_service
-    async def execute(self, params: CountryQueryDTO) -> Page[Location]:
+    async def execute(self, params: LocationQueryDTO) -> Page[Location]:
         filters = list(params.filters or [])
         
         if params.name:

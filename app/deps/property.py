@@ -1,5 +1,8 @@
 from app.application.use_case.admin.properties.upload_property_assets_use_case import DeletePropertyAssetUseCase
 from app.application.use_case.vendor.property.get_properties_use_case import GetVendorPropertyUseCase
+from app.application.use_case.vendor.property.create_property_use_case import VendorCreatePropertyUseCase
+from app.application.use_case.vendor.property.update_property_use_case import VendorUpdatePropertyUseCase
+from app.application.use_case.vendor.property.get_property_use_case import VendorGetPropertyUseCase
 from app.core.csrf import verify_csrf
 from fastapi import Depends
 
@@ -168,8 +171,78 @@ async def get_vendor_property_list_use_case(
     current_user: CurrentUser = Depends(require_vendor),
 ) -> GetVendorPropertyUseCase:
     return GetVendorPropertyUseCase(
-        property_service=property_service, 
-        storage_service=storage_service, 
+        property_service=property_service,
+        storage_service=storage_service,
         verify_csrf=verify_csrf,
+        current_user=current_user,
+    )
+
+
+async def get_vendor_create_property_use_case(
+    property_service: PropertyService = Depends(get_property_service),
+    city_service: CityService = Depends(get_city_service),
+    location_service: LocationService = Depends(get_location_service),
+    amenity_service: AmenityService = Depends(get_amenity_service),
+    facility_service: FacilityService = Depends(get_facility_service),
+    property_amenity_service: PropertyAmenityService = Depends(get_property_amenity_service),
+    property_facility_service: PropertyFacilityService = Depends(get_property_facility_service),
+    property_food_option_service: PropertyFoodOptionService = Depends(get_property_food_option_service),
+    storage_service: StorageService = Depends(get_storage_service),
+    _csrf=Depends(verify_csrf),
+    current_user: CurrentUser = Depends(require_vendor),
+) -> VendorCreatePropertyUseCase:
+    return VendorCreatePropertyUseCase(
+        property_service=property_service,
+        city_service=city_service,
+        location_service=location_service,
+        amenity_service=amenity_service,
+        facility_service=facility_service,
+        property_amenity_service=property_amenity_service,
+        property_facility_service=property_facility_service,
+        property_food_option_service=property_food_option_service,
+        storage_service=storage_service,
+        current_user=current_user,
+    )
+
+
+async def get_vendor_update_property_use_case(
+    property_service: PropertyService = Depends(get_property_service),
+    city_service: CityService = Depends(get_city_service),
+    location_service: LocationService = Depends(get_location_service),
+    room_type_service: RoomTypeService = Depends(get_room_type_service),
+    amenity_service: AmenityService = Depends(get_amenity_service),
+    facility_service: FacilityService = Depends(get_facility_service),
+    property_amenity_service: PropertyAmenityService = Depends(get_property_amenity_service),
+    property_facility_service: PropertyFacilityService = Depends(get_property_facility_service),
+    property_food_option_service: PropertyFoodOptionService = Depends(get_property_food_option_service),
+    property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
+    storage_service: StorageService = Depends(get_storage_service),
+    _csrf=Depends(verify_csrf),
+    current_user: CurrentUser = Depends(require_vendor),
+) -> VendorUpdatePropertyUseCase:
+    return VendorUpdatePropertyUseCase(
+        property_service=property_service,
+        city_service=city_service,
+        location_service=location_service,
+        room_type_service=room_type_service,
+        amenity_service=amenity_service,
+        facility_service=facility_service,
+        property_amenity_service=property_amenity_service,
+        property_facility_service=property_facility_service,
+        property_food_option_service=property_food_option_service,
+        property_room_type_service=property_room_type_service,
+        storage_service=storage_service,
+        current_user=current_user,
+    )
+
+
+async def get_vendor_get_property_use_case(
+    property_service: PropertyService = Depends(get_property_service),
+    storage_service: StorageService = Depends(get_storage_service),
+    current_user: CurrentUser = Depends(require_vendor),
+) -> VendorGetPropertyUseCase:
+    return VendorGetPropertyUseCase(
+        property_service=property_service,
+        storage_service=storage_service,
         current_user=current_user,
     )

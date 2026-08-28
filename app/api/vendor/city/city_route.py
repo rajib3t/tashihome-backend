@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from app.api.base_controller import BaseController
 from app.application.dto.locations.city import CityQueryDTO
 from app.application.use_case.admin.locations.city.get_cities_use_case import GetCitiesUseCase
-from app.deps.locations import get_city_list_use_case
+from app.deps.locations import  get_vendor_city_list_use_case
 from app.schemas.city_schema import CityListResponseSchema
 from app.utils.exception_decorate import handle_api_exceptions
 
@@ -27,7 +27,7 @@ class VendorCityController(BaseController):
     async def _get_cities(
         self,
         params: CityQueryDTO = Depends(),
-        use_case: GetCitiesUseCase = Depends(get_city_list_use_case),
+        use_case: GetCitiesUseCase = Depends(get_vendor_city_list_use_case),
     ):
         cities = await use_case.execute(params)
         return self.build_response(

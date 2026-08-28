@@ -38,7 +38,7 @@ class LocationFilterDTO:
     name: str
     value: str
 @dataclass(config=ConfigDict(extra="forbid"))
-class CountryQueryDTO:
+class LocationQueryDTO:
     page: int = 1
     size: int = 10
     sort_by: str = "created_at"
