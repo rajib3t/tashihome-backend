@@ -28,6 +28,14 @@ class EmailMessageData:
     bcc: Optional[List[str]] = None
 
 
+@dataclass
+class EmailAttachment:
+    """Represents a file attachment for an outgoing email."""
+    filename: str
+    content: bytes
+    mimetype: str = "application/octet-stream"
+
+
 class BaseEmailService(ABC):
     def __init__(self, from_email: Optional[str], from_name: Optional[str]):
         self.from_email = from_email or "noreply@example.com"
@@ -42,7 +50,8 @@ class BaseEmailService(ABC):
         text: str,
         html: Optional[str] = None,
         cc: Optional[List[str]] = None,
-        bcc: Optional[List[str]] = None
+        bcc: Optional[List[str]] = None,
+        attachments: Optional[List["EmailAttachment"]] = None,
     ):
         pass
 
@@ -53,18 +62,14 @@ class BaseEmailService(ABC):
         text: str,
         html: Optional[str] = None,
         cc: Optional[List[str]] = None,
-        bcc: Optional[List[str]] = None
+        bcc: Optional[List[str]] = None,
+        attachments: Optional[List["EmailAttachment"]] = None,
     ):
-        """Generic entry point: send any email with a given subject/body, optional cc/bcc."""
-        await asyncio.get_running_loop().run_in_executor(
+        """Generic entry point: send any email with a given subject/body, optional cc/bcc and file attachments."""
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
             self.executor,
-            self._send_email_sync,
-            to_email,
-            subject,
-            text,
-            html,
-            cc,
-            bcc
+            lambda: self._send_email_sync(to_email, subject, text, html, cc, bcc, attachments),
         )
 
     async def send_bulk_email(
@@ -175,13 +180,17 @@ class MockEmailService(BaseEmailService):
         text: str,
         html: Optional[str] = None,
         cc: Optional[List[str]] = None,
-        bcc: Optional[List[str]] = None
+        bcc: Optional[List[str]] = None,
+        attachments: Optional[List["EmailAttachment"]] = None,
     ):
         extra = ""
         if cc:
             extra += f" | Cc: {', '.join(cc)}"
         if bcc:
             extra += f" | Bcc: {', '.join(bcc)}"
+        if attachments:
+            names = ", ".join(a.filename for a in attachments)
+            extra += f" | Attachments: {names}"
         print(f"MOCK EMAIL: To {to_email}{extra} | Subject: {subject}\n{text}")
 
 
@@ -200,7 +209,8 @@ class SMTPEmailService(BaseEmailService):
         text: str,
         html: Optional[str] = None,
         cc: Optional[List[str]] = None,
-        bcc: Optional[List[str]] = None
+        bcc: Optional[List[str]] = None,
+        attachments: Optional[List["EmailAttachment"]] = None,
     ):
         msg = EmailMessage()
         msg["Subject"] = subject
@@ -217,6 +227,18 @@ class SMTPEmailService(BaseEmailService):
             msg.add_alternative(html, subtype='html')
         else:
             msg.set_content(text)
+
+        # Attach files (e.g. PDF invoice)
+        if attachments:
+            maintype, _, subtype = (attachments[0].mimetype if attachments else "application/octet-stream").partition("/")
+            for attachment in attachments:
+                mtype, _, stype = attachment.mimetype.partition("/")
+                msg.add_attachment(
+                    attachment.content,
+                    maintype=mtype,
+                    subtype=stype,
+                    filename=attachment.filename,
+                )
 
         try:
             with smtplib.SMTP(self.host, self.port) as server:
@@ -246,7 +268,8 @@ class MailgunEmailService(BaseEmailService):
         text: str,
         html: Optional[str] = None,
         cc: Optional[List[str]] = None,
-        bcc: Optional[List[str]] = None
+        bcc: Optional[List[str]] = None,
+        attachments: Optional[List["EmailAttachment"]] = None,
     ):
         data = {
             "from": f"{self.from_name} <{self.from_email}>",
@@ -261,8 +284,15 @@ class MailgunEmailService(BaseEmailService):
         if bcc:
             data["bcc"] = ", ".join(bcc)
 
+        files = None
+        if attachments:
+            files = [
+                ("attachment", (a.filename, a.content, a.mimetype))
+                for a in attachments
+            ]
+
         try:
-            self.client.messages.create(data=data, domain=self.domain)
+            self.client.messages.create(data=data, domain=self.domain, files=files)
             logger.info("Mailgun email sent to %s", to_email)
         except Exception as e:
             logger.error("Mailgun failed to send email to %s: %s", to_email, e, exc_info=True)
@@ -282,7 +312,9 @@ class BrevoEmailService(BaseEmailService):
         html: Optional[str] = None,
         cc: Optional[List[str]] = None,
         bcc: Optional[List[str]] = None,
+        attachments: Optional[List["EmailAttachment"]] = None,
     ) -> None:
+        import base64
         client = AsyncBrevo(api_key=self.api_key)
         payload = {
             "sender": SendTransacEmailRequestSender(
@@ -309,6 +341,14 @@ class BrevoEmailService(BaseEmailService):
             payload["bcc"] = [
                 SendTransacEmailRequestToItem(email=address)
                 for address in bcc
+            ]
+        if attachments:
+            payload["attachment"] = [
+                {
+                    "name": a.filename,
+                    "content": base64.b64encode(a.content).decode("utf-8"),
+                }
+                for a in attachments
             ]
 
         await client.transactional_emails.send_transac_email(
@@ -345,7 +385,8 @@ class BrevoEmailService(BaseEmailService):
         text: str,
         html: Optional[str] = None,
         cc: Optional[List[str]] = None,
-        bcc: Optional[List[str]] = None
+        bcc: Optional[List[str]] = None,
+        attachments: Optional[List["EmailAttachment"]] = None,
     ):
         try:
             asyncio.run(
@@ -356,6 +397,7 @@ class BrevoEmailService(BaseEmailService):
                     html=html,
                     cc=cc,
                     bcc=bcc,
+                    attachments=attachments,
                 )
             )
         except RuntimeError:
@@ -369,6 +411,7 @@ class BrevoEmailService(BaseEmailService):
                         html=html,
                         cc=cc,
                         bcc=bcc,
+                        attachments=attachments,
                     )
                 )
             finally:

@@ -2,8 +2,10 @@ from datetime import datetime, timezone
 
 from app.application.dto.bookings.booking import RazorpayVerifyPaymentDTO
 from app.application.use_case.base_use_case import BaseUseCase
+from app.core.events import EventBus, RedisEventBus
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
+from app.events.events.bookings.booking_completed_event import BookingCompletedEvent
 from app.models.booking_model import BookingStatus, PaymentStatus
 from app.models.payment_model import Payment, PaymentMethod, TransactionStatus
 from app.services.booking_service import BookingService
@@ -18,11 +20,13 @@ class VerifyRazorpayPaymentUseCase(BaseUseCase):
         payment_service: PaymentService,
         razorpay_service: RazorpayService,
         current_user: CurrentUser,
+        event_bus: EventBus | None = None,
     ):
         self.booking_service = booking_service
         self.payment_service = payment_service
         self.razorpay_service = razorpay_service
         self.current_user = current_user
+        self.event_bus = event_bus or RedisEventBus()
 
     async def execute(self, booking_identifier: str, data: RazorpayVerifyPaymentDTO) -> Payment:
         # 1. Verify HMAC Signature
@@ -96,15 +100,28 @@ class VerifyRazorpayPaymentUseCase(BaseUseCase):
         ]
         total_paid_so_far = sum(float(p.amount) for p in successful_payments) + paid_amount
 
+        booking_just_completed = False
         if total_paid_so_far >= float(booking.total_amount) - 0.01:
             booking.payment_status = PaymentStatus.PAID
             if booking.status == BookingStatus.PENDING:
                 booking.status = BookingStatus.CONFIRMED
+            # Generate invoice number if not already set
+            if not booking.invoice_number:
+                booking.invoice_number = await self.booking_service.generate_invoice_number()
+                booking_just_completed = True
         else:
             booking.payment_status = PaymentStatus.PARTIALLY_PAID
 
         booking.updated_by = self.current_user.id
-        await self.booking_service.update_booking(booking)
+        updated_booking = await self.booking_service.update_booking(
+            booking,
+            with_relations={"guest": True, "property": True} if booking_just_completed else None,
+        )
+
+        # Publish event so the email + PDF handler fires asynchronously
+        if booking_just_completed:
+            event = BookingCompletedEvent(updated_booking)
+            await self.event_bus.publish(event)
 
         return created_payment
 

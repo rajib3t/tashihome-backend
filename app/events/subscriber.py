@@ -1,3 +1,4 @@
+from app.events.handles.bookings.booking_completed_handler import BookingCompletedHandler
 from app.events.handles.users.forgot_password_handler import ForgotPasswordHandler
 from app.events.handles.users.create_user_handler import CreateUserHandler
 from app.events.handles.users.create_vendor_handler import CreateVendorHandler
@@ -18,6 +19,7 @@ HANDLERS: dict[str, EventHandler] = {
    "user.created": CreateUserHandler.handle,
    "user.forgot_password": ForgotPasswordHandler.handle,
    "user.reset_password": ResetPasswordHandler.handle,
+   "booking.completed": BookingCompletedHandler.handle,
 }
 
 

@@ -54,6 +54,7 @@ class Booking(Base):
         index=True,
     )
     booking_reference = Column(String(20), unique=True, nullable=False, index=True)
+    invoice_number = Column(String(30), unique=True, nullable=True, index=True)
     guest_id = Column(
         BigInteger,
         ForeignKey("users.id", ondelete="RESTRICT"),

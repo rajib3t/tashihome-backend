@@ -39,6 +39,14 @@ class BookingService:
         rand_token = secrets.token_hex(3).upper()
         return f"BK{today_str}{rand_token}"
 
+    async def generate_invoice_number(self) -> str:
+        """
+        Generate the next unique sequential invoice number for the current month.
+        Format: INV-YYYYMM-NNNNNNN (e.g., INV-202608-0000001).
+        Delegates to repository which uses SELECT FOR UPDATE for atomicity.
+        """
+        return await self.booking_repository.get_next_invoice_number()
+
     async def get_total_units(self, property_id: int, room_type_id: Optional[int]) -> int:
         """Determines the configured total units for a room type or property."""
         if room_type_id is not None:

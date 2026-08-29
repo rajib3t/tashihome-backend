@@ -1,7 +1,9 @@
 from datetime import date
+from datetime import datetime
+from datetime import timezone
 from typing import Optional, Sequence, TypedDict
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.orm import selectinload
 
 from app.models.booking_model import Booking, BookingStatus, PaymentStatus
@@ -231,4 +233,34 @@ class BookingRepository(BaseRepository[Booking]):
 
         result = await self.db.execute(query)
         return int(result.scalar_one())
+
+    async def get_next_invoice_number(self) -> str:
+        """
+        Generate the next unique invoice number for the current month.
+        Format: INV-YYYYMM-NNNNNNN (e.g., INV-202608-0000001)
+        Uses SELECT FOR UPDATE to prevent race conditions under concurrent requests.
+        """
+        now = datetime.now(timezone.utc)
+        prefix = now.strftime("INV-%Y%m-")
+
+        # Lock matching rows and find the current maximum sequence for this month
+        query = (
+            select(Booking.invoice_number)
+            .where(Booking.invoice_number.like(f"{prefix}%"))
+            .with_for_update()
+            .order_by(Booking.invoice_number.desc())
+            .limit(1)
+        )
+        result = await self.db.execute(query)
+        last_invoice = result.scalar_one_or_none()
+
+        if last_invoice:
+            try:
+                seq = int(last_invoice.split("-")[-1]) + 1
+            except (ValueError, IndexError):
+                seq = 1
+        else:
+            seq = 1
+
+        return f"{prefix}{seq:07d}"
 
