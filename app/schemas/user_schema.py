@@ -12,7 +12,7 @@ class UserBase(BaseModel):
     status: str
     role: UserRole
     is_profile_image_url : str | None = None
-    
+    is_subscribed: bool | None = None
     
 
     model_config = ConfigDict(
@@ -24,7 +24,8 @@ class UserBase(BaseModel):
                 "phone": "2345678900",
                 "status": "active",
                 "role": "user | admin | vendor",
-                "is_profile_image_url": "https://example.com/profile.jpg"
+                "is_profile_image_url": "https://example.com/profile.jpg",
+                "is_subscribed": True
             }
         }
     )
