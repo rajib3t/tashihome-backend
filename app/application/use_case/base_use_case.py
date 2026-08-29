@@ -26,7 +26,12 @@ class BaseUseCase:
 
     @staticmethod
     def _is_upload_file(value) -> bool:
-        return hasattr(value, "read") and hasattr(value, "content_type")
+        return (
+            value is not None
+            and hasattr(value, "read")
+            and hasattr(value, "content_type")
+            and bool(getattr(value, "filename", None))
+        )
 
     async def _validate_upload_file(self, upload, *, field_name: str) -> tuple[bytes, str]:
         if not self._is_upload_file(upload):

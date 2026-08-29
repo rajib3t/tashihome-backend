@@ -72,50 +72,55 @@ class UpdateSettingUseCase(BaseUseCase):
                 old_setting = await self.setting_service.get_by_key("app_logo")
             except SettingNotFoundError:
                 old_setting = None
-            await self._delete_replaced_file(old_setting, payload["app_logo"])
-            payload["app_logo"] = await self._upload_file(
+            new_file_key = await self._upload_file(
                 payload["app_logo"], folder="settings", field_name="app_logo"
             )
+            await self._delete_replaced_file(old_setting, new_file_key)
+            payload["app_logo"] = new_file_key
 
         if self._is_upload_file(payload.get("white_logo")):
             try:
                 old_setting = await self.setting_service.get_by_key("white_logo")
             except SettingNotFoundError:
                 old_setting = None
-            await self._delete_replaced_file(old_setting, payload["white_logo"])
-            payload["white_logo"] = await self._upload_file(
+            new_file_key = await self._upload_file(
                 payload["white_logo"], folder="settings", field_name="white_logo"
             )
+            await self._delete_replaced_file(old_setting, new_file_key)
+            payload["white_logo"] = new_file_key
 
         if self._is_upload_file(payload.get("app_favicon")):
             try:
                 old_setting = await self.setting_service.get_by_key("app_favicon")
             except SettingNotFoundError:
                 old_setting = None
-            await self._delete_replaced_file(old_setting, payload["app_favicon"])
-            payload["app_favicon"] = await self._upload_file(
+            new_file_key = await self._upload_file(
                 payload["app_favicon"], folder="settings", field_name="app_favicon"
             )
+            await self._delete_replaced_file(old_setting, new_file_key)
+            payload["app_favicon"] = new_file_key
 
         if self._is_upload_file(payload.get("coming_background_image")):
             try:
                 old_setting = await self.setting_service.get_by_key("coming_background_image")
             except SettingNotFoundError:
                 old_setting = None
-            await self._delete_replaced_file(old_setting, payload["coming_background_image"])
-            payload["coming_background_image"] = await self._upload_file(
+            new_file_key = await self._upload_file(
                 payload["coming_background_image"], folder="settings", field_name="coming_background_image"
             )
+            await self._delete_replaced_file(old_setting, new_file_key)
+            payload["coming_background_image"] = new_file_key
 
         if self._is_upload_file(payload.get("coming_soon_video")):
             try:
                 old_setting = await self.setting_service.get_by_key("coming_soon_video")
             except SettingNotFoundError:
                 old_setting = None
-            await self._delete_replaced_file(old_setting, payload["coming_soon_video"])
-            payload["coming_soon_video"] = await self._upload_file(
+            new_file_key = await self._upload_file(
                 payload["coming_soon_video"], folder="settings", field_name="coming_soon_video"
             )
+            await self._delete_replaced_file(old_setting, new_file_key)
+            payload["coming_soon_video"] = new_file_key
 
         for key, value in payload.items():
             if value is None:
