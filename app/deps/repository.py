@@ -114,7 +114,44 @@ async def get_property_amenity_repository(
     return PropertyAmenityRepository(db)
 
 
+from app.repositories.booking_repository import BookingRepository
+from app.repositories.cancellation_policy_repository import CancellationPolicyRepository
+from app.repositories.payment_repository import PaymentRepository
+from app.repositories.refund_request_repository import RefundRequestRepository
+from app.repositories.room_block_repository import RoomBlockRepository
+
+
 async def get_property_food_option_repository(
     db: AsyncSession = Depends(get_db),
 ) -> PropertyFoodOptionRepository:
     return PropertyFoodOptionRepository(db)
+
+
+async def get_booking_repository(
+    db: AsyncSession = Depends(get_db),
+) -> BookingRepository:
+    return BookingRepository(db)
+
+
+async def get_payment_repository(
+    db: AsyncSession = Depends(get_db),
+) -> PaymentRepository:
+    return PaymentRepository(db)
+
+
+async def get_refund_request_repository(
+    db: AsyncSession = Depends(get_db),
+) -> RefundRequestRepository:
+    return RefundRequestRepository(db)
+
+
+async def get_room_block_repository(
+    db: AsyncSession = Depends(get_db),
+) -> RoomBlockRepository:
+    return RoomBlockRepository(db)
+
+
+async def get_cancellation_policy_repository(
+    db: AsyncSession = Depends(get_db),
+) -> CancellationPolicyRepository:
+    return CancellationPolicyRepository(db)

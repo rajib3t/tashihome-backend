@@ -212,5 +212,55 @@ async def get_email_service() -> BaseEmailService:
     return MockEmailService(settings.EMAILS_FROM_EMAIL, settings.EMAILS_FROM_NAME)
 
 
+from app.deps.repository import (
+    get_booking_repository,
+    get_payment_repository,
+    get_refund_request_repository,
+    get_room_block_repository,
+)
+from app.repositories.booking_repository import BookingRepository
+from app.repositories.payment_repository import PaymentRepository
+from app.repositories.refund_request_repository import RefundRequestRepository
+from app.repositories.room_block_repository import RoomBlockRepository
+from app.services.booking_service import BookingService
+from app.services.payment_service import PaymentService
+from app.services.refund_request_service import RefundRequestService
+
+
+async def get_booking_service(
+    booking_repository: BookingRepository = Depends(get_booking_repository),
+    property_repository: PropertyRepository = Depends(get_property_repository),
+    property_room_type_repository: PropertyRoomTypeRepository = Depends(get_property_room_type_repository),
+    room_block_repository: RoomBlockRepository = Depends(get_room_block_repository),
+    refund_request_repository: RefundRequestRepository = Depends(get_refund_request_repository),
+) -> BookingService:
+    return BookingService(
+        booking_repository=booking_repository,
+        property_repository=property_repository,
+        property_room_type_repository=property_room_type_repository,
+        room_block_repository=room_block_repository,
+        refund_request_repository=refund_request_repository,
+    )
+
+
+async def get_payment_service(
+    payment_repository: PaymentRepository = Depends(get_payment_repository),
+) -> PaymentService:
+    return PaymentService(payment_repository)
+
+
+async def get_refund_request_service(
+    refund_request_repository: RefundRequestRepository = Depends(get_refund_request_repository),
+) -> RefundRequestService:
+    return RefundRequestService(refund_request_repository)
+
+
+from app.services.razorpay_service import RazorpayService
+
+
+async def get_razorpay_service() -> RazorpayService:
+    return RazorpayService()
+
+
 async def get_email_template_service() -> EmailTemplateService:
     return EmailTemplateService()

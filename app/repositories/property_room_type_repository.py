@@ -85,6 +85,23 @@ class PropertyRoomTypeRepository(BaseRepository[PropertyRoomType]):
         )
         return await self._fetch_all(query, flush=flush)
 
+    async def get_by_property_and_room_type(
+        self,
+        property_id: int,
+        room_type_id: int,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[PropertyRoomType]:
+        query = self._apply_relations(
+            select(PropertyRoomType).where(
+                PropertyRoomType.property_id == property_id,
+                PropertyRoomType.room_type_id == room_type_id,
+            ),
+            with_relations,
+            self._relation_map,
+        )
+        return await self._fetch_one(query, flush=flush)
+
     async def update(
         self,
         property_room_type: PropertyRoomType,

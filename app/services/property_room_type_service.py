@@ -42,6 +42,17 @@ class PropertyRoomTypeService:
     ) -> list[PropertyRoomType]:
         return await self.property_room_type_repository.get_by_property_id(property_id, with_relations=with_relations, flush=flush)
 
+    async def get_by_property_and_room_type(
+        self,
+        property_id: int,
+        room_type_id: int,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[PropertyRoomType]:
+        return await self.property_room_type_repository.get_by_property_and_room_type(
+            property_id, room_type_id, with_relations=with_relations, flush=flush
+        )
+
     async def update(
         self,
         property_room_type: PropertyRoomType,

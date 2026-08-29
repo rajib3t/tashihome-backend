@@ -96,6 +96,11 @@ class Settings(BaseSettings):
     CLOUDFRONT_COOKIE_DOMAIN: Optional[str]  = ".tashihomes.in"
     CLOUDFRONT_COOKIE_TTL: Optional[int]  = 3600
 
+    # Razorpay Configuration
+    RAZORPAY_KEY_ID: Optional[str] = None
+    RAZORPAY_KEY_SECRET: Optional[str] = None
+    RAZORPAY_WEBHOOK_SECRET: Optional[str] = None
+
 
     @property
     def allowed_hosts(self) -> List[str]:
