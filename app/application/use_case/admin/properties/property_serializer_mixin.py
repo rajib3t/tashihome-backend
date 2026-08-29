@@ -57,6 +57,7 @@ class PropertySerializerMixin:
             "property_room_types": [
                 {
                     "id": str(item.public_id) if getattr(item, "public_id", None) is not None else None,
+                    "total_units": item.total_units if getattr(item, "total_units", None) is not None else 1,
                     "room_type": (
                         {
                             "id": str(item.room_type.public_id),

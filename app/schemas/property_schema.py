@@ -72,6 +72,7 @@ class PropertyRoomTypeSchema(BaseModel):
         validation_alias=AliasChoices("public_id", "id"),
         serialization_alias="id",
     )
+    total_units: Optional[int] = 1
     room_type: Optional["RoomTypeNestedSchema"] = None
     model_config = ConfigDict(from_attributes=True)
 

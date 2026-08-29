@@ -176,7 +176,7 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
     async def _sync_child_records(self, property_id: int, data: PropertyUpdateDTO) -> None:
         amenity_ids = data.amenity_ids
         if amenity_ids is None and data.amenities is not None:
-            amenity_ids = [a.id for a in data.amenities]
+            amenity_ids = [a.id for a in data.amenities if getattr(a, "id", None)]
 
         if amenity_ids is not None:
             existing_amenities = await self.property_amenity_service.get_by_property_id(property_id, flush=True)
@@ -197,8 +197,11 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                 )
 
         facility_ids = data.facility_ids
-        if facility_ids is None and data.facility is not None:
-            facility_ids = [f.id for f in data.facility]
+        if facility_ids is None:
+            if data.facility is not None:
+                facility_ids = [f.id for f in data.facility if getattr(f, "id", None)]
+            elif data.facilities is not None:
+                facility_ids = [f.id for f in data.facilities if getattr(f, "id", None)]
 
         if facility_ids is not None:
             existing_facilities = await self.property_facility_service.get_by_property_id(property_id, flush=True)
@@ -218,11 +221,15 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                     commit=True,
                 )
 
-        if data.food_option_ids is not None:
+        food_option_names = data.food_option_ids
+        if food_option_names is None and data.food_options is not None:
+            food_option_names = [fo.name for fo in data.food_options if getattr(fo, "name", None)]
+
+        if food_option_names is not None:
             existing_food_options = await self.property_food_option_service.get_by_property_id(property_id, flush=True)
             for item in existing_food_options:
                 await self.property_food_option_service.delete(item, commit=True)
-            for food_name in data.food_option_ids:
+            for food_name in food_option_names:
                 await self.property_food_option_service.create(
                     PropertyFoodOption(
                         property_id=property_id,
@@ -233,16 +240,33 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                     commit=True,
                 )
 
-        room_type_ids = data.room_type_ids
-        if room_type_ids is None and data.room_type_id is not None:
-            room_type_ids = [data.room_type_id]
+        room_types_data = None
+        if data.room_types is not None:
+            room_types_data = []
+            for rt in data.room_types:
+                rt_id = getattr(rt, "room_type_id", None) or getattr(rt, "id", None)
+                if rt_id:
+                    units = getattr(rt, "total_units", None)
+                    units = units if units is not None else 1
+                    room_types_data.append((rt_id, units))
+        elif data.room_type_ids is not None:
+            room_types_data = [(rt_id, 1) for rt_id in data.room_type_ids if rt_id]
+        elif data.room_type_id is not None:
+            room_types_data = [(data.room_type_id, 1)]
 
-        if room_type_ids is not None:
+        if room_types_data is not None:
             existing_room_types = await self.property_room_type_service.get_by_property_id(property_id, flush=True)
             for item in existing_room_types:
                 await self.property_room_type_service.delete(item, commit=True)
-            for room_type_id in room_type_ids:
-                room_type = await self.room_type_service.get_by_public_id(room_type_id, flush=True)
+            for rt_id, units in room_types_data:
+                if units < 1:
+                    raise AppException(
+                        status_code=422,
+                        message="Total units must be greater than 0.",
+                        field="total_units",
+                        error_code="TOTAL_UNITS_INVALID",
+                    )
+                room_type = await self.room_type_service.get_by_public_id(rt_id, flush=True)
                 if not room_type:
                     raise AppException(
                         status_code=404,
@@ -251,7 +275,11 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                         error_code="ROOM_TYPE_NOT_FOUND",
                     )
                 await self.property_room_type_service.create(
-                    PropertyRoomType(property_id=property_id, room_type_id=room_type.id),
+                    PropertyRoomType(
+                        property_id=property_id,
+                        room_type_id=room_type.id,
+                        total_units=units,
+                    ),
                     commit=True,
                 )
 

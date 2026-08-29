@@ -82,6 +82,11 @@ class PropertyDTO:
     facility_ids: Optional[List[str]] = None
     room_type_ids: Optional[List[str]] = None
     food_option_ids: Optional[List[str]] = None
+    amenities: Optional[List["PropertyAmenitiesDTO"]] = None
+    facility: Optional[List["PropertyFacilityDTO"]] = None
+    facilities: Optional[List["PropertyFacilityDTO"]] = None
+    room_types: Optional[List["PropertyRoomTypeDTO"]] = None
+    food_options: Optional[List["FoodOptionDTO"]] = None
 
     @field_validator("name")
     @classmethod
@@ -126,12 +131,16 @@ class PropertyFacilityDTO:
 
 @dataclass(config=ConfigDict(extra="forbid"))
 class PropertyRoomTypeDTO:
-    id: str
+    id: Optional[str] = None
+    room_type_id: Optional[str] = None
+    total_units: Optional[int] = 1
+
 
 @dataclass(config=ConfigDict(extra="forbid"))
 class FoodOptionDTO:
     name: str
     allow: bool = True
+
 
 @dataclass(config=ConfigDict(extra="forbid"))
 class PropertyUpdateDTO(PropertyDTO):
@@ -159,6 +168,7 @@ class PropertyUpdateDTO(PropertyDTO):
     currency: Optional[str] = None
     amenities: Optional[List[PropertyAmenitiesDTO]] = None
     facility: Optional[List[PropertyFacilityDTO]] = None
+    facilities: Optional[List[PropertyFacilityDTO]] = None
     room_types: Optional[List[PropertyRoomTypeDTO]] = None
     food_options: Optional[List[FoodOptionDTO]] = None
     status: Optional[str] = None

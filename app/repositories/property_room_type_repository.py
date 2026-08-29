@@ -7,11 +7,15 @@ from app.repositories.base_repository import BaseRepository
 
 class WithRelations(TypedDict, total=False):
     property: bool
+    room_type: bool
+    property_room_units: bool
 
 class PropertyRoomTypeRepository(BaseRepository[PropertyRoomType]):
     
     _relation_map = {
         "property": PropertyRoomType.property,
+        "room_type": PropertyRoomType.room_type,
+        "property_room_units": PropertyRoomType.property_room_units,
     }
     _filter_map = {
         "property_id": PropertyRoomType.property_id,

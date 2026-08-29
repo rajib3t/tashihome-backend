@@ -4,12 +4,15 @@ from app.models.property_model import Property
 from app.models.property_amenity_model import PropertyAmenity
 from app.models.property_facility_model import PropertyFacility
 from app.models.property_food_option_model import PropertyFoodOption, PropertyFoodOptionStatus
+from app.models.property_room_type_model import PropertyRoomType
 from app.services.city_service import CityService
 from app.services.amenity_service import AmenityService
 from app.services.facility_service import FacilityService
 from app.services.property_amenity_service import PropertyAmenityService
 from app.services.property_facility_service import PropertyFacilityService
 from app.services.property_food_option_service import PropertyFoodOptionService
+from app.services.property_room_type_service import PropertyRoomTypeService
+from app.services.room_type_service import RoomTypeService
 from app.services.location_service import LocationService
 from app.services.property_service import PropertyService
 from app.services.storage_service import StorageService
@@ -28,11 +31,13 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         user_service: UserService,
         city_service: CityService,
         location_service: LocationService,
+        room_type_service: RoomTypeService,
         amenity_service: AmenityService,
         facility_service: FacilityService,
         property_amenity_service: PropertyAmenityService,
         property_facility_service: PropertyFacilityService,
         property_food_option_service: PropertyFoodOptionService,
+        property_room_type_service: PropertyRoomTypeService,
         storage_service: StorageService,
         current_user: CurrentUser,
     ):
@@ -40,11 +45,13 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         self.user_service = user_service
         self.city_service = city_service
         self.location_service = location_service
+        self.room_type_service = room_type_service
         self.amenity_service = amenity_service
         self.facility_service = facility_service
         self.property_amenity_service = property_amenity_service
         self.property_facility_service = property_facility_service
         self.property_food_option_service = property_food_option_service
+        self.property_room_type_service = property_room_type_service
         self.storage_service = storage_service
         self.current_user = current_user
 
@@ -176,8 +183,12 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             suffix += 1
 
     async def _sync_child_records(self, property_id: int, property_dto: PropertyDTO) -> None:
-        if property_dto.amenity_ids:
-            for amenity_id in property_dto.amenity_ids:
+        amenity_ids = property_dto.amenity_ids
+        if amenity_ids is None and property_dto.amenities is not None:
+            amenity_ids = [a.id for a in property_dto.amenities if getattr(a, "id", None)]
+
+        if amenity_ids:
+            for amenity_id in amenity_ids:
                 amenity = await self.amenity_service.get_by_public_id(amenity_id, flush=True)
                 if not amenity:
                     raise AppException(
@@ -191,8 +202,15 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                     commit=True,
                 )
 
-        if property_dto.facility_ids:
-            for facility_id in property_dto.facility_ids:
+        facility_ids = property_dto.facility_ids
+        if facility_ids is None:
+            if property_dto.facility is not None:
+                facility_ids = [f.id for f in property_dto.facility if getattr(f, "id", None)]
+            elif property_dto.facilities is not None:
+                facility_ids = [f.id for f in property_dto.facilities if getattr(f, "id", None)]
+
+        if facility_ids:
+            for facility_id in facility_ids:
                 facility = await self.facility_service.get_by_public_id(facility_id, flush=True)
                 if not facility:
                     raise AppException(
@@ -206,14 +224,59 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                     commit=True,
                 )
 
-        if property_dto.food_option_ids:
-            for food_name in property_dto.food_option_ids:
+        food_option_names = property_dto.food_option_ids
+        if food_option_names is None and property_dto.food_options is not None:
+            food_option_names = [fo.name for fo in property_dto.food_options if getattr(fo, "name", None)]
+
+        if food_option_names:
+            for food_name in food_option_names:
                 await self.property_food_option_service.create(
                     PropertyFoodOption(
                         property_id=property_id,
                         name=food_name,
                         is_included=True,
                         status=PropertyFoodOptionStatus.ACTIVE,
+                    ),
+                    commit=True,
+                )
+
+        room_types_data = []
+        if property_dto.room_types is not None:
+            for rt in property_dto.room_types:
+                rt_id = getattr(rt, "room_type_id", None) or getattr(rt, "id", None)
+                if rt_id:
+                    units = getattr(rt, "total_units", None)
+                    units = units if units is not None else 1
+                    room_types_data.append((rt_id, units))
+        elif property_dto.room_type_ids is not None:
+            for rt_id in property_dto.room_type_ids:
+                if rt_id:
+                    room_types_data.append((rt_id, 1))
+        elif property_dto.room_type_id is not None:
+            room_types_data.append((property_dto.room_type_id, 1))
+
+        if room_types_data:
+            for rt_id, units in room_types_data:
+                if units < 1:
+                    raise AppException(
+                        status_code=422,
+                        message="Total units must be greater than 0.",
+                        field="total_units",
+                        error_code="TOTAL_UNITS_INVALID",
+                    )
+                room_type = await self.room_type_service.get_by_public_id(rt_id, flush=True)
+                if not room_type:
+                    raise AppException(
+                        status_code=404,
+                        message="Room type not found.",
+                        field="room_type_id",
+                        error_code="ROOM_TYPE_NOT_FOUND",
+                    )
+                await self.property_room_type_service.create(
+                    PropertyRoomType(
+                        property_id=property_id,
+                        room_type_id=room_type.id,
+                        total_units=units,
                     ),
                     commit=True,
                 )
