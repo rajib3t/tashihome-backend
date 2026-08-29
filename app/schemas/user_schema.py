@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
@@ -13,6 +14,8 @@ class UserBase(BaseModel):
     role: UserRole
     is_profile_image_url : str | None = None
     is_subscribed: bool | None = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
 
     model_config = ConfigDict(

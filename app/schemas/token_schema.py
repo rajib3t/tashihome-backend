@@ -1,3 +1,5 @@
+from datetime import datetime
+from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 from app.models.token_model import TokenType
@@ -7,7 +9,7 @@ class TokenSchema(BaseModel):
     token: str
     type: str
     user_id: int
-    expires_at: str
+    expires_at: datetime | str
     is_revoked: bool
 
     model_config = ConfigDict(from_attributes=True)

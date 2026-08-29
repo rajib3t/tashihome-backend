@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.schemas.response import BaseResponse
 from app.schemas.token_schema import AccessTokenSchema, TokenDataSchema
@@ -12,6 +12,7 @@ from app.schemas.user_schema import UserData
 class LoginResponseData(BaseModel):
     user: UserData
     token: AccessTokenSchema
+    model_config = ConfigDict(from_attributes=True)
 
 class LoginResponse(BaseResponse):
     data: LoginResponseData
@@ -20,6 +21,7 @@ class LoginResponse(BaseResponse):
 class LoginData(BaseModel):
     user: UserData
     token: TokenDataSchema
+    model_config = ConfigDict(from_attributes=True)
 
 class RefreshTokenResponse(BaseResponse):
     data: AccessTokenSchema
