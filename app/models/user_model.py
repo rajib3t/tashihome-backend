@@ -1,23 +1,24 @@
 import enum
+import uuid
 from typing import TYPE_CHECKING, List
 
 from sqlalchemy import UUID, BigInteger, Boolean, Column, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.orm import foreign, relationship
 
 from app.core.database import Base
-import uuid
+
+
 class UserRole(str, enum.Enum):
-    
     ADMIN = "admin"
     VENDOR = "vendor"
     USER = "user"
-    
 
 
 class UserStatus(str, enum.Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -44,7 +45,6 @@ class User(Base):
     tokens = relationship("Token", back_populates="user", cascade="all, delete-orphan")
     login_logs = relationship("LoginLog", back_populates="user", cascade="all, delete-orphan")
 
-    
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
@@ -52,7 +52,6 @@ class User(Base):
         onupdate=func.now(),
         nullable=False,
     )
-
 
     # Relationships
     company = relationship(
@@ -66,4 +65,10 @@ class User(Base):
         primaryjoin="and_(User.id==foreign(Address.owner_id), Address.owner_type=='user')",
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+    bookings = relationship(
+        "Booking",
+        back_populates="guest",
+        cascade="all, delete-orphan",
+        foreign_keys="Booking.guest_id",
     )

@@ -1,4 +1,3 @@
-
 import enum
 import uuid
 
@@ -46,6 +45,8 @@ class PropertyType(str, enum.Enum):
     FARM_STAY = "farm_stay"
     HOUSEBOAT = "houseboat"
     HOME_STAY = "home_stay"
+
+
 class Property(Base):
     __tablename__ = "properties"
     __table_args__ = (
@@ -65,7 +66,12 @@ class Property(Base):
     vendor_id = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=False, index=True)
     location_id = Column(BigInteger, ForeignKey("locations.id", ondelete="SET NULL"), nullable=True, index=True)
     city_id = Column(BigInteger, ForeignKey("cities.id", ondelete="SET NULL"), nullable=True, index=True)
-    
+    cancellation_policy_id = Column(
+        BigInteger,
+        ForeignKey("cancellation_policies.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     name = Column(String(255), nullable=False, index=True)
     slug = Column(String(255), nullable=False, index=True)
@@ -94,13 +100,13 @@ class Property(Base):
     vendor = relationship("User", foreign_keys=[vendor_id])
     location = relationship("Location")
     city = relationship("City")
-    
+    cancellation_policy = relationship("CancellationPolicy", back_populates="properties")
+
     property_room_types = relationship(
         "PropertyRoomType",
         back_populates="property",
         cascade="all, delete-orphan",
     )
-
     property_assets = relationship(
         "PropertyAsset",
         back_populates="property",
@@ -121,3 +127,5 @@ class Property(Base):
         back_populates="property",
         cascade="all, delete-orphan",
     )
+    bookings = relationship("Booking", back_populates="property")
+    reviews = relationship("Review", back_populates="property", cascade="all, delete-orphan")
