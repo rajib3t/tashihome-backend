@@ -243,6 +243,7 @@ class AdminBookingQueryDTO:
     search: Optional[str] = None
     property_id: Optional[str] = None
     guest_id: Optional[str] = None
+    check_in_date: Optional[date] = None
     check_in_from: Optional[date] = None
     check_in_to: Optional[date] = None
 

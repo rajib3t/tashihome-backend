@@ -20,6 +20,10 @@ class AdminGetBookingsUseCase(BaseUseCase):
         self.booking_service = booking_service
 
     async def execute(self, params: AdminBookingQueryDTO) -> Page[Booking]:
+        # An exact date takes precedence over a date range when both are sent.
+        check_in_from = params.check_in_date or params.check_in_from
+        check_in_to = params.check_in_date or params.check_in_to
+
         return await self.booking_service.list_all_bookings(
             page=params.page,
             page_size=params.size,
@@ -27,8 +31,8 @@ class AdminGetBookingsUseCase(BaseUseCase):
             payment_status=params.payment_status,
             property_id=int(params.property_id) if params.property_id else None,
             guest_id=int(params.guest_id) if params.guest_id else None,
-            check_in_from=params.check_in_from,
-            check_in_to=params.check_in_to,
+            check_in_from=check_in_from,
+            check_in_to=check_in_to,
             search=params.search,
             sort_by=params.sort_by,
             sort_order=params.sort_order,
