@@ -128,6 +128,8 @@ class BookingRefundRequestSchema(BaseModel):
     amount: float
     reason: Optional[str] = None
     status: str
+    razorpay_refund_id: Optional[str] = None
+    razorpay_status: Optional[str] = None
     approved_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)

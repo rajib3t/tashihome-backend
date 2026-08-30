@@ -18,7 +18,7 @@ from app.application.use_case.auth.login_use_case import LoginUseCase
 from app.application.use_case.auth.logout_use_case import LogoutUseCase
 from app.application.use_case.auth.refresh_token_use_case import RefreshTokenUseCase
 from app.core.config import settings
-from app.core.csrf import  verify_csrf
+from app.core.csrf import  issue_csrf_cookie, verify_csrf
 from app.deps.auth import get_login_use_case, get_logout_use_case, get_refresh_token_use_case, get_register_use_case
 from app.models.token_model import TokenType
 from app.schemas.auth_schema import (
@@ -141,6 +141,7 @@ class AuthController(BaseController):
         
 
         login_response = LoginResponseData(user=login_data.user, token=login_data.token.access_token)
+        issue_csrf_cookie(response)  # issue CSRF token on successful login
         return self.build_response(message="Login successful", data=login_response)
     
     @handle_api_exceptions

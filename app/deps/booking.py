@@ -210,3 +210,55 @@ async def get_vendor_update_booking_status_use_case(
         current_user=current_user,
     )
 
+
+# ─────────────────────────────────────────────
+# Admin refund dependency factories
+# ─────────────────────────────────────────────
+
+from app.application.use_case.admin.bookings.list_refund_requests_use_case import AdminListRefundRequestsUseCase
+from app.application.use_case.admin.bookings.get_refund_request_use_case import AdminGetRefundRequestUseCase
+from app.application.use_case.admin.bookings.update_refund_request_use_case import (
+    AdminUpdateRefundStatusUseCase,
+    AdminProcessRefundUseCase,
+)
+from app.deps.service import get_payment_service, get_razorpay_service
+from app.services.payment_service import PaymentService
+from app.services.razorpay_service import RazorpayService
+
+
+async def get_admin_list_refund_requests_use_case(
+    refund_request_service: RefundRequestService = Depends(get_refund_request_service),
+    _: CurrentUser = Depends(require_admin),
+) -> AdminListRefundRequestsUseCase:
+    return AdminListRefundRequestsUseCase(refund_request_service=refund_request_service)
+
+
+async def get_admin_get_refund_request_use_case(
+    refund_request_service: RefundRequestService = Depends(get_refund_request_service),
+    _: CurrentUser = Depends(require_admin),
+) -> AdminGetRefundRequestUseCase:
+    return AdminGetRefundRequestUseCase(refund_request_service=refund_request_service)
+
+
+async def get_admin_update_refund_status_use_case(
+    refund_request_service: RefundRequestService = Depends(get_refund_request_service),
+    current_user: CurrentUser = Depends(require_admin),
+) -> AdminUpdateRefundStatusUseCase:
+    return AdminUpdateRefundStatusUseCase(
+        refund_request_service=refund_request_service,
+        current_user=current_user,
+    )
+
+
+async def get_admin_process_refund_use_case(
+    refund_request_service: RefundRequestService = Depends(get_refund_request_service),
+    payment_service: PaymentService = Depends(get_payment_service),
+    razorpay_service: RazorpayService = Depends(get_razorpay_service),
+    current_user: CurrentUser = Depends(require_admin),
+) -> AdminProcessRefundUseCase:
+    return AdminProcessRefundUseCase(
+        refund_request_service=refund_request_service,
+        payment_service=payment_service,
+        razorpay_service=razorpay_service,
+        current_user=current_user,
+    )

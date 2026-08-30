@@ -70,6 +70,8 @@ class RefundRequest(Base):
         nullable=True,
     )
     approved_at = Column(DateTime(timezone=True), nullable=True)
+    razorpay_refund_id = Column(String(255), nullable=True)
+    razorpay_status = Column(String(50), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
