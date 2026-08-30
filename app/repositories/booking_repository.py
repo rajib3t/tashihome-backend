@@ -2,6 +2,7 @@ from datetime import date
 from datetime import datetime
 from datetime import timezone
 from typing import Optional, Sequence, TypedDict
+from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.orm import selectinload
@@ -264,3 +265,119 @@ class BookingRepository(BaseRepository[Booking]):
 
         return f"{prefix}{seq:07d}"
 
+    async def get_by_identifier(
+        self,
+        identifier: str,
+        with_relations: Optional[BookingWithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Booking]:
+        """Fetch a booking by public_id (UUID) or booking_reference — no guest restriction."""
+        try:
+            uuid_obj = UUID(str(identifier))
+            query = select(Booking).where(
+                or_(
+                    Booking.public_id == uuid_obj,
+                    Booking.booking_reference == str(identifier),
+                )
+            )
+        except (ValueError, AttributeError):
+            query = select(Booking).where(Booking.booking_reference == str(identifier))
+
+        query = self._apply_relations(query, with_relations, self._relation_map)
+        return await self._fetch_one(query, flush=flush)
+
+    async def list_all_bookings(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        status: Optional[str] = None,
+        payment_status: Optional[str] = None,
+        property_id: Optional[int] = None,
+        guest_id: Optional[int] = None,
+        check_in_from: Optional[date] = None,
+        check_in_to: Optional[date] = None,
+        search: Optional[str] = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+        with_relations: Optional[BookingWithRelations] = None,
+        flush: bool = False,
+    ) -> Page[Booking]:
+        """Paginated list of all bookings — for admin use."""
+        query = select(Booking)
+
+        if status:
+            query = query.where(Booking.status == status)
+        if payment_status:
+            query = query.where(Booking.payment_status == payment_status)
+        if property_id:
+            query = query.where(Booking.property_id == property_id)
+        if guest_id:
+            query = query.where(Booking.guest_id == guest_id)
+        if check_in_from:
+            query = query.where(Booking.check_in_date >= check_in_from)
+        if check_in_to:
+            query = query.where(Booking.check_in_date <= check_in_to)
+        if search:
+            search_term = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Booking.booking_reference.ilike(search_term),
+                    Booking.special_requests.ilike(search_term),
+                )
+            )
+
+        sort_column = getattr(Booking, sort_by, Booking.created_at)
+        query = query.order_by(
+            sort_column.asc() if sort_order.lower() == "asc" else sort_column.desc()
+        )
+        query = self._apply_relations(query, with_relations, self._relation_map)
+        return await self._paginate(query, page=page, page_size=page_size, flush=flush)
+
+    async def list_vendor_bookings(
+        self,
+        vendor_id: int,
+        page: int = 1,
+        page_size: int = 10,
+        status: Optional[str] = None,
+        payment_status: Optional[str] = None,
+        property_id: Optional[int] = None,
+        check_in_from: Optional[date] = None,
+        check_in_to: Optional[date] = None,
+        search: Optional[str] = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+        with_relations: Optional[BookingWithRelations] = None,
+        flush: bool = False,
+    ) -> Page[Booking]:
+        """Paginated list of bookings scoped to a vendor's own properties."""
+        query = (
+            select(Booking)
+            .join(Property, Booking.property_id == Property.id)
+            .where(Property.vendor_id == vendor_id)
+        )
+
+        if status:
+            query = query.where(Booking.status == status)
+        if payment_status:
+            query = query.where(Booking.payment_status == payment_status)
+        if property_id:
+            query = query.where(Booking.property_id == property_id)
+        if check_in_from:
+            query = query.where(Booking.check_in_date >= check_in_from)
+        if check_in_to:
+            query = query.where(Booking.check_in_date <= check_in_to)
+        if search:
+            search_term = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Booking.booking_reference.ilike(search_term),
+                    Booking.special_requests.ilike(search_term),
+                )
+            )
+
+        sort_column = getattr(Booking, sort_by, Booking.created_at)
+        query = query.order_by(
+            sort_column.asc() if sort_order.lower() == "asc" else sort_column.desc()
+        )
+        query = self._apply_relations(query, with_relations, self._relation_map)
+        return await self._paginate(query, page=page, page_size=page_size, flush=flush)

@@ -47,6 +47,9 @@ class BookingCompletedHandler:
 
             app_name_setting = await setting_service.get_by_key("app_name")
             logo_setting = await setting_service.get_by_key("app_logo")
+            app_date_format = await setting_service.get_value(
+                "app_date_format", "DD/MM/YYYY"
+            )
             app_name = app_name_setting.value if app_name_setting else "Tashi Homes"
             logo_url = (
                 await storage_service.get_display_url(logo_setting.value)
@@ -57,7 +60,12 @@ class BookingCompletedHandler:
         current_year = date_cls.today().year
 
         # ── 1. Generate PDF invoice ─────────────────────────────────────────
-        pdf_data = {**payload, "app_name": app_name}
+        pdf_data = {
+            **payload,
+            "app_name": app_name,
+            "logo_url": logo_url,
+            "app_date_format": app_date_format,
+        }
         invoice_bytes: bytes = b""
         try:
             invoice_service = InvoiceService()

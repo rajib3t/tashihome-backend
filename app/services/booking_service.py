@@ -269,3 +269,82 @@ class BookingService:
             with_relations=with_relations,
             flush=flush,
         )
+
+    async def get_booking_by_identifier(
+        self,
+        identifier: str,
+        with_relations=None,
+        flush: bool = False,
+    ):
+        """Fetch a booking by public_id or booking_reference — no guest restriction (admin/vendor)."""
+        return await self.booking_repository.get_by_identifier(
+            identifier=identifier,
+            with_relations=with_relations,
+            flush=flush,
+        )
+
+    async def list_all_bookings(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        status=None,
+        payment_status=None,
+        property_id=None,
+        guest_id=None,
+        check_in_from=None,
+        check_in_to=None,
+        search=None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+        with_relations=None,
+        flush: bool = False,
+    ):
+        """List all bookings (admin)."""
+        return await self.booking_repository.list_all_bookings(
+            page=page,
+            page_size=page_size,
+            status=status,
+            payment_status=payment_status,
+            property_id=property_id,
+            guest_id=guest_id,
+            check_in_from=check_in_from,
+            check_in_to=check_in_to,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            with_relations=with_relations,
+            flush=flush,
+        )
+
+    async def list_vendor_bookings(
+        self,
+        vendor_id: int,
+        page: int = 1,
+        page_size: int = 10,
+        status=None,
+        payment_status=None,
+        property_id=None,
+        check_in_from=None,
+        check_in_to=None,
+        search=None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+        with_relations=None,
+        flush: bool = False,
+    ):
+        """List bookings scoped to vendor's properties."""
+        return await self.booking_repository.list_vendor_bookings(
+            vendor_id=vendor_id,
+            page=page,
+            page_size=page_size,
+            status=status,
+            payment_status=payment_status,
+            property_id=property_id,
+            check_in_from=check_in_from,
+            check_in_to=check_in_to,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            with_relations=with_relations,
+            flush=flush,
+        )

@@ -230,3 +230,73 @@ class RazorpayVerifyPaymentDTO:
             )
         return str(value).strip()
 
+
+@dataclass(config=ConfigDict(extra="forbid"))
+class AdminBookingQueryDTO:
+    """Query params for admin listing all bookings."""
+    page: int = 1
+    size: int = 10
+    sort_by: str = "created_at"
+    sort_order: str = "desc"
+    status: Optional[str] = None
+    payment_status: Optional[str] = None
+    search: Optional[str] = None
+    property_id: Optional[str] = None
+    guest_id: Optional[str] = None
+    check_in_from: Optional[date] = None
+    check_in_to: Optional[date] = None
+
+    @field_validator("page", "size")
+    @classmethod
+    def validate_pagination(cls, value: int, info):
+        if value < 1:
+            raise AppException(
+                status_code=422,
+                message=f"{info.field_name} must be greater than 0.",
+                field=info.field_name,
+                error_code="PAGINATION_INVALID",
+            )
+        return value
+
+    @field_validator("sort_order")
+    @classmethod
+    def validate_sort_order(cls, value: str):
+        if value not in ["asc", "desc"]:
+            raise AppException(
+                status_code=422,
+                message="Sort order must be 'asc' or 'desc'.",
+                field="sort_order",
+                error_code="SORT_ORDER_INVALID",
+            )
+        return value
+
+    @field_validator("sort_by")
+    @classmethod
+    def validate_sort_by(cls, value: str):
+        allowed = ["created_at", "check_in_date", "check_out_date", "total_amount", "status"]
+        if value not in allowed:
+            return "created_at"
+        return value
+
+
+from pydantic import BaseModel
+
+
+class BookingStatusUpdateDTO(BaseModel):
+    """Request body for admin/vendor status update."""
+    status: str
+    reason: Optional[str] = None
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str):
+        from app.models.booking_model import BookingStatus
+        allowed = [s.value for s in BookingStatus]
+        if value not in allowed:
+            raise AppException(
+                status_code=422,
+                message=f"Invalid status '{value}'. Allowed: {', '.join(allowed)}",
+                field="status",
+                error_code="INVALID_STATUS",
+            )
+        return value

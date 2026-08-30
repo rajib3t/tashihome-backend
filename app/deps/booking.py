@@ -136,3 +136,77 @@ async def get_verify_razorpay_payment_use_case(
         event_bus=RedisEventBus(),
     )
 
+
+# ─────────────────────────────────────────────
+# Admin booking dependency factories
+# ─────────────────────────────────────────────
+
+from app.application.use_case.admin.bookings.get_bookings_use_case import AdminGetBookingsUseCase
+from app.application.use_case.admin.bookings.get_booking_detail_use_case import AdminGetBookingDetailUseCase
+from app.application.use_case.admin.bookings.update_booking_status_use_case import AdminUpdateBookingStatusUseCase
+from app.deps.auth import require_admin
+
+
+async def get_admin_bookings_use_case(
+    booking_service: BookingService = Depends(get_booking_service),
+    _: CurrentUser = Depends(require_admin),
+) -> AdminGetBookingsUseCase:
+    return AdminGetBookingsUseCase(booking_service=booking_service)
+
+
+async def get_admin_booking_detail_use_case(
+    booking_service: BookingService = Depends(get_booking_service),
+    _: CurrentUser = Depends(require_admin),
+) -> AdminGetBookingDetailUseCase:
+    return AdminGetBookingDetailUseCase(booking_service=booking_service)
+
+
+async def get_admin_update_booking_status_use_case(
+    booking_service: BookingService = Depends(get_booking_service),
+    current_user: CurrentUser = Depends(require_admin),
+) -> AdminUpdateBookingStatusUseCase:
+    return AdminUpdateBookingStatusUseCase(
+        booking_service=booking_service,
+        current_user=current_user,
+    )
+
+
+# ─────────────────────────────────────────────
+# Vendor booking dependency factories
+# ─────────────────────────────────────────────
+
+from app.application.use_case.vendor.booking.get_bookings_use_case import VendorGetBookingsUseCase
+from app.application.use_case.vendor.booking.get_booking_detail_use_case import VendorGetBookingDetailUseCase
+from app.application.use_case.vendor.booking.update_booking_status_use_case import VendorUpdateBookingStatusUseCase
+from app.deps.auth import require_vendor
+
+
+async def get_vendor_bookings_use_case(
+    booking_service: BookingService = Depends(get_booking_service),
+    current_user: CurrentUser = Depends(require_vendor),
+) -> VendorGetBookingsUseCase:
+    return VendorGetBookingsUseCase(
+        booking_service=booking_service,
+        current_user=current_user,
+    )
+
+
+async def get_vendor_booking_detail_use_case(
+    booking_service: BookingService = Depends(get_booking_service),
+    current_user: CurrentUser = Depends(require_vendor),
+) -> VendorGetBookingDetailUseCase:
+    return VendorGetBookingDetailUseCase(
+        booking_service=booking_service,
+        current_user=current_user,
+    )
+
+
+async def get_vendor_update_booking_status_use_case(
+    booking_service: BookingService = Depends(get_booking_service),
+    current_user: CurrentUser = Depends(require_vendor),
+) -> VendorUpdateBookingStatusUseCase:
+    return VendorUpdateBookingStatusUseCase(
+        booking_service=booking_service,
+        current_user=current_user,
+    )
+
