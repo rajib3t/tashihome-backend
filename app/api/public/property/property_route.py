@@ -1,9 +1,12 @@
 from app.application.dto.properties.public.property import PublicPropertyQueryDTO
+from app.application.dto.stays.public.stay import PublicSearchStaysQueryDTO
 from app.api.base_controller import BaseController
 from fastapi import APIRouter, Depends
 from app.application.use_case.public.property.get_properties_use_case import PublicPropertiesUseCase
 from app.application.use_case.public.property.get_property_use_case import PublicGetPropertyUseCase
+from app.application.use_case.public.stay.search_stays_use_case import PublicSearchStaysUseCase
 from app.deps.public.property import public_get_property_use_case, public_properties_use_case
+from app.deps.public.stay import public_search_stays_use_case
 from app.schemas.public.property_schema import PublicPropertyResponse, PublicPropertyResponseListSchema
 from app.utils.exception_decorate import handle_api_exceptions  
 class PublicPropertyController(BaseController):
@@ -17,6 +20,7 @@ class PublicPropertyController(BaseController):
     def _register_routes(self):
         routes = [
             ("get", "/", self._get_properties, {"response_model": PublicPropertyResponseListSchema}),
+            ("get", "/search", self._search_properties, {"response_model": PublicPropertyResponseListSchema}),
             ("get", "/{slug}", self._get_property, {"response_model": PublicPropertyResponse}),
         ]
         for method, path, handler, route_kwargs in routes:
@@ -27,6 +31,19 @@ class PublicPropertyController(BaseController):
         self,
         params: PublicPropertyQueryDTO = Depends(),
         use_case: PublicPropertiesUseCase = Depends(public_properties_use_case),
+    ):
+        properties = await use_case.execute(params)
+        return self.build_response(
+            message="Properties retrieved successfully.",
+            data=properties.items,
+            meta=self.pagination_meta(properties),
+        )
+
+    @handle_api_exceptions
+    async def _search_properties(
+        self,
+        params: PublicSearchStaysQueryDTO = Depends(),
+        use_case: PublicSearchStaysUseCase = Depends(public_search_stays_use_case),
     ):
         properties = await use_case.execute(params)
         return self.build_response(

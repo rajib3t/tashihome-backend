@@ -3,6 +3,7 @@ from pydantic import field_validator
 from typing_extensions import Optional
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
+from app.application.dto.stays.public.stay import PublicSearchStaysQueryDTO
 
 
 @dataclass(config=ConfigDict(extra="forbid"))
