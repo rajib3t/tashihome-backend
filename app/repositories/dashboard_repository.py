@@ -11,6 +11,7 @@ from app.models.booking_model import Booking, BookingStatus, PaymentStatus
 from app.models.city_model import City
 from app.models.host_request_model import HostRequest, HostRequestStatus
 from app.models.payment_model import Payment, TransactionStatus
+from app.models.payout_model import Payout, PayoutStatus
 from app.models.property_asset_model import PropertyAsset
 from app.models.property_model import Property, PropertyStatus, PropertyType
 from app.models.refund_request_model import RefundRequest, RefundRequestStatus
@@ -572,6 +573,91 @@ class DashboardRepository:
             })
         return items
 
+    async def get_admin_payout_stats(self) -> Dict[str, Any]:
+        query = select(
+            Payout.status,
+            func.count(Payout.id).label("count"),
+            func.coalesce(func.sum(Payout.amount), 0).label("sum_amount"),
+        ).group_by(Payout.status)
+        rows = (await self.db.execute(query)).all()
+
+        stats = {
+            "total_payouts": 0,
+            "total_paid_amount": 0.0,
+            "pending_payout_amount": 0.0,
+            "processing_payout_amount": 0.0,
+            "failed_payout_amount": 0.0,
+            "pending_count": 0,
+            "processing_count": 0,
+            "paid_count": 0,
+            "failed_count": 0,
+            "last_payout_date": None,
+            "last_payout_amount": 0.0,
+            "currency": "INR",
+        }
+
+        for st, count, sum_amt in rows:
+            st_key = st.value if hasattr(st, "value") else str(st).lower()
+            stats["total_payouts"] += count
+            amt = float(sum_amt or 0.0)
+
+            if st_key == "paid":
+                stats["paid_count"] += count
+                stats["total_paid_amount"] += amt
+            elif st_key == "pending":
+                stats["pending_count"] += count
+                stats["pending_payout_amount"] += amt
+            elif st_key == "processing":
+                stats["processing_count"] += count
+                stats["processing_payout_amount"] += amt
+            elif st_key in ["failed", "rejected", "reversed"]:
+                stats["failed_count"] += count
+                stats["failed_payout_amount"] += amt
+
+        last_payout_query = (
+            select(Payout.paid_at, Payout.amount)
+            .where(Payout.status == PayoutStatus.PAID)
+            .order_by(Payout.paid_at.desc().nullslast(), Payout.created_at.desc())
+            .limit(1)
+        )
+        last_payout_row = (await self.db.execute(last_payout_query)).first()
+        if last_payout_row:
+            stats["last_payout_date"] = last_payout_row[0]
+            stats["last_payout_amount"] = float(last_payout_row[1] or 0.0)
+
+        return stats
+
+    async def get_admin_recent_payouts(self, limit: int = 5) -> List[Dict[str, Any]]:
+        query = (
+            select(Payout)
+            .options(selectinload(Payout.vendor))
+            .order_by(Payout.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        payouts = result.scalars().all()
+
+        items = []
+        for p in payouts:
+            items.append({
+                "id": str(p.public_id),
+                "vendor_name": p.vendor.full_name if p.vendor else None,
+                "vendor_email": p.vendor.email if p.vendor else None,
+                "amount": float(p.amount or 0.0),
+                "gross_amount": float(p.gross_amount or 0.0) if p.gross_amount is not None else 0.0,
+                "commission_amount": float(p.commission_amount or 0.0) if p.commission_amount is not None else 0.0,
+                "currency": p.currency or "INR",
+                "period_start": p.period_start,
+                "period_end": p.period_end,
+                "status": p.status.value if hasattr(p.status, "value") else str(p.status),
+                "mode": p.mode or "NEFT",
+                "utr": p.utr,
+                "notes": p.notes,
+                "paid_at": p.paid_at,
+                "created_at": p.created_at,
+            })
+        return items
+
     # ──────────────────────────────────────────────────────────────────────────
     # VENDOR REPOSITORY METHODS (Scoped to vendor_id)
     # ──────────────────────────────────────────────────────────────────────────
@@ -1073,6 +1159,99 @@ class DashboardRepository:
                 "total_bookings": int(b_count or 0),
                 "total_revenue": float(rev_sum or 0.0),
                 "average_rating": round(float(avg_rat or 0.0), 1),
+            })
+        return items
+
+    async def get_vendor_payout_stats(self, vendor_id: int) -> Dict[str, Any]:
+        query = (
+            select(
+                Payout.status,
+                func.count(Payout.id).label("count"),
+                func.coalesce(func.sum(Payout.amount), 0).label("sum_amount"),
+            )
+            .where(Payout.vendor_id == vendor_id)
+            .group_by(Payout.status)
+        )
+        rows = (await self.db.execute(query)).all()
+
+        stats = {
+            "total_payouts": 0,
+            "total_paid_amount": 0.0,
+            "pending_payout_amount": 0.0,
+            "processing_payout_amount": 0.0,
+            "failed_payout_amount": 0.0,
+            "pending_count": 0,
+            "processing_count": 0,
+            "paid_count": 0,
+            "failed_count": 0,
+            "last_payout_date": None,
+            "last_payout_amount": 0.0,
+            "currency": "INR",
+        }
+
+        for st, count, sum_amt in rows:
+            st_key = st.value if hasattr(st, "value") else str(st).lower()
+            stats["total_payouts"] += count
+            amt = float(sum_amt or 0.0)
+
+            if st_key == "paid":
+                stats["paid_count"] += count
+                stats["total_paid_amount"] += amt
+            elif st_key == "pending":
+                stats["pending_count"] += count
+                stats["pending_payout_amount"] += amt
+            elif st_key == "processing":
+                stats["processing_count"] += count
+                stats["processing_payout_amount"] += amt
+            elif st_key in ["failed", "rejected", "reversed"]:
+                stats["failed_count"] += count
+                stats["failed_payout_amount"] += amt
+
+        last_payout_query = (
+            select(Payout.paid_at, Payout.amount)
+            .where(
+                Payout.vendor_id == vendor_id,
+                Payout.status == PayoutStatus.PAID,
+            )
+            .order_by(Payout.paid_at.desc().nullslast(), Payout.created_at.desc())
+            .limit(1)
+        )
+        last_payout_row = (await self.db.execute(last_payout_query)).first()
+        if last_payout_row:
+            stats["last_payout_date"] = last_payout_row[0]
+            stats["last_payout_amount"] = float(last_payout_row[1] or 0.0)
+
+        return stats
+
+    async def get_vendor_recent_payouts(self, vendor_id: int, limit: int = 5) -> List[Dict[str, Any]]:
+        query = (
+            select(Payout)
+            .options(selectinload(Payout.vendor))
+            .where(Payout.vendor_id == vendor_id)
+            .order_by(Payout.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        payouts = result.scalars().all()
+
+        items = []
+        for p in payouts:
+            items.append({
+                "id": str(p.public_id),
+                "vendor_name": p.vendor.full_name if p.vendor else None,
+                "vendor_email": p.vendor.email if p.vendor else None,
+                "amount": float(p.amount or 0.0),
+                "gross_amount": float(p.gross_amount or 0.0) if p.gross_amount is not None else 0.0,
+                "commission_amount": float(p.commission_amount or 0.0) if p.commission_amount is not None else 0.0,
+                "currency": p.currency or "INR",
+                "period_start": p.period_start,
+                "period_end": p.period_end,
+                "status": p.status.value if hasattr(p.status, "value") else str(p.status),
+                "mode": p.mode or "NEFT",
+                "utr": p.utr,
+                "notes": p.notes,
+                "paid_at": p.paid_at,
+                "created_at": p.created_at,
             })
         return items
 

@@ -75,6 +75,20 @@ def test_admin_dashboard_use_case_success():
             "rejected": 1,
             "total_amount_refunded": 7000.0,
         }
+        mock_repo.get_admin_payout_stats.return_value = {
+            "total_payouts": 8,
+            "total_paid_amount": 120000.0,
+            "pending_payout_amount": 15000.0,
+            "processing_payout_amount": 5000.0,
+            "failed_payout_amount": 0.0,
+            "pending_count": 1,
+            "processing_count": 1,
+            "paid_count": 6,
+            "failed_count": 0,
+            "last_payout_date": datetime.now(timezone.utc),
+            "last_payout_amount": 25000.0,
+            "currency": "INR",
+        }
         mock_repo.get_admin_occupancy_today.return_value = {
             "today_check_ins": 4,
             "today_check_outs": 2,
@@ -142,6 +156,25 @@ def test_admin_dashboard_use_case_success():
                 "created_at": datetime.now(timezone.utc),
             }
         ]
+        mock_repo.get_admin_recent_payouts.return_value = [
+            {
+                "id": str(uuid.uuid4()),
+                "vendor_name": "Tashi Dorji",
+                "vendor_email": "tashi@example.com",
+                "amount": 25000.0,
+                "gross_amount": 28000.0,
+                "commission_amount": 3000.0,
+                "currency": "INR",
+                "period_start": date(2026, 8, 1),
+                "period_end": date(2026, 8, 15),
+                "status": "paid",
+                "mode": "NEFT",
+                "utr": "UTR123456",
+                "notes": "August settlement",
+                "paid_at": datetime.now(timezone.utc),
+                "created_at": datetime.now(timezone.utc),
+            }
+        ]
         mock_repo.get_admin_top_properties.return_value = [
             {
                 "id": str(uuid.uuid4()),
@@ -160,19 +193,20 @@ def test_admin_dashboard_use_case_success():
         service = DashboardService(dashboard_repository=mock_repo)
         use_case = GetAdminDashboardUseCase(dashboard_service=service)
 
-
         result = await use_case.execute(AdminDashboardQueryDTO(months=6))
 
         assert result["bookings_summary"]["total"] == 45
         assert result["revenue_summary"]["total_revenue"] == 146500.0
         assert result["revenue_summary"]["gross_revenue"] == 150000.0
         assert result["revenue_summary"]["refunded_amount"] == 3500.0
+        assert result["payouts_summary"]["total_paid_amount"] == 120000.0
+        assert result["payouts_summary"]["pending_payout_amount"] == 15000.0
         assert result["properties_summary"]["active"] == 9
         assert result["users_summary"]["total"] == 120
         assert len(result["recent_bookings"]) == 1
         assert len(result["recent_refund_requests"]) == 1
+        assert len(result["recent_payouts"]) == 1
         assert len(result["top_properties"]) == 1
-
 
         # Verify Pydantic schema validation
         response_model = AdminDashboardResponseSchema(
@@ -183,10 +217,10 @@ def test_admin_dashboard_use_case_success():
         assert response_model.data.bookings_summary.confirmed == 20
         assert response_model.data.refunds_summary.processed == 2
         assert response_model.data.refunds_summary.total_amount_refunded == 7000.0
+        assert response_model.data.payouts_summary.paid_count == 6
         assert response_model.data.occupancy_today.active_guests == 18
 
     asyncio.run(run_test())
-
 
 
 def test_admin_summary_use_case_success():
@@ -206,6 +240,7 @@ def test_admin_summary_use_case_success():
         mock_repo.get_admin_property_stats.return_value = {"total": 5, "active": 4, "draft": 1, "inactive": 0, "archived": 0, "featured": 1, "by_type": {}}
         mock_repo.get_admin_user_stats.return_value = {"total": 50, "active": 45, "inactive": 5, "suspended": 0, "by_role": {}, "pending_hosts": 1}
         mock_repo.get_admin_refund_stats.return_value = {"total_requests": 1, "pending": 0, "approved": 1, "rejected": 0, "total_amount_refunded": 1000.0}
+        mock_repo.get_admin_payout_stats.return_value = {"total_payouts": 4, "total_paid_amount": 45000.0, "pending_payout_amount": 5000.0, "processing_payout_amount": 0.0, "failed_payout_amount": 0.0, "pending_count": 1, "processing_count": 0, "paid_count": 3, "failed_count": 0, "last_payout_date": None, "last_payout_amount": 0.0, "currency": "INR"}
         mock_repo.get_admin_occupancy_today.return_value = {"today_check_ins": 2, "today_check_outs": 1, "active_guests": 5}
 
         service = DashboardService(dashboard_repository=mock_repo)
@@ -221,7 +256,7 @@ def test_admin_summary_use_case_success():
         assert response.data.revenue_summary.total_revenue == 49000.0
         assert response.data.revenue_summary.gross_revenue == 50000.0
         assert response.data.revenue_summary.refunded_amount == 1000.0
-
+        assert response.data.payouts_summary.total_paid_amount == 45000.0
 
     asyncio.run(run_test())
 
@@ -250,7 +285,6 @@ def test_vendor_dashboard_use_case_success():
             "currency": "INR",
         }
 
-
         mock_repo.get_vendor_property_stats.return_value = {
             "total": 3,
             "active": 2,
@@ -259,6 +293,20 @@ def test_vendor_dashboard_use_case_success():
             "archived": 0,
             "featured": 1,
             "by_type": {},
+        }
+        mock_repo.get_vendor_payout_stats.return_value = {
+            "total_payouts": 4,
+            "total_paid_amount": 42000.0,
+            "pending_payout_amount": 8000.0,
+            "processing_payout_amount": 2500.0,
+            "failed_payout_amount": 0.0,
+            "pending_count": 1,
+            "processing_count": 1,
+            "paid_count": 2,
+            "failed_count": 0,
+            "last_payout_date": datetime.now(timezone.utc),
+            "last_payout_amount": 20000.0,
+            "currency": "INR",
         }
         mock_repo.get_vendor_review_stats.return_value = {
             "total_reviews": 12,
@@ -311,6 +359,25 @@ def test_vendor_dashboard_use_case_success():
                 "created_at": datetime.now(timezone.utc),
             }
         ]
+        mock_repo.get_vendor_recent_payouts.return_value = [
+            {
+                "id": str(uuid.uuid4()),
+                "vendor_name": "Vendor Test",
+                "vendor_email": "vendor@example.com",
+                "amount": 20000.0,
+                "gross_amount": 22500.0,
+                "commission_amount": 2500.0,
+                "currency": "INR",
+                "period_start": date(2026, 8, 1),
+                "period_end": date(2026, 8, 15),
+                "status": "paid",
+                "mode": "NEFT",
+                "utr": "UTR887766",
+                "notes": "First half settlement",
+                "paid_at": datetime.now(timezone.utc),
+                "created_at": datetime.now(timezone.utc),
+            }
+        ]
         mock_repo.get_vendor_top_properties.return_value = [
             {
                 "id": str(uuid.uuid4()),
@@ -334,9 +401,13 @@ def test_vendor_dashboard_use_case_success():
 
         mock_repo.get_vendor_booking_stats.assert_called_once_with(vendor_id=77)
         mock_repo.get_vendor_revenue_stats.assert_called_once_with(vendor_id=77)
+        mock_repo.get_vendor_payout_stats.assert_called_once_with(vendor_id=77)
+        mock_repo.get_vendor_recent_payouts.assert_called_once_with(vendor_id=77, limit=5)
 
         assert result["bookings_summary"]["total"] == 15
         assert result["reviews_summary"]["average_rating"] == 4.9
+        assert result["payouts_summary"]["total_paid_amount"] == 42000.0
+        assert len(result["recent_payouts"]) == 1
 
         # Validate against schema
         response_model = VendorDashboardResponseSchema(
@@ -345,7 +416,9 @@ def test_vendor_dashboard_use_case_success():
             data=result,
         )
         assert response_model.data.bookings_summary.confirmed == 8
+        assert response_model.data.payouts_summary.paid_count == 2
         assert len(response_model.data.upcoming_bookings) == 1
+        assert len(response_model.data.recent_payouts) == 1
 
     asyncio.run(run_test())
 
@@ -364,8 +437,8 @@ def test_vendor_summary_use_case_success():
             "currency": "INR",
         }
 
-
         mock_repo.get_vendor_property_stats.return_value = {"total": 2, "active": 2, "draft": 0, "inactive": 0, "archived": 0, "featured": 0, "by_type": {}}
+        mock_repo.get_vendor_payout_stats.return_value = {"total_payouts": 3, "total_paid_amount": 22000.0, "pending_payout_amount": 6000.0, "processing_payout_amount": 0.0, "failed_payout_amount": 0.0, "pending_count": 1, "processing_count": 0, "paid_count": 2, "failed_count": 0, "last_payout_date": None, "last_payout_amount": 0.0, "currency": "INR"}
         mock_repo.get_vendor_review_stats.return_value = {"total_reviews": 5, "average_rating": 5.0}
         mock_repo.get_vendor_occupancy_today.return_value = {"today_check_ins": 1, "today_check_outs": 0, "active_guests": 2}
 
@@ -382,6 +455,8 @@ def test_vendor_summary_use_case_success():
         )
         assert response.data.reviews_summary.average_rating == 5.0
         assert response.data.revenue_summary.total_revenue == 28000.0
+        assert response.data.payouts_summary.total_paid_amount == 22000.0
 
     asyncio.run(run_test())
+
 

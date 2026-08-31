@@ -61,6 +61,22 @@ class RefundStatsSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PayoutStatsSchema(BaseModel):
+    total_payouts: int = 0
+    total_paid_amount: float = 0.0
+    pending_payout_amount: float = 0.0
+    processing_payout_amount: float = 0.0
+    failed_payout_amount: float = 0.0
+    pending_count: int = 0
+    processing_count: int = 0
+    paid_count: int = 0
+    failed_count: int = 0
+    last_payout_date: Optional[datetime] = None
+    last_payout_amount: Optional[float] = 0.0
+    currency: str = "INR"
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ReviewStatsSchema(BaseModel):
     total_reviews: int = 0
     average_rating: float = 0.0
@@ -198,6 +214,76 @@ class TopPropertySchema(BaseModel):
         return float(value)
 
 
+class RecentRefundRequestSchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    booking_reference: Optional[str] = None
+    guest_name: Optional[str] = None
+    guest_email: Optional[str] = None
+    property_name: Optional[str] = None
+    amount: float = 0.0
+    reason: Optional[str] = None
+    status: str
+    razorpay_refund_id: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        return str(value)
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def validate_amount(cls, value):
+        if value is None:
+            return 0.0
+        return float(value)
+
+
+class RecentPayoutSchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    vendor_name: Optional[str] = None
+    vendor_email: Optional[str] = None
+    amount: float = 0.0
+    gross_amount: Optional[float] = 0.0
+    commission_amount: Optional[float] = 0.0
+    currency: str = "INR"
+    period_start: date
+    period_end: date
+    status: str
+    mode: Optional[str] = "NEFT"
+    utr: Optional[str] = None
+    notes: Optional[str] = None
+    paid_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        return str(value)
+
+    @field_validator("amount", "gross_amount", "commission_amount", mode="before")
+    @classmethod
+    def validate_floats(cls, value):
+        if value is None:
+            return 0.0
+        return float(value)
+
+
 # ─────────────────────────────────────────────
 # Full Dashboard Data & Response Schemas
 # ─────────────────────────────────────────────
@@ -208,11 +294,14 @@ class AdminDashboardDataSchema(BaseModel):
     properties_summary: PropertyStatsSchema
     users_summary: UserStatsSchema
     refunds_summary: RefundStatsSchema
+    payouts_summary: PayoutStatsSchema
     occupancy_today: OccupancyTodaySchema
     revenue_trends: List[RevenueTrendItemSchema] = Field(default_factory=list)
     recent_bookings: List[RecentBookingSchema] = Field(default_factory=list)
     recent_host_requests: List[RecentHostRequestSchema] = Field(default_factory=list)
     recent_users: List[RecentUserSchema] = Field(default_factory=list)
+    recent_refund_requests: List[RecentRefundRequestSchema] = Field(default_factory=list)
+    recent_payouts: List[RecentPayoutSchema] = Field(default_factory=list)
     top_properties: List[TopPropertySchema] = Field(default_factory=list)
     model_config = ConfigDict(from_attributes=True)
 
@@ -225,11 +314,13 @@ class VendorDashboardDataSchema(BaseModel):
     bookings_summary: BookingStatsSchema
     revenue_summary: RevenueStatsSchema
     properties_summary: PropertyStatsSchema
+    payouts_summary: PayoutStatsSchema
     reviews_summary: ReviewStatsSchema
     occupancy_today: OccupancyTodaySchema
     revenue_trends: List[RevenueTrendItemSchema] = Field(default_factory=list)
     recent_bookings: List[RecentBookingSchema] = Field(default_factory=list)
     upcoming_bookings: List[RecentBookingSchema] = Field(default_factory=list)
+    recent_payouts: List[RecentPayoutSchema] = Field(default_factory=list)
     top_properties: List[TopPropertySchema] = Field(default_factory=list)
     model_config = ConfigDict(from_attributes=True)
 
@@ -248,6 +339,7 @@ class AdminSummaryDataSchema(BaseModel):
     properties_summary: PropertyStatsSchema
     users_summary: UserStatsSchema
     refunds_summary: RefundStatsSchema
+    payouts_summary: PayoutStatsSchema
     occupancy_today: OccupancyTodaySchema
     model_config = ConfigDict(from_attributes=True)
 
@@ -260,6 +352,7 @@ class VendorSummaryDataSchema(BaseModel):
     bookings_summary: BookingStatsSchema
     revenue_summary: RevenueStatsSchema
     properties_summary: PropertyStatsSchema
+    payouts_summary: PayoutStatsSchema
     reviews_summary: ReviewStatsSchema
     occupancy_today: OccupancyTodaySchema
     model_config = ConfigDict(from_attributes=True)
@@ -267,4 +360,5 @@ class VendorSummaryDataSchema(BaseModel):
 
 class VendorSummaryResponseSchema(BaseResponse):
     data: VendorSummaryDataSchema
+
 
