@@ -117,12 +117,14 @@ class BaseRepository(Generic[ModelT]):
             python_type = getattr(column.type, "python_type", None)
             enum_class = getattr(column.type, "enum_class", None)
 
-            if enum_class is not None and hasattr(value, "value"):
-                value = value.value
-
-            if isinstance(value, str) and python_type is str:
+            if isinstance(value, (list, tuple, set)):
+                formatted_values = [v.value if hasattr(v, "value") else v for v in value]
+                query = query.where(column.in_(formatted_values))
+            elif isinstance(value, str) and python_type is str:
                 query = query.where(func.lower(column) == value.strip().lower())
             else:
+                if enum_class is not None and hasattr(value, "value"):
+                    value = value.value
                 query = query.where(column == value)
 
         return query
