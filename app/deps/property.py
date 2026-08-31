@@ -20,7 +20,7 @@ from app.application.use_case.admin.properties.property_use_case import (
 from app.application.use_case.admin.properties.update_property_use_case import UpdatePropertyUseCase
 from app.application.use_case.admin.properties.upload_property_assets_use_case import UploadPropertyAssetsUseCase
 from app.application.use_case.admin.properties.create_property_use_case import CreatePropertyUseCase
-from app.deps.auth import CurrentUser, require_admin, require_vendor
+from app.deps.auth import CurrentUser, require_admin, require_admin_or_staff, require_vendor
 from app.deps.service import (
     get_amenity_service,
     get_city_service,
@@ -55,7 +55,7 @@ async def get_list_properties_use_case(
     property_service: PropertyService = Depends(get_property_service),
     user_service: UserService = Depends(get_user_service),
     storage_service: StorageService = Depends(get_storage_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> GetPropertiesUseCase:
     return GetPropertiesUseCase(property_service=property_service, user_service=user_service, storage_service=storage_service, current_user=current_user)
 
@@ -73,7 +73,7 @@ async def get_create_property_use_case(
     property_food_option_service: PropertyFoodOptionService = Depends(get_property_food_option_service),
     property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
     storage_service: StorageService = Depends(get_storage_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> CreatePropertyUseCase:
     return CreatePropertyUseCase(
         property_service=property_service,
@@ -104,7 +104,7 @@ async def get_update_property_use_case(
     property_food_option_service: PropertyFoodOptionService = Depends(get_property_food_option_service),
     property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
     storage_service: StorageService = Depends(get_storage_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> UpdatePropertyUseCase:
     return UpdatePropertyUseCase(
         property_service=property_service,
@@ -125,7 +125,7 @@ async def get_update_property_use_case(
 async def get_update_property_status_use_case(
     property_service: PropertyService = Depends(get_property_service),
     storage_service: StorageService = Depends(get_storage_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> UpdateStatusPropertyUseCase:
     return UpdateStatusPropertyUseCase(
         property_service=property_service,
@@ -138,7 +138,7 @@ async def get_update_property_status_use_case(
 async def get_property_use_case(
     property_service: PropertyService = Depends(get_property_service),
     storage_service: StorageService = Depends(get_storage_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> GetPropertyUseCase:
     return GetPropertyUseCase(property_service=property_service, storage_service=storage_service, current_user=current_user)
 
@@ -147,7 +147,7 @@ async def get_upload_property_assets_use_case(
     property_service: PropertyService = Depends(get_property_service),
     property_asset_service: PropertyAssetService = Depends(get_property_asset_service),
     storage_service: StorageService = Depends(get_storage_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> UploadPropertyAssetsUseCase:
     return UploadPropertyAssetsUseCase(
         property_service=property_service,
@@ -161,7 +161,7 @@ async def get_delete_property_asset_use_case(
     property_service: PropertyService = Depends(get_property_service),
     property_asset_service: PropertyAssetService = Depends(get_property_asset_service),
     storage_service: StorageService = Depends(get_storage_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> DeletePropertyAssetUseCase:
     return DeletePropertyAssetUseCase(
         property_service=property_service,

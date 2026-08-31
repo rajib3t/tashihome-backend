@@ -14,7 +14,7 @@ from app.application.use_case.user.booking.get_user_booking_detail_use_case impo
 from app.application.use_case.user.booking.get_user_bookings_use_case import (
     GetUserBookingsUseCase,
 )
-from app.deps.auth import CurrentUser, get_current_user, require_user
+from app.deps.auth import CurrentUser, get_current_user, require_admin_or_staff, require_user
 from app.deps.service import (
     get_booking_service,
     get_payment_service,
@@ -149,21 +149,21 @@ from app.deps.auth import require_admin
 
 async def get_admin_bookings_use_case(
     booking_service: BookingService = Depends(get_booking_service),
-    _: CurrentUser = Depends(require_admin),
+    _: CurrentUser = Depends(require_admin_or_staff),
 ) -> AdminGetBookingsUseCase:
     return AdminGetBookingsUseCase(booking_service=booking_service)
 
 
 async def get_admin_booking_detail_use_case(
     booking_service: BookingService = Depends(get_booking_service),
-    _: CurrentUser = Depends(require_admin),
+    _: CurrentUser = Depends(require_admin_or_staff),
 ) -> AdminGetBookingDetailUseCase:
     return AdminGetBookingDetailUseCase(booking_service=booking_service)
 
 
 async def get_admin_update_booking_status_use_case(
     booking_service: BookingService = Depends(get_booking_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> AdminUpdateBookingStatusUseCase:
     return AdminUpdateBookingStatusUseCase(
         booking_service=booking_service,

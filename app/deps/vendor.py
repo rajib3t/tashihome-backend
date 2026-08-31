@@ -10,7 +10,7 @@ from fastapi.params import Depends
 
 from app.application.use_case.admin.vendors.create_vendor_use_case import CreateVendorUseCase
 from app.core.csrf import verify_csrf
-from app.deps.auth import CurrentUser, require_admin
+from app.deps.auth import CurrentUser, require_admin, require_admin_or_staff
 from app.deps.database import get_db
 from app.deps.service import get_storage_service, get_token_service, get_user_service
 from app.services.address_service import AddressService
@@ -24,7 +24,7 @@ async def get_create_vendor_use_case(
     user_service: UserService = Depends(get_user_service),
     event_bus: EventBus = Depends(get_event_bus),
     verify_csrf=Depends(verify_csrf),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> CreateVendorUseCase:
     return CreateVendorUseCase(
         user_service=user_service,
@@ -36,7 +36,7 @@ async def get_create_vendor_use_case(
 async def get_list_vendor_use_case(
     user_service: UserService = Depends(get_user_service),
     storage_service: StorageService = Depends(get_storage_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> ListVendorUseCase:
     return ListVendorUseCase(
         user_service=user_service,
@@ -48,7 +48,7 @@ async def get_list_vendor_use_case(
 async def get_vendor_use_case(
         user_service: UserService = Depends(get_user_service),
         storage_service : StorageService = Depends(get_storage_service),
-        current_user: CurrentUser = Depends(require_admin),
+        current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> GetVendorUseCase:
     return GetVendorUseCase(
         user_service=user_service,
@@ -62,7 +62,7 @@ async def get_update_vendor_use_case(
         user_service: UserService = Depends(get_user_service),
         storage_service: StorageService = Depends(get_storage_service),
         verify_csrf=Depends(verify_csrf),
-        current_user: CurrentUser = Depends(require_admin),
+        current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> UpdateVendorUseCase:
     return UpdateVendorUseCase(
         user_service=user_service,
@@ -78,7 +78,7 @@ async def get_upload_vendor_profile_image_use_case(
         user_service: UserService = Depends(get_user_service),
         storage_service: StorageService = Depends(get_storage_service),
         verify_csrf=Depends(verify_csrf),
-        current_user: CurrentUser = Depends(require_admin),
+        current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> UploadVendorProfileImageUseCase:
     return UploadVendorProfileImageUseCase(
         user_service=user_service,
@@ -92,7 +92,7 @@ async def get_update_vendor_status_use_case(
         user_service: UserService = Depends(get_user_service),
         storage_service: StorageService = Depends(get_storage_service),
         verify_csrf=Depends(verify_csrf),
-        current_user: CurrentUser = Depends(require_admin),
+        current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> UpdateStatusVendorUseCase:
     return UpdateStatusVendorUseCase(
         user_service=user_service,
@@ -121,7 +121,7 @@ async def get_send_password_reset_link_use_case(
         token_service: TokenService = Depends(get_token_service),
         event_bus: EventBus = Depends(get_event_bus),
         verify_csrf=Depends(verify_csrf),
-        current_user: CurrentUser = Depends(require_admin),
+        current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> SendPasswordResetLinkUseCase:
     return SendPasswordResetLinkUseCase(
         user_service=user_service,
@@ -137,7 +137,7 @@ async def get_admin_onboard_host_use_case(
     company_service: CompanyService = Depends(get_company_service),
     address_service: AddressService = Depends(get_address_service),
     event_bus: EventBus = Depends(get_event_bus),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> AdminOnboardHostUseCase:
     return AdminOnboardHostUseCase(
         user_service=user_service,
@@ -153,7 +153,7 @@ async def get_convert_user_use_case(
     company_service: CompanyService = Depends(get_company_service),
     address_service: AddressService = Depends(get_address_service),
     event_bus: EventBus = Depends(get_event_bus),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> ConvertUserToVendorUseCase:
     return ConvertUserToVendorUseCase(
         user_service=user_service,

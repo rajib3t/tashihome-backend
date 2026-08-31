@@ -18,7 +18,7 @@ from app.application.use_case.user.update_profile_image_use_case import UpdatePr
 from app.application.use_case.user.update_profile_info_use_case import UpdateProfileInfoUseCase
 from app.core.csrf import verify_csrf
 from app.core.events import EventBus
-from app.deps.auth import CurrentUser, get_current_user, require_admin
+from app.deps.auth import CurrentUser, get_current_user, require_admin, require_admin_or_staff
 from app.deps.event_bus import get_event_bus
 from app.deps.service import (
     get_address_service,
@@ -87,7 +87,7 @@ async def get_update_profile_image_use_case(
 async def get_admin_list_user_use_case(
     user_service: UserService = Depends(get_user_service),
     storage_service: StorageService = Depends(get_storage_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> ListUserUseCase:
     return ListUserUseCase(
         user_service=user_service,
@@ -99,7 +99,7 @@ async def get_admin_list_user_use_case(
 async def get_admin_get_user_use_case(
     user_service: UserService = Depends(get_user_service),
     storage_service: StorageService = Depends(get_storage_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> GetUserUseCase:
     return GetUserUseCase(
         user_service=user_service,
@@ -112,7 +112,7 @@ async def get_admin_create_user_use_case(
     user_service: UserService = Depends(get_user_service),
     event_bus: EventBus = Depends(get_event_bus),
     verify_csrf=Depends(verify_csrf),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> CreateUserUseCase:
     return CreateUserUseCase(
         user_service=user_service,
@@ -126,7 +126,7 @@ async def get_admin_update_user_use_case(
     user_service: UserService = Depends(get_user_service),
     storage_service: StorageService = Depends(get_storage_service),
     verify_csrf=Depends(verify_csrf),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> UpdateUserUseCase:
     return UpdateUserUseCase(
         user_service=user_service,
@@ -140,7 +140,7 @@ async def get_admin_update_user_status_use_case(
     user_service: UserService = Depends(get_user_service),
     storage_service: StorageService = Depends(get_storage_service),
     verify_csrf=Depends(verify_csrf),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> UpdateStatusUserUseCase:
     return UpdateStatusUserUseCase(
         user_service=user_service,
@@ -154,7 +154,7 @@ async def get_admin_upload_user_profile_image_use_case(
     user_service: UserService = Depends(get_user_service),
     storage_service: StorageService = Depends(get_storage_service),
     verify_csrf=Depends(verify_csrf),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> UploadUserProfileImageUseCase:
     return UploadUserProfileImageUseCase(
         user_service=user_service,
@@ -169,7 +169,7 @@ async def get_admin_send_password_reset_link_use_case(
     token_service: TokenService = Depends(get_token_service),
     event_bus: EventBus = Depends(get_event_bus),
     verify_csrf=Depends(verify_csrf),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> SendUserPasswordResetLinkUseCase:
     return SendUserPasswordResetLinkUseCase(
         user_service=user_service,

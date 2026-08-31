@@ -26,7 +26,7 @@ class UserBase(BaseModel):
                 "full_name": "John Doe",
                 "phone": "2345678900",
                 "status": "active",
-                "role": "user | admin | vendor",
+                "role": "user | admin | vendor | staff | agent",
                 "is_profile_image_url": "https://example.com/profile.jpg",
                 "is_subscribed": True
             }

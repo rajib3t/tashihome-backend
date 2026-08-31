@@ -71,7 +71,7 @@ Stores user identity, credentials, roles, and status.
 | `full_name` | `VARCHAR(255)` | `NULLABLE` | Display name |
 | `password` | `VARCHAR(255)` | `NOT NULL` | Hashed password |
 | `is_profile_image_url` | `VARCHAR(500)` | `NULLABLE`, `default=None` | Profile picture URL |
-| `role` | `Enum(UserRole)` | `NOT NULL`, `INDEX`, `default='user'` | Role (`admin`, `vendor`, `user`) |
+| `role` | `Enum(UserRole)` | `NOT NULL`, `INDEX`, `default='user'` | Role (`admin`, `vendor`, `user`, `staff`, `agent`) |
 | `status` | `Enum(UserStatus)` | `NOT NULL`, `INDEX`, `default='inactive'` | Account status (`active`, `inactive`, `suspended`) |
 | `is_subscribed` | `BOOLEAN` | `default=False` | Newsletter subscription status |
 | `is_terms_accepted` | `BOOLEAN` | `default=False` | Terms & Conditions acceptance flag |
@@ -709,7 +709,7 @@ Key-value configuration store for system parameters and dynamic configurations.
 
 | Enum Name | Python Class | Allowed Values |
 | :--- | :--- | :--- |
-| `userrole` | `UserRole` | `'admin'`, `'vendor'`, `'user'` |
+| `userrole` | `UserRole` | `'admin'`, `'vendor'`, `'user'`, `'staff'`, `'agent'` |
 | `userstatus` | `UserStatus` | `'active'`, `'inactive'`, `'suspended'` |
 | `tokentype` | `TokenType` | `'access_token'`, `'refresh_token'`, `'password_reset_token'`, `'email_verification_token'`, `'account_activation_token'` |
 | `countrystatus` | `CountryStatus` | `'active'`, `'inactive'` |

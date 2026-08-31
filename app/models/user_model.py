@@ -12,6 +12,8 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
     VENDOR = "vendor"
     USER = "user"
+    STAFF = "staff"
+    AGENT = "agent"
 
 
 class UserStatus(str, enum.Enum):

@@ -20,7 +20,7 @@ from app.application.use_case.public.host_request.submit_host_request_use_case i
     SubmitHostRequestUseCase,
 )
 from app.core.events import EventBus
-from app.deps.auth import CurrentUser, require_admin
+from app.deps.auth import CurrentUser, require_admin, require_admin_or_staff
 from app.deps.database import get_db
 from app.deps.event_bus import get_event_bus
 from app.deps.service import (
@@ -59,7 +59,7 @@ async def get_submit_host_request_use_case(
 
 async def get_list_host_requests_use_case(
     host_request_service: HostRequestService = Depends(get_host_request_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> ListHostRequestsUseCase:
     return ListHostRequestsUseCase(
         host_request_service=host_request_service,
@@ -69,7 +69,7 @@ async def get_list_host_requests_use_case(
 
 async def get_get_host_request_use_case(
     host_request_service: HostRequestService = Depends(get_host_request_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> GetHostRequestUseCase:
     return GetHostRequestUseCase(
         host_request_service=host_request_service,
@@ -80,7 +80,7 @@ async def get_get_host_request_use_case(
 async def get_update_host_request_status_use_case(
     host_request_service: HostRequestService = Depends(get_host_request_service),
     user_service: UserService = Depends(get_user_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> UpdateHostRequestStatusUseCase:
     return UpdateHostRequestStatusUseCase(
         host_request_service=host_request_service,
@@ -92,7 +92,7 @@ async def get_update_host_request_status_use_case(
 async def get_add_host_request_message_use_case(
     host_request_service: HostRequestService = Depends(get_host_request_service),
     user_service: UserService = Depends(get_user_service),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> AddHostRequestMessageUseCase:
     return AddHostRequestMessageUseCase(
         host_request_service=host_request_service,
@@ -107,7 +107,7 @@ async def get_convert_host_request_use_case(
     company_service: CompanyService = Depends(get_company_service),
     address_service: AddressService = Depends(get_address_service),
     event_bus: EventBus = Depends(get_event_bus),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
 ) -> ConvertHostRequestUseCase:
     return ConvertHostRequestUseCase(
         host_request_service=host_request_service,

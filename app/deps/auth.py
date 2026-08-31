@@ -171,6 +171,16 @@ async def require_user(current_user: CurrentUser = Depends(get_current_user)) ->
     return await require_role(current_user, [UserRole.USER])
 
 
+async def require_staff(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    return await require_role(current_user, [UserRole.STAFF])
+
+
+async def require_agent(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    return await require_role(current_user, [UserRole.AGENT])
+
+async def require_admin_or_staff(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    return await require_role(current_user, [UserRole.ADMIN, UserRole.STAFF])
+
 async def get_logout_use_case(
     token_service: TokenService = Depends(get_token_service),
     verify_csrf = Depends(verify_csrf),
