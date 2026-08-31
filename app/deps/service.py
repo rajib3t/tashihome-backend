@@ -275,3 +275,15 @@ async def get_razorpay_service() -> RazorpayService:
 
 async def get_email_template_service() -> EmailTemplateService:
     return EmailTemplateService()
+
+
+from app.deps.repository import get_dashboard_repository
+from app.repositories.dashboard_repository import DashboardRepository
+from app.services.dashboard_service import DashboardService
+
+
+async def get_dashboard_service(
+    dashboard_repository: DashboardRepository = Depends(get_dashboard_repository),
+) -> DashboardService:
+    return DashboardService(dashboard_repository)
+

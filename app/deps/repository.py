@@ -155,3 +155,13 @@ async def get_cancellation_policy_repository(
     db: AsyncSession = Depends(get_db),
 ) -> CancellationPolicyRepository:
     return CancellationPolicyRepository(db)
+
+
+from app.repositories.dashboard_repository import DashboardRepository
+
+
+async def get_dashboard_repository(
+    db: AsyncSession = Depends(get_db),
+) -> DashboardRepository:
+    return DashboardRepository(db)
+
