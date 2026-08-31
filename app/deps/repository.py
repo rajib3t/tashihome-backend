@@ -158,10 +158,24 @@ async def get_cancellation_policy_repository(
 
 
 from app.repositories.dashboard_repository import DashboardRepository
+from app.repositories.payout_repository import PayoutRepository
+from app.repositories.vendor_bank_account_repository import VendorBankAccountRepository
 
 
 async def get_dashboard_repository(
     db: AsyncSession = Depends(get_db),
 ) -> DashboardRepository:
     return DashboardRepository(db)
+
+
+async def get_payout_repository(
+    db: AsyncSession = Depends(get_db),
+) -> PayoutRepository:
+    return PayoutRepository(db)
+
+
+async def get_vendor_bank_account_repository(
+    db: AsyncSession = Depends(get_db),
+) -> VendorBankAccountRepository:
+    return VendorBankAccountRepository(db)
 

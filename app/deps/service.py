@@ -277,13 +277,33 @@ async def get_email_template_service() -> EmailTemplateService:
     return EmailTemplateService()
 
 
-from app.deps.repository import get_dashboard_repository
+from app.deps.repository import (
+    get_dashboard_repository,
+    get_payout_repository,
+    get_vendor_bank_account_repository,
+)
 from app.repositories.dashboard_repository import DashboardRepository
+from app.repositories.payout_repository import PayoutRepository
+from app.repositories.vendor_bank_account_repository import VendorBankAccountRepository
 from app.services.dashboard_service import DashboardService
+from app.services.payout_service import PayoutService
+from app.services.vendor_bank_account_service import VendorBankAccountService
 
 
 async def get_dashboard_service(
     dashboard_repository: DashboardRepository = Depends(get_dashboard_repository),
 ) -> DashboardService:
     return DashboardService(dashboard_repository)
+
+
+async def get_payout_service(
+    payout_repository: PayoutRepository = Depends(get_payout_repository),
+) -> PayoutService:
+    return PayoutService(payout_repository)
+
+
+async def get_vendor_bank_account_service(
+    vendor_bank_account_repository: VendorBankAccountRepository = Depends(get_vendor_bank_account_repository),
+) -> VendorBankAccountService:
+    return VendorBankAccountService(vendor_bank_account_repository)
 

@@ -101,6 +101,8 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: Optional[str] = None
     RAZORPAY_KEY_SECRET: Optional[str] = None
     RAZORPAY_WEBHOOK_SECRET: Optional[str] = None
+    RAZORPAYX_ACCOUNT_NUMBER: Optional[str] = None
+    DEFAULT_COMMISSION_PERCENTAGE: float = 10.0
 
 
     @property

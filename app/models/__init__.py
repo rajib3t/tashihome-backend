@@ -32,6 +32,7 @@ from .room_block_model import RoomBlock
 from .booking_model import Booking, BookingStatus, PaymentStatus
 from .payment_model import Payment, PaymentMethod, TransactionStatus
 from .payout_model import Payout, PayoutStatus
+from .vendor_bank_account_model import VendorBankAccount, BankAccountType
 from .refund_request_model import RefundRequest, RefundRequestStatus
 from .review_model import Review, ReviewStatus
 
@@ -86,6 +87,8 @@ __all__ = [
     "TransactionStatus",
     "Payout",
     "PayoutStatus",
+    "VendorBankAccount",
+    "BankAccountType",
     "RefundRequest",
     "RefundRequestStatus",
     "Review",

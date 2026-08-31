@@ -19,10 +19,12 @@ class RazorpayService:
         key_id: Optional[str] = None,
         key_secret: Optional[str] = None,
         webhook_secret: Optional[str] = None,
+        account_number: Optional[str] = None,
     ):
         self.key_id = key_id or settings.RAZORPAY_KEY_ID
         self.key_secret = key_secret or settings.RAZORPAY_KEY_SECRET
         self.webhook_secret = webhook_secret or settings.RAZORPAY_WEBHOOK_SECRET
+        self.account_number = account_number or settings.RAZORPAYX_ACCOUNT_NUMBER
 
     def is_configured(self) -> bool:
         return bool(self.key_id and self.key_secret)
@@ -196,3 +198,257 @@ class RazorpayService:
                     error_code="RAZORPAY_NETWORK_ERROR",
                 )
 
+    # -------------------------------------------------------------------------
+    # RazorpayX Payouts & Fund Account APIs
+    # -------------------------------------------------------------------------
+
+    async def create_contact(
+        self,
+        name: str,
+        email: Optional[str] = None,
+        contact: Optional[str] = None,
+        type: str = "vendor",
+        reference_id: Optional[str] = None,
+        notes: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Creates a contact in RazorpayX for a vendor.
+        """
+        auth = self._get_auth()
+        payload: Dict[str, Any] = {
+            "name": name,
+            "type": type,
+        }
+        if email:
+            payload["email"] = email
+        if contact:
+            payload["contact"] = contact
+        if reference_id:
+            payload["reference_id"] = str(reference_id)
+        if notes:
+            payload["notes"] = {k: str(v) for k, v in notes.items()}
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            try:
+                response = await client.post(
+                    f"{self.BASE_URL}/contacts",
+                    json=payload,
+                    auth=auth,
+                )
+                if response.status_code not in (200, 201):
+                    logger.error("RazorpayX contact creation failed: %s - %s", response.status_code, response.text)
+                    raise AppException(
+                        status_code=response.status_code,
+                        message="Failed to create RazorpayX contact for vendor.",
+                        error_code="RAZORPAY_CONTACT_CREATION_FAILED",
+                    )
+                return response.json()
+            except httpx.HTTPError as e:
+                logger.error("HTTP error while creating Razorpay contact: %s", str(e))
+                raise AppException(
+                    status_code=502,
+                    message="Network error communicating with Razorpay.",
+                    error_code="RAZORPAY_NETWORK_ERROR",
+                )
+
+    async def create_fund_account_bank(
+        self,
+        contact_id: str,
+        account_holder_name: str,
+        account_number: str,
+        ifsc: str,
+    ) -> Dict[str, Any]:
+        """
+        Creates a bank fund account linked to a contact in RazorpayX.
+        """
+        auth = self._get_auth()
+        payload = {
+            "contact_id": contact_id,
+            "account_type": "bank_account",
+            "bank_account": {
+                "name": account_holder_name,
+                "ifsc": ifsc.upper(),
+                "account_number": account_number,
+            },
+        }
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            try:
+                response = await client.post(
+                    f"{self.BASE_URL}/fund_accounts",
+                    json=payload,
+                    auth=auth,
+                )
+                if response.status_code not in (200, 201):
+                    logger.error("RazorpayX fund account creation failed: %s - %s", response.status_code, response.text)
+                    raise AppException(
+                        status_code=response.status_code,
+                        message="Failed to create RazorpayX fund account for vendor.",
+                        error_code="RAZORPAY_FUND_ACCOUNT_FAILED",
+                    )
+                return response.json()
+            except httpx.HTTPError as e:
+                logger.error("HTTP error while creating Razorpay fund account: %s", str(e))
+                raise AppException(
+                    status_code=502,
+                    message="Network error communicating with Razorpay.",
+                    error_code="RAZORPAY_NETWORK_ERROR",
+                )
+
+    async def create_fund_account_vpa(
+        self,
+        contact_id: str,
+        vpa_address: str,
+    ) -> Dict[str, Any]:
+        """
+        Creates a UPI VPA fund account linked to a contact in RazorpayX.
+        """
+        auth = self._get_auth()
+        payload = {
+            "contact_id": contact_id,
+            "account_type": "vpa",
+            "vpa": {
+                "address": vpa_address,
+            },
+        }
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            try:
+                response = await client.post(
+                    f"{self.BASE_URL}/fund_accounts",
+                    json=payload,
+                    auth=auth,
+                )
+                if response.status_code not in (200, 201):
+                    logger.error("RazorpayX VPA fund account creation failed: %s - %s", response.status_code, response.text)
+                    raise AppException(
+                        status_code=response.status_code,
+                        message="Failed to create RazorpayX UPI fund account for vendor.",
+                        error_code="RAZORPAY_FUND_ACCOUNT_FAILED",
+                    )
+                return response.json()
+            except httpx.HTTPError as e:
+                logger.error("HTTP error while creating Razorpay VPA fund account: %s", str(e))
+                raise AppException(
+                    status_code=502,
+                    message="Network error communicating with Razorpay.",
+                    error_code="RAZORPAY_NETWORK_ERROR",
+                )
+
+    async def create_payout(
+        self,
+        fund_account_id: str,
+        amount: float,
+        currency: str = "INR",
+        mode: str = "NEFT",
+        purpose: str = "payout",
+        account_number: Optional[str] = None,
+        queue_if_low_balance: bool = True,
+        reference_id: Optional[str] = None,
+        narration: Optional[str] = "Homestay Payout",
+        notes: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Executes a direct payout via RazorpayX.
+        Amount is converted to the smallest currency unit (paise for INR).
+        """
+        auth = self._get_auth()
+        source_account = account_number or self.account_number
+        if not source_account:
+            raise AppException(
+                status_code=500,
+                message="RazorpayX source account number is not configured.",
+                error_code="RAZORPAYX_ACCOUNT_NOT_CONFIGURED",
+            )
+
+        amount_in_paise = int(round(amount * 100))
+        payload: Dict[str, Any] = {
+            "account_number": source_account,
+            "fund_account_id": fund_account_id,
+            "amount": amount_in_paise,
+            "currency": currency,
+            "mode": mode.upper(),
+            "purpose": purpose,
+            "queue_if_low_balance": queue_if_low_balance,
+        }
+        if reference_id:
+            payload["reference_id"] = str(reference_id)
+        if narration:
+            payload["narration"] = narration[:30]
+        if notes:
+            payload["notes"] = {k: str(v) for k, v in notes.items()}
+
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            try:
+                response = await client.post(
+                    f"{self.BASE_URL}/payouts",
+                    json=payload,
+                    auth=auth,
+                )
+                if response.status_code not in (200, 201):
+                    logger.error("RazorpayX payout failed: %s - %s", response.status_code, response.text)
+                    raise AppException(
+                        status_code=response.status_code,
+                        message=f"RazorpayX payout failed: {response.text}",
+                        error_code="RAZORPAY_PAYOUT_FAILED",
+                    )
+                return response.json()
+            except httpx.HTTPError as e:
+                logger.error("HTTP error while executing Razorpay payout: %s", str(e))
+                raise AppException(
+                    status_code=502,
+                    message="Network error communicating with Razorpay.",
+                    error_code="RAZORPAY_NETWORK_ERROR",
+                )
+
+    async def fetch_payout(self, payout_id: str) -> Dict[str, Any]:
+        """
+        Fetches payout details and live status from RazorpayX.
+        """
+        auth = self._get_auth()
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            try:
+                response = await client.get(
+                    f"{self.BASE_URL}/payouts/{payout_id}",
+                    auth=auth,
+                )
+                if response.status_code != 200:
+                    raise AppException(
+                        status_code=response.status_code,
+                        message="Failed to fetch Razorpay payout details.",
+                        error_code="RAZORPAY_PAYOUT_FETCH_FAILED",
+                    )
+                return response.json()
+            except httpx.HTTPError as e:
+                logger.error("HTTP error while fetching Razorpay payout: %s", str(e))
+                raise AppException(
+                    status_code=502,
+                    message="Network error communicating with Razorpay.",
+                    error_code="RAZORPAY_NETWORK_ERROR",
+                )
+
+    async def cancel_payout(self, payout_id: str) -> Dict[str, Any]:
+        """
+        Cancels a queued payout in RazorpayX.
+        """
+        auth = self._get_auth()
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            try:
+                response = await client.post(
+                    f"{self.BASE_URL}/payouts/{payout_id}/cancel",
+                    auth=auth,
+                )
+                if response.status_code != 200:
+                    raise AppException(
+                        status_code=response.status_code,
+                        message="Failed to cancel Razorpay payout.",
+                        error_code="RAZORPAY_PAYOUT_CANCEL_FAILED",
+                    )
+                return response.json()
+            except httpx.HTTPError as e:
+                logger.error("HTTP error while cancelling Razorpay payout: %s", str(e))
+                raise AppException(
+                    status_code=502,
+                    message="Network error communicating with Razorpay.",
+                    error_code="RAZORPAY_NETWORK_ERROR",
+                )

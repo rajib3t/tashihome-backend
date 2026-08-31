@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Numeric,
     String,
+    Text,
     func,
 )
 from sqlalchemy.orm import relationship
@@ -24,6 +25,9 @@ class PayoutStatus(str, enum.Enum):
     PROCESSING = "processing"
     PAID = "paid"
     FAILED = "failed"
+    REVERSED = "reversed"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
 
 
 class Payout(Base):
@@ -47,7 +51,16 @@ class Payout(Base):
         nullable=False,
         index=True,
     )
-    amount = Column(Numeric(12, 2), nullable=False)
+    bank_account_id = Column(
+        BigInteger,
+        ForeignKey("vendor_bank_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    gross_amount = Column(Numeric(12, 2), nullable=True)
+    commission_amount = Column(Numeric(12, 2), nullable=True, default=0)
+    amount = Column(Numeric(12, 2), nullable=False) # Net payout amount
     currency = Column(String(10), default="INR")
     period_start = Column(Date, nullable=False)
     period_end = Column(Date, nullable=False)
@@ -57,9 +70,16 @@ class Payout(Base):
         nullable=False,
         index=True,
     )
+    mode = Column(String(20), default="NEFT") # NEFT, RTGS, IMPS, UPI
     transaction_id = Column(String(255), unique=True, nullable=True)
+    razorpay_payout_id = Column(String(255), unique=True, nullable=True, index=True)
+    razorpay_fund_account_id = Column(String(255), nullable=True)
+    utr = Column(String(100), nullable=True) # Bank UTR
+    failure_reason = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
     paid_at = Column(DateTime(timezone=True), nullable=True)
 
+    created_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
@@ -70,4 +90,5 @@ class Payout(Base):
 
     # Relationships
     vendor = relationship("User", foreign_keys=[vendor_id])
-
+    bank_account = relationship("VendorBankAccount", foreign_keys=[bank_account_id])
+    creator = relationship("User", foreign_keys=[created_by])
