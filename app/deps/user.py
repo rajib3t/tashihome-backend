@@ -11,6 +11,7 @@ from app.application.use_case.admin.users.update_user_use_case import (
     UpdateUserUseCase,
     UploadUserProfileImageUseCase,
 )
+from app.application.use_case.user.become_host_use_case import BecomeHostUseCase
 from app.application.use_case.user.profile_use_case import ProfileUseCase
 from app.application.use_case.user.update_password_use_case import UpdatePasswordUseCase
 from app.application.use_case.user.update_profile_image_use_case import UpdateProfileImageUseCase
@@ -19,10 +20,35 @@ from app.core.csrf import verify_csrf
 from app.core.events import EventBus
 from app.deps.auth import CurrentUser, get_current_user, require_admin
 from app.deps.event_bus import get_event_bus
-from app.deps.service import get_storage_service, get_token_service, get_user_service
+from app.deps.service import (
+    get_address_service,
+    get_company_service,
+    get_storage_service,
+    get_token_service,
+    get_user_service,
+)
+from app.services.address_service import AddressService
+from app.services.company_service import CompanyService
 from app.services.storage_service import StorageService
 from app.services.token_service import TokenService
 from app.services.user_service import UserService
+
+
+async def get_become_host_use_case(
+    user_service: UserService = Depends(get_user_service),
+    company_service: CompanyService = Depends(get_company_service),
+    address_service: AddressService = Depends(get_address_service),
+    event_bus: EventBus = Depends(get_event_bus),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> BecomeHostUseCase:
+    return BecomeHostUseCase(
+        user_service=user_service,
+        company_service=company_service,
+        address_service=address_service,
+        event_bus=event_bus,
+        current_user=current_user,
+    )
+
 
 
 async def get_user_profile_use_case(

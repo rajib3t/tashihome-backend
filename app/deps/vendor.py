@@ -101,6 +101,21 @@ async def get_update_vendor_status_use_case(
         current_user=current_user,
     )
 
+from app.application.use_case.admin.vendors.convert_user_use_case import (
+    ConvertUserToVendorUseCase,
+)
+from app.application.use_case.admin.vendors.onboard_host_use_case import (
+    AdminOnboardHostUseCase,
+)
+from app.deps.service import (
+    get_address_service,
+    get_company_service,
+    get_storage_service,
+    get_token_service,
+    get_user_service,
+)
+
+
 async def get_send_password_reset_link_use_case(
         user_service: UserService = Depends(get_user_service),
         token_service: TokenService = Depends(get_token_service),
@@ -113,5 +128,37 @@ async def get_send_password_reset_link_use_case(
         token_service=token_service,
         event_bus=event_bus,
         verify_csrf=verify_csrf,
+        current_user=current_user,
+    )
+
+
+async def get_admin_onboard_host_use_case(
+    user_service: UserService = Depends(get_user_service),
+    company_service: CompanyService = Depends(get_company_service),
+    address_service: AddressService = Depends(get_address_service),
+    event_bus: EventBus = Depends(get_event_bus),
+    current_user: CurrentUser = Depends(require_admin),
+) -> AdminOnboardHostUseCase:
+    return AdminOnboardHostUseCase(
+        user_service=user_service,
+        company_service=company_service,
+        address_service=address_service,
+        event_bus=event_bus,
+        current_user=current_user,
+    )
+
+
+async def get_convert_user_use_case(
+    user_service: UserService = Depends(get_user_service),
+    company_service: CompanyService = Depends(get_company_service),
+    address_service: AddressService = Depends(get_address_service),
+    event_bus: EventBus = Depends(get_event_bus),
+    current_user: CurrentUser = Depends(require_admin),
+) -> ConvertUserToVendorUseCase:
+    return ConvertUserToVendorUseCase(
+        user_service=user_service,
+        company_service=company_service,
+        address_service=address_service,
+        event_bus=event_bus,
         current_user=current_user,
     )

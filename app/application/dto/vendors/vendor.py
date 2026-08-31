@@ -54,4 +54,32 @@ class VendorUpdateDTO:
 
 @dataclass(config=ConfigDict(extra="forbid"))
 class VendorResetLinkDTO:
-    confirm:str
+    confirm: str
+
+
+@dataclass(config=ConfigDict(extra="forbid"))
+class AdminOnboardHostDTO:
+    full_name: str
+    email: str
+    phone: str
+    password: Optional[str] = None
+    status: Optional[str] = "active"
+    company_name: Optional[str] = None
+    company_email: Optional[str] = None
+    company_phone: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+
+
+@dataclass(config=ConfigDict(extra="forbid"))
+class AdminConvertUserToHostDTO:
+    company_name: Optional[str] = None
+    company_email: Optional[str] = None
+    company_phone: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+

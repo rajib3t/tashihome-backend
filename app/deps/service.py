@@ -70,19 +70,30 @@ from app.services.property_facility_service import PropertyFacilityService
 from app.services.property_amenity_service import PropertyAmenityService
 from app.services.property_food_option_service import PropertyFoodOptionService
 
+async def get_company_service(
+    company_repository: CompanyRepository = Depends(get_company_repository),
+) -> CompanyService:
+    return CompanyService(company_repository)
+
+
+async def get_address_service(
+    address_repository: AddressRepository = Depends(get_address_repository),
+) -> AddressService:
+    return AddressService(address_repository)
+
+
 # Dependency injection function to provide an instance of UserService with the required UserRepository dependency.
 async def get_user_service(
     user_repository: UserRepository = Depends(get_user_repository),
-    company_repository: CompanyRepository = Depends(get_company_repository),
-    address_repository: AddressRepository = Depends(get_address_repository),
+    company_service: CompanyService = Depends(get_company_service),
+    address_service: AddressService = Depends(get_address_service),
 ) -> UserService:
-    
-    # Return an instance of UserService, initialized with the provided UserRepository.
     return UserService(
         user_repository,
-        CompanyService(company_repository),
-        AddressService(address_repository),
+        company_service,
+        address_service,
     ) 
+
 
 # Dependency injection function to provide an instance of TokenService with the required TokenRepository dependency.    
 async def get_token_service(

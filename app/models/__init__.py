@@ -37,6 +37,8 @@ from .review_model import Review, ReviewStatus
 
 from .company_model import Company
 from .address_model import Address
+from .host_request_model import HostRequest, HostRequestStatus
+from .host_request_message_model import HostRequestMessage
 
 
 __all__ = [
@@ -90,4 +92,7 @@ __all__ = [
     "ReviewStatus",
     "Company",
     "Address",
+    "HostRequest",
+    "HostRequestStatus",
+    "HostRequestMessage",
 ]
