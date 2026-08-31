@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 from app.application.dto.bookings.refund import AdminRefundStatusUpdateDTO
 from app.application.use_case.base_use_case import BaseUseCase
+from app.core.config import settings
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.refund_request_model import RefundRequest, RefundRequestStatus
@@ -80,6 +81,13 @@ class AdminProcessRefundUseCase(BaseUseCase):
         self.current_user = current_user
 
     async def execute(self, refund_request_id: str) -> Dict[str, Any]:
+        if not settings.PAYMENT_ENABLED:
+            raise AppException(
+                status_code=400,
+                message="Payment and refund processing is currently disabled.",
+                error_code="PAYMENT_DISABLED",
+            )
+
         refund_request = await self.refund_request_service.get_by_public_id(
             refund_request_id,
             with_relations=_RELATIONS,

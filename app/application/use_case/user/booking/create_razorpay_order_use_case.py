@@ -23,6 +23,13 @@ class CreateRazorpayOrderUseCase(BaseUseCase):
         self.current_user = current_user
 
     async def execute(self, booking_identifier: str, data: RazorpayCreateOrderDTO) -> Dict[str, Any]:
+        if not settings.PAYMENT_ENABLED:
+            raise AppException(
+                status_code=400,
+                message="Payment processing is currently disabled.",
+                error_code="PAYMENT_DISABLED",
+            )
+
         booking = await self.booking_service.get_user_booking_by_identifier(
             guest_id=self.current_user.id,
             identifier=booking_identifier,

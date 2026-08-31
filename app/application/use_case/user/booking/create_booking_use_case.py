@@ -5,6 +5,7 @@ from uuid import UUID
 from app.application.dto.bookings.booking import BookingCreateDTO
 from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
+from app.core.config import settings
 from app.deps.auth import CurrentUser
 from app.models.booking_model import Booking, BookingStatus, PaymentStatus
 from app.models.property_model import PropertyStatus
@@ -27,6 +28,12 @@ class CreateBookingUseCase(BaseUseCase):
         self.current_user = current_user
 
     async def execute(self, data: BookingCreateDTO) -> Booking:
+        if not settings.PAYMENT_ENABLED:
+                    raise AppException(
+                        status_code=400,
+                        message="Payment processing is currently disabled.",
+                        error_code="PAYMENT_DISABLED",
+                    )
         today = date.today()
         if data.check_in_date < today:
             raise AppException(

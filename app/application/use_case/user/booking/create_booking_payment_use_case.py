@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from app.application.dto.bookings.booking import BookingPaymentDTO
 from app.application.use_case.base_use_case import BaseUseCase
+from app.core.config import settings
 from app.core.events import EventBus, RedisEventBus
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
@@ -28,6 +29,13 @@ class CreateBookingPaymentUseCase(BaseUseCase):
         self.event_bus = event_bus or RedisEventBus()
 
     async def execute(self, booking_identifier: str, data: BookingPaymentDTO) -> Payment:
+        if not settings.PAYMENT_ENABLED:
+            raise AppException(
+                status_code=400,
+                message="Payment processing is currently disabled.",
+                error_code="PAYMENT_DISABLED",
+            )
+
         booking = await self.booking_service.get_user_booking_by_identifier(
             guest_id=self.current_user.id,
             identifier=booking_identifier,

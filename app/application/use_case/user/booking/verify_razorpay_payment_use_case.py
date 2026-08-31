@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from app.application.dto.bookings.booking import RazorpayVerifyPaymentDTO
 from app.application.use_case.base_use_case import BaseUseCase
+from app.core.config import settings
 from app.core.events import EventBus, RedisEventBus
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
@@ -29,6 +30,13 @@ class VerifyRazorpayPaymentUseCase(BaseUseCase):
         self.event_bus = event_bus or RedisEventBus()
 
     async def execute(self, booking_identifier: str, data: RazorpayVerifyPaymentDTO) -> Payment:
+        if not settings.PAYMENT_ENABLED:
+            raise AppException(
+                status_code=400,
+                message="Payment processing is currently disabled.",
+                error_code="PAYMENT_DISABLED",
+            )
+
         # 1. Verify HMAC Signature
         is_valid = self.razorpay_service.verify_payment_signature(
             razorpay_order_id=data.razorpay_order_id,
