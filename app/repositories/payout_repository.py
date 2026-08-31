@@ -171,33 +171,16 @@ class PayoutRepository(BaseRepository[Payout]):
         net_payable_potential = round(gross_float - commission_amount, 2)
 
         # Query existing payouts already paid or in processing
-        payout_query = (
-            select(
-                func.coalesce(func.sum(Payout.amount), 0).label("total_disbursed"),
-                func.coalesce(
-                    func.sum(
-                        case=None
-                    ),
-                    0
-                )
-            )
-            .where(
-                Payout.vendor_id == vendor_id,
-                Payout.status.in_([PayoutStatus.PAID, PayoutStatus.PROCESSING]),
-            )
+        payout_query = select(func.coalesce(func.sum(Payout.amount), 0)).where(
+            Payout.vendor_id == vendor_id,
+            Payout.status.in_([PayoutStatus.PAID, PayoutStatus.PROCESSING]),
         )
         if period_start:
             payout_query = payout_query.where(Payout.period_end >= period_start)
         if period_end:
             payout_query = payout_query.where(Payout.period_start <= period_end)
 
-        payout_res = await self.db.execute(
-            select(func.coalesce(func.sum(Payout.amount), 0))
-            .where(
-                Payout.vendor_id == vendor_id,
-                Payout.status.in_([PayoutStatus.PAID, PayoutStatus.PROCESSING]),
-            )
-        )
+        payout_res = await self.db.execute(payout_query)
         total_disbursed = float(payout_res.scalar_one())
 
         remaining_due = max(0.0, round(net_payable_potential - total_disbursed, 2))
