@@ -18,12 +18,14 @@ from app.deps.auth import CurrentUser, get_current_user, require_admin_or_staff,
 from app.deps.service import (
     get_booking_service,
     get_payment_service,
+    get_property_room_type_service,
     get_property_service,
     get_refund_request_service,
     get_room_type_service,
 )
 from app.services.booking_service import BookingService
 from app.services.payment_service import PaymentService
+from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.property_service import PropertyService
 from app.services.refund_request_service import RefundRequestService
 from app.services.room_type_service import RoomTypeService
@@ -33,12 +35,14 @@ async def get_create_booking_use_case(
     booking_service: BookingService = Depends(get_booking_service),
     property_service: PropertyService = Depends(get_property_service),
     room_type_service: RoomTypeService = Depends(get_room_type_service),
+    property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CreateBookingUseCase:
     return CreateBookingUseCase(
         booking_service=booking_service,
         property_service=property_service,
         room_type_service=room_type_service,
+        property_room_type_service=property_room_type_service,
         current_user=current_user,
     )
 
@@ -92,11 +96,13 @@ async def get_check_availability_use_case(
     booking_service: BookingService = Depends(get_booking_service),
     property_service: PropertyService = Depends(get_property_service),
     room_type_service: RoomTypeService = Depends(get_room_type_service),
+    property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
 ) -> CheckAvailabilityUseCase:
     return CheckAvailabilityUseCase(
         booking_service=booking_service,
         property_service=property_service,
         room_type_service=room_type_service,
+        property_room_type_service=property_room_type_service,
     )
 
 

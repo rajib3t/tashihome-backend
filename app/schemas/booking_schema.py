@@ -222,6 +222,18 @@ class BookingQuoteResponseSchema(BaseResponse):
     data: BookingQuoteSchema
 
 
+class RoomTypeAvailabilitySchema(BaseModel):
+    property_room_type_id: Optional[str] = None
+    room_type_id: Optional[str] = None
+    room_type_name: Optional[str] = None
+    total_units: int
+    booked_units: int
+    blocked_units: int
+    available_units: int
+    is_available: bool
+    model_config = ConfigDict(from_attributes=True)
+
+
 class BookingAvailabilityDataSchema(BaseModel):
     is_available: bool
     available_units: int
@@ -230,6 +242,7 @@ class BookingAvailabilityDataSchema(BaseModel):
     blocked_units: int
     requested_rooms: int
     quote: Optional[BookingQuoteSchema] = None
+    room_types_availability: Optional[List[RoomTypeAvailabilitySchema]] = None
     model_config = ConfigDict(from_attributes=True)
 
 

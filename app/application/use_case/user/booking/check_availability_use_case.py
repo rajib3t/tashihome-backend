@@ -7,6 +7,7 @@ from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
 from app.models.property_model import PropertyStatus
 from app.services.booking_service import BookingService
+from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.property_service import PropertyService
 from app.services.room_type_service import RoomTypeService
 
@@ -17,10 +18,12 @@ class CheckAvailabilityUseCase(BaseUseCase):
         booking_service: BookingService,
         property_service: PropertyService,
         room_type_service: RoomTypeService,
+        property_room_type_service: Optional[PropertyRoomTypeService] = None,
     ):
         self.booking_service = booking_service
         self.property_service = property_service
         self.room_type_service = room_type_service
+        self.property_room_type_service = property_room_type_service
 
     async def execute(self, data: BookingAvailabilityDTO) -> Dict[str, Any]:
         today = date.today()
@@ -75,18 +78,30 @@ class CheckAvailabilityUseCase(BaseUseCase):
             try:
                 rt_uuid = UUID(str(data.room_type_id))
                 room_type = await self.room_type_service.get_by_public_id(str(rt_uuid))
+                if not room_type and self.property_room_type_service:
+                    prop_rt = await self.property_room_type_service.get_by_public_id(str(rt_uuid))
+                    if prop_rt:
+                        room_type_id_db = prop_rt.room_type_id
             except (ValueError, AttributeError):
                 if str(data.room_type_id).isdigit():
                     room_type = await self.room_type_service.get_by_id(int(data.room_type_id))
+                    if not room_type and self.property_room_type_service:
+                        prop_rt = await self.property_room_type_service.get_by_id(int(data.room_type_id))
+                        if prop_rt:
+                            room_type_id_db = prop_rt.room_type_id
 
-            if not room_type:
+            if room_type:
+                room_type_id_db = room_type.id
+            elif room_type_id_db is None:
                 raise AppException(
                     status_code=404,
                     message="Room type not found.",
                     error_code="ROOM_TYPE_NOT_FOUND",
                     field="room_type_id",
                 )
-            room_type_id_db = room_type.id
+        elif property_.property_room_types and len(property_.property_room_types) == 1:
+            # If property has exactly one room type configured and user didn't specify, default to that room type
+            room_type_id_db = property_.property_room_types[0].room_type_id
 
         # 3. Check Availability
         availability = await self.booking_service.check_availability(
@@ -115,5 +130,5 @@ class CheckAvailabilityUseCase(BaseUseCase):
             "blocked_units": availability["blocked_units"],
             "requested_rooms": data.num_rooms,
             "quote": quote,
+            "room_types_availability": availability.get("room_types_availability"),
         }
-

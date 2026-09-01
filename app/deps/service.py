@@ -260,6 +260,23 @@ async def get_payment_service(
     return PaymentService(payment_repository)
 
 
+from app.services.room_block_service import RoomBlockService
+
+
+async def get_room_block_service(
+    room_block_repository: RoomBlockRepository = Depends(get_room_block_repository),
+    property_repository: PropertyRepository = Depends(get_property_repository),
+    property_room_type_repository: PropertyRoomTypeRepository = Depends(get_property_room_type_repository),
+    booking_repository: BookingRepository = Depends(get_booking_repository),
+) -> RoomBlockService:
+    return RoomBlockService(
+        room_block_repository=room_block_repository,
+        property_repository=property_repository,
+        property_room_type_repository=property_room_type_repository,
+        booking_repository=booking_repository,
+    )
+
+
 async def get_refund_request_service(
     refund_request_repository: RefundRequestRepository = Depends(get_refund_request_repository),
 ) -> RefundRequestService:

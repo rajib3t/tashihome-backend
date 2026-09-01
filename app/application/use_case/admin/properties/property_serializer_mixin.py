@@ -13,7 +13,12 @@ class PropertySerializerMixin:
 
     storage_service: StorageService
 
-    async def serialize_property(self, property_data: Property, vendor_email_disabled: bool = False) -> dict:
+    async def serialize_property(
+        self,
+        property_data: Property,
+        vendor_email_disabled: bool = False,
+        availability_map: dict | None = None,
+    ) -> dict:
         return {
             "internal_id": property_data.id,
             "id": str(property_data.public_id),
@@ -58,6 +63,10 @@ class PropertySerializerMixin:
                 {
                     "id": str(item.public_id) if getattr(item, "public_id", None) is not None else None,
                     "total_units": item.total_units if getattr(item, "total_units", None) is not None else 1,
+                    "booked_units": availability_map.get(item.room_type_id, {}).get("booked_units", 0) if availability_map else None,
+                    "blocked_units": availability_map.get(item.room_type_id, {}).get("blocked_units", 0) if availability_map else None,
+                    "available_units": availability_map.get(item.room_type_id, {}).get("available_units", item.total_units if getattr(item, "total_units", None) is not None else 1) if availability_map else (item.total_units if getattr(item, "total_units", None) is not None else 1),
+                    "is_available": availability_map.get(item.room_type_id, {}).get("is_available", True) if availability_map else True,
                     "room_type": (
                         {
                             "id": str(item.room_type.public_id),

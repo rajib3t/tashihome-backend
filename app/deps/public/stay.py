@@ -1,11 +1,18 @@
 from fastapi import Depends
 from app.application.use_case.public.stay.search_stays_use_case import PublicSearchStaysUseCase
 from app.application.use_case.public.property.get_property_use_case import PublicGetPropertyUseCase
-from app.deps.service import get_property_service, get_storage_service, get_city_service, get_location_service
-from app.services.property_service import PropertyService
-from app.services.storage_service import StorageService
+from app.deps.service import (
+    get_booking_service,
+    get_city_service,
+    get_location_service,
+    get_property_service,
+    get_storage_service,
+)
+from app.services.booking_service import BookingService
 from app.services.city_service import CityService
 from app.services.location_service import LocationService
+from app.services.property_service import PropertyService
+from app.services.storage_service import StorageService
 
 
 async def public_search_stays_use_case(
@@ -25,9 +32,10 @@ async def public_search_stays_use_case(
 async def public_get_stay_use_case(
     property_service: PropertyService = Depends(get_property_service),
     storage_service: StorageService = Depends(get_storage_service),
+    booking_service: BookingService = Depends(get_booking_service),
 ) -> PublicGetPropertyUseCase:
     return PublicGetPropertyUseCase(
         property_service=property_service,
         storage_service=storage_service,
+        booking_service=booking_service,
     )
-

@@ -55,6 +55,12 @@ class BookingService:
             )
             if prop_room_type and prop_room_type.total_units:
                 return prop_room_type.total_units
+            return 1
+        else:
+            prop_room_types = await self.property_room_type_repository.get_by_property_id(property_id)
+            if prop_room_types:
+                total = sum(prt.total_units for prt in prop_room_types if prt.total_units)
+                return total if total > 0 else 1
         return 1
 
     async def check_availability(
@@ -87,6 +93,39 @@ class BookingService:
         available_units = max(0, total_units - (booked_units + blocked_units))
         is_available = available_units >= num_rooms
 
+        # Build per-room-type availability breakdown
+        room_types_availability = []
+        prop_room_types = await self.property_room_type_repository.get_by_property_id(
+            property_id, with_relations={"room_type": True}
+        )
+        if prop_room_types:
+            for prt in prop_room_types:
+                prt_total = prt.total_units or 1
+                prt_booked = await self.booking_repository.count_booked_units(
+                    property_id=property_id,
+                    room_type_id=prt.room_type_id,
+                    check_in_date=check_in_date,
+                    check_out_date=check_out_date,
+                    exclude_booking_id=exclude_booking_id,
+                )
+                prt_blocked = await self.room_block_repository.count_blocked_units(
+                    property_id=property_id,
+                    room_type_id=prt.room_type_id,
+                    check_in_date=check_in_date,
+                    check_out_date=check_out_date,
+                )
+                prt_available = max(0, prt_total - (prt_booked + prt_blocked))
+                room_types_availability.append({
+                    "property_room_type_id": str(prt.public_id),
+                    "room_type_id": str(prt.room_type.public_id) if prt.room_type else None,
+                    "room_type_name": prt.room_type.name if prt.room_type else None,
+                    "total_units": prt_total,
+                    "booked_units": prt_booked,
+                    "blocked_units": prt_blocked,
+                    "available_units": prt_available,
+                    "is_available": prt_available >= num_rooms,
+                })
+
         return {
             "is_available": is_available,
             "total_units": total_units,
@@ -94,6 +133,7 @@ class BookingService:
             "blocked_units": blocked_units,
             "available_units": available_units,
             "requested_rooms": num_rooms,
+            "room_types_availability": room_types_availability,
         }
 
     def calculate_pricing_quote(
