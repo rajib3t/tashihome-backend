@@ -63,15 +63,13 @@ class Application:
 
     
     def _register_middleware(self):
-        # Register TrustedHostMiddleware using parsed allowed hosts from settings
+        # Register RateLimitMiddleware
         try:
-            from starlette.middleware.trustedhost import TrustedHostMiddleware
-            hosts = settings.allowed_hosts
-            if hosts:
-                self.app.add_middleware(TrustedHostMiddleware, allowed_hosts=hosts)
+            from app.core.rate_limiter import RateLimitMiddleware
+            self.app.add_middleware(RateLimitMiddleware)
         except Exception:
-            # If middleware cannot be registered, continue without crashing startup
             pass
+
         # Register CORS middleware
         try:
             from fastapi.middleware.cors import CORSMiddleware
@@ -89,6 +87,17 @@ class Application:
                 )
         except Exception:
             pass
+
+        # Register TrustedHostMiddleware using parsed allowed hosts from settings
+        try:
+            from starlette.middleware.trustedhost import TrustedHostMiddleware
+            hosts = settings.allowed_hosts
+            if hosts:
+                self.app.add_middleware(TrustedHostMiddleware, allowed_hosts=hosts)
+        except Exception:
+            # If middleware cannot be registered, continue without crashing startup
+            pass
+
 
     def _register_exception_handlers(self):
         logger = logging.getLogger(__name__)

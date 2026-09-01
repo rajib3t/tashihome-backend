@@ -13,6 +13,48 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: Optional[str] = None
     REDIS_DB: int = 0
 
+    # Rate Limiting configuration (setting-driven)
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_COOLDOWN_SECONDS: int = 3600     # Cooldown duration in seconds when rate limit is exceeded (default: 1 hour = 3600s)
+    RATE_LIMIT_KEY_PREFIX: str = "ratelimit"    # Redis key prefix for rate limiting
+
+    # HTTP method-specific rate limits (requests per window)
+    RATE_LIMIT_GET_MAX_REQUESTS: int = 120
+    RATE_LIMIT_GET_WINDOW_SECONDS: int = 60
+
+    RATE_LIMIT_POST_MAX_REQUESTS: int = 30
+    RATE_LIMIT_POST_WINDOW_SECONDS: int = 60
+
+    RATE_LIMIT_PUT_MAX_REQUESTS: int = 30
+    RATE_LIMIT_PUT_WINDOW_SECONDS: int = 60
+
+    RATE_LIMIT_PATCH_MAX_REQUESTS: int = 30
+    RATE_LIMIT_PATCH_WINDOW_SECONDS: int = 60
+
+    RATE_LIMIT_DELETE_MAX_REQUESTS: int = 20
+    RATE_LIMIT_DELETE_WINDOW_SECONDS: int = 60
+
+    # Default fallback for other HTTP methods
+    RATE_LIMIT_DEFAULT_MAX_REQUESTS: int = 60
+    RATE_LIMIT_DEFAULT_WINDOW_SECONDS: int = 60
+
+    def get_rate_limit_for_method(self, method: str) -> tuple[int, int]:
+        """Return (max_requests, window_seconds) for a given HTTP method."""
+        m = (method or "").upper()
+        if m == "GET":
+            return self.RATE_LIMIT_GET_MAX_REQUESTS, self.RATE_LIMIT_GET_WINDOW_SECONDS
+        elif m == "POST":
+            return self.RATE_LIMIT_POST_MAX_REQUESTS, self.RATE_LIMIT_POST_WINDOW_SECONDS
+        elif m == "PUT":
+            return self.RATE_LIMIT_PUT_MAX_REQUESTS, self.RATE_LIMIT_PUT_WINDOW_SECONDS
+        elif m == "PATCH":
+            return self.RATE_LIMIT_PATCH_MAX_REQUESTS, self.RATE_LIMIT_PATCH_WINDOW_SECONDS
+        elif m == "DELETE":
+            return self.RATE_LIMIT_DELETE_MAX_REQUESTS, self.RATE_LIMIT_DELETE_WINDOW_SECONDS
+        return self.RATE_LIMIT_DEFAULT_MAX_REQUESTS, self.RATE_LIMIT_DEFAULT_WINDOW_SECONDS
+
+
+
 
 
     # JWT configuration

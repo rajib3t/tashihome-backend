@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
@@ -50,3 +50,22 @@ class TokenInvalidError(AppException):
 class TokenExpiredError(AppException):
     def __init__(self, message: str = "Token has expired"):
         super().__init__(401, message, error_code="TOKEN_EXPIRED")
+
+
+class RateLimitExceededError(AppException):
+    def __init__(
+        self,
+        message: str = "Too many requests. Your IP has been temporarily blocked for 1 hour.",
+        retry_after: int = 3600,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            status_code=429,
+            message=message,
+            error_code="RATE_LIMIT_EXCEEDED",
+        )
+        self.retry_after = retry_after
+        if details:
+            self.detail["details"] = details
+        if retry_after > 0:
+            self.detail["retry_after"] = retry_after
