@@ -78,10 +78,11 @@ class RegisterDTO(BaseModel):
             return value
         if isinstance(value, str):
             phone = value.strip()
-            if phone and not re.match(r'^\+?[\d\s\-()]+$', phone):
+            # Enforce stricter phone format: E.164-like (optional +, 8-15 digits)
+            if phone and not re.match(r'^\+?\d{8,15}$', phone):
                 raise AppException(
                     status_code=422,
-                    message="Phone number contains invalid characters.",
+                    message="Phone number must be 8-15 digits, optionally starting with '+'.",
                     field="phone",
                     error_code="PHONE_INVALID",
                 )

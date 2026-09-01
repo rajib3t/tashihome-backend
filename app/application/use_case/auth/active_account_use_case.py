@@ -11,6 +11,9 @@ from app.models.token_model import TokenType
 from app.models.user_model import UserStatus
 from app.services.token_service import TokenService
 from app.services.user_service import UserService
+from app.deps.service import get_email_service
+from app.services.email_service import BrevoEmailService
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +111,29 @@ class ActiveAccountUseCase:
                 message="Failed to activate account",
                 error_code="FAILED_TO_ACTIVATE_ACCOUNT",
             )
+
+        # After successful activation, if user opted-in to subscriptions and
+        # provider is Brevo, create the contact in Brevo now to avoid
+        # creating contacts for unverified or fake registrations.
+        try:
+            if settings.EMAIL_PROVIDER.lower() == "brevo" and getattr(user, "is_subscribed", False):
+                # simple split for first/last name
+                parts = [part for part in (user.full_name or "User").strip().split() if part]
+                first_name = parts[0] if parts else "User"
+                last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
+                email_service = await get_email_service()
+                if isinstance(email_service, BrevoEmailService):
+                    await asyncio.to_thread(
+                        email_service.create_contact,
+                        user.email,
+                        attributes={
+                            "FIRSTNAME": first_name,
+                            "LASTNAME": last_name,
+                        },
+                    )
+                    logger.info("Brevo contact created on activation for %s", user.email)
+        except Exception as exc:
+            logger.error("Failed to create Brevo contact on activation for %s: %s", user.email, exc, exc_info=True)
 
         status_value = user.status.value if hasattr(user.status, "value") else str(user.status)
         role_value = user.role.value if hasattr(user.role, "value") else str(user.role)

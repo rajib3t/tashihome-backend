@@ -111,23 +111,7 @@ class CreateUserHandler:
                     exc_info=True,
                 )
 
-            if settings.EMAIL_PROVIDER.lower() == "brevo" and payload.get("is_subscribed"):
-                try:
-                    if isinstance(email_service, BrevoEmailService):
-                        first_name, last_name = split_full_name(username)
-                        await asyncio.to_thread(
-                            email_service.create_contact,
-                            email,
-                            attributes={
-                                BREVO_FIRST_NAME_ATTRIBUTE: first_name,
-                                BREVO_LAST_NAME_ATTRIBUTE: last_name,
-                            },
-                        )
-                        logger.info("Brevo contact created for subscribed user %s", email)
-                except Exception as exc:
-                    logger.error(
-                        "Failed to create Brevo contact for %s: %s",
-                        email,
-                        exc,
-                        exc_info=True,
-                    )
+            # NOTE: Do NOT create mailing provider contact at registration.
+            # Contact creation for newsletter/subscription will be performed
+            # when the user activates their account to avoid creating
+            # contacts for fake or undeliverable emails.
