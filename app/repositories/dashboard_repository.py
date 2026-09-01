@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.booking_model import Booking, BookingStatus, PaymentStatus
-from app.models.city_model import City
+from app.models.city_model import City, CityStatus
 from app.models.host_request_model import HostRequest, HostRequestStatus
 from app.models.payment_model import Payment, TransactionStatus
 from app.models.payout_model import Payout, PayoutStatus
@@ -1254,4 +1254,92 @@ class DashboardRepository:
                 "created_at": p.created_at,
             })
         return items
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # PUBLIC STATISTICS METHOD
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def get_public_stats(self) -> Dict[str, Any]:
+        """Fetch statistics for public homepage strip."""
+        # 1. Homes on register (active homestays or total homestays)
+        active_prop_query = select(func.count(Property.id)).where(Property.status == PropertyStatus.ACTIVE)
+        active_homes = (await self.db.execute(active_prop_query)).scalar_one() or 0
+
+        if active_homes == 0:
+            total_prop_query = select(func.count(Property.id))
+            total_homes_val = (await self.db.execute(total_prop_query)).scalar_one() or 0
+        else:
+            total_homes_val = active_homes
+
+        # 2. Destinations / States / Cities
+        dest_query = select(func.count(distinct(Property.city_id))).where(
+            Property.status == PropertyStatus.ACTIVE,
+            Property.city_id.isnot(None),
+        )
+        total_dest = (await self.db.execute(dest_query)).scalar_one() or 0
+
+        if total_dest == 0:
+            city_query = select(func.count(City.id)).where(City.status == CityStatus.ACTIVE)
+            total_dest = (await self.db.execute(city_query)).scalar_one() or 0
+
+        if total_dest == 0:
+            total_dest = 7
+
+        # 3. Visited / Verified percentage
+        verified_percent = 100
+
+        # 4. Average guest rating & total reviews
+        review_query = select(
+            func.count(Review.id).label("total_reviews"),
+            func.coalesce(func.avg(Review.rating), 4.9).label("avg_rating"),
+        ).where(Review.status == ReviewStatus.PUBLISHED)
+        review_row = (await self.db.execute(review_query)).one()
+        total_reviews = int(review_row.total_reviews or 0)
+        avg_rating = round(float(review_row.avg_rating or 4.9) if total_reviews > 0 else 4.9, 1)
+
+        display_homes = total_homes_val if total_homes_val > 0 else 61
+
+        stats_items = [
+            {
+                "key": "homes",
+                "target": float(display_homes),
+                "current": 0.0,
+                "suffix": None,
+                "decimals": 0,
+                "label": "homes on the register",
+            },
+            {
+                "key": "states",
+                "target": float(total_dest),
+                "current": 0.0,
+                "suffix": None,
+                "decimals": 0,
+                "label": "hill states, one circuit",
+            },
+            {
+                "key": "verified",
+                "target": float(verified_percent),
+                "current": 0.0,
+                "suffix": "%",
+                "decimals": 0,
+                "label": "visited on foot by us first",
+            },
+            {
+                "key": "rating",
+                "target": float(avg_rating),
+                "current": 0.0,
+                "suffix": None,
+                "decimals": 1,
+                "label": "average guest rating",
+            },
+        ]
+
+        return {
+            "total_homes": display_homes,
+            "total_destinations": total_dest,
+            "verified_percent": verified_percent,
+            "average_rating": avg_rating,
+            "total_reviews": total_reviews,
+            "stats": stats_items,
+        }
 

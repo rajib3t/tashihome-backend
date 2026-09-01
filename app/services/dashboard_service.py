@@ -108,4 +108,8 @@ class DashboardService:
             "occupancy_today": occupancy_today,
         }
 
+    async def get_public_stats(self) -> Dict[str, Any]:
+        """Fetch statistics for public homepage strip."""
+        return await self.dashboard_repository.get_public_stats()
+
 
