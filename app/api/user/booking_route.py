@@ -31,6 +31,7 @@ from app.application.use_case.user.booking.verify_razorpay_payment_use_case impo
     VerifyRazorpayPaymentUseCase,
 )
 from app.core.csrf import verify_csrf
+from app.deps.idempotency import require_idempotency_key
 from app.deps.booking import (
     get_cancel_booking_use_case,
     get_check_availability_use_case,
@@ -72,7 +73,7 @@ class UserBookingController(BaseController):
                 {
                     "response_model": BookingResponseSchema,
                     "status_code": 201,
-                    "dependencies": [Depends(verify_csrf)],
+                    "dependencies": [Depends(verify_csrf), Depends(require_idempotency_key)],
                 },
             ),
             (
@@ -109,7 +110,7 @@ class UserBookingController(BaseController):
                 {
                     "response_model": BookingPaymentResponseSchema,
                     "status_code": 201,
-                    "dependencies": [Depends(verify_csrf)],
+                    "dependencies": [Depends(verify_csrf), Depends(require_idempotency_key)],
                 },
             ),
             (
@@ -125,7 +126,7 @@ class UserBookingController(BaseController):
                 {
                     "response_model": RazorpayOrderResponseSchema,
                     "status_code": 201,
-                    "dependencies": [Depends(verify_csrf)],
+                    "dependencies": [Depends(verify_csrf), Depends(require_idempotency_key)],
                 },
             ),
             (
@@ -134,7 +135,7 @@ class UserBookingController(BaseController):
                 self._verify_razorpay_payment,
                 {
                     "response_model": BookingPaymentResponseSchema,
-                    "dependencies": [Depends(verify_csrf)],
+                    "dependencies": [Depends(verify_csrf), Depends(require_idempotency_key)],
                 },
             ),
         ]

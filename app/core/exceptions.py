@@ -69,3 +69,39 @@ class RateLimitExceededError(AppException):
             self.detail["details"] = details
         if retry_after > 0:
             self.detail["retry_after"] = retry_after
+
+
+class IdempotencyConflictError(AppException):
+    def __init__(
+        self,
+        message: str = "A request with this idempotency key is currently being processed. Please wait.",
+    ):
+        super().__init__(
+            status_code=409,
+            message=message,
+            error_code="IDEMPOTENCY_CONFLICT",
+        )
+
+
+class IdempotencyMismatchError(AppException):
+    def __init__(
+        self,
+        message: str = "This idempotency key was previously used with a different request payload or target URL.",
+    ):
+        super().__init__(
+            status_code=422,
+            message=message,
+            error_code="IDEMPOTENCY_PAYLOAD_MISMATCH",
+        )
+
+
+class IdempotencyKeyRequiredError(AppException):
+    def __init__(
+        self,
+        message: str = "Idempotency-Key header is required for this operation.",
+    ):
+        super().__init__(
+            status_code=400,
+            message=message,
+            error_code="IDEMPOTENCY_KEY_REQUIRED",
+        )

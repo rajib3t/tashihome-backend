@@ -63,6 +63,13 @@ class Application:
 
     
     def _register_middleware(self):
+        # Register IdempotencyMiddleware (wraps route handlers)
+        try:
+            from app.core.idempotency import IdempotencyMiddleware
+            self.app.add_middleware(IdempotencyMiddleware)
+        except Exception:
+            pass
+
         # Register RateLimitMiddleware
         try:
             from app.core.rate_limiter import RateLimitMiddleware
@@ -84,6 +91,14 @@ class Application:
                     allow_credentials=True,
                     allow_methods=["*"],
                     allow_headers=["*"],
+                    expose_headers=[
+                        "Idempotent-Replay",
+                        "X-Idempotency-Key",
+                        "X-RateLimit-Limit",
+                        "X-RateLimit-Remaining",
+                        "X-RateLimit-Reset",
+                        "Retry-After",
+                    ],
                 )
         except Exception:
             pass

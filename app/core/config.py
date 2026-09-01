@@ -53,10 +53,11 @@ class Settings(BaseSettings):
             return self.RATE_LIMIT_DELETE_MAX_REQUESTS, self.RATE_LIMIT_DELETE_WINDOW_SECONDS
         return self.RATE_LIMIT_DEFAULT_MAX_REQUESTS, self.RATE_LIMIT_DEFAULT_WINDOW_SECONDS
 
-
-
-
-
+    # Idempotency Configuration (Redis-backed)
+    IDEMPOTENCY_ENABLED: bool = True
+    IDEMPOTENCY_EXPIRE_SECONDS: int = 86400        # Response cache duration: 24 hours (86400s)
+    IDEMPOTENCY_LOCK_TIMEOUT_SECONDS: int = 30     # In-flight lock timeout in seconds
+    IDEMPOTENCY_KEY_PREFIX: str = "idempotency"    # Redis key prefix
     # JWT configuration
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
