@@ -148,8 +148,8 @@ class Settings(BaseSettings):
     DEFAULT_COMMISSION_PERCENTAGE: float = 10.0
  
      # Scheduler Configuration
-     ENABLE_SCHEDULER: bool = True
-     PUBLIC_STATS_UPDATE_INTERVAL_MINUTES: int = 15
+    ENABLE_SCHEDULER: bool = True
+    PUBLIC_STATS_UPDATE_INTERVAL_MINUTES: int = 15
 
 
     @property
