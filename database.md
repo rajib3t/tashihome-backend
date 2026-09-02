@@ -690,7 +690,7 @@ One review per completed booking, with an optional host reply and moderation sta
 
 ---
 
-### 9. Application Configuration
+### 9. Application Configuration & Statistics
 
 #### `settings`
 Key-value configuration store for system parameters and dynamic configurations.
@@ -700,6 +700,23 @@ Key-value configuration store for system parameters and dynamic configurations.
 | `id` | `BigInteger` | `PRIMARY KEY` | Setting identifier |
 | `key` | `VARCHAR(255)` | `UNIQUE`, `NOT NULL` | Configuration key |
 | `value` | `TEXT` | `NOT NULL` | Configuration value (raw text or JSON) |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+#### `public_stats`
+Pre-aggregated statistics table updated periodically by scheduled jobs / cron to eliminate multi-table joins on high-traffic public API endpoints.
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Record identifier |
+| `key` | `VARCHAR(100)` | `UNIQUE`, `NOT NULL`, `INDEX` | Statistics key (`'overview'`) |
+| `total_homes` | `INTEGER` | `NOT NULL`, `server_default='0'` | Total active registered homestays |
+| `total_destinations` | `INTEGER` | `NOT NULL`, `server_default='0'` | Total active destinations/cities |
+| `verified_percent` | `INTEGER` | `NOT NULL`, `server_default='100'` | Verified homestays percentage |
+| `average_rating` | `FLOAT` | `NOT NULL`, `server_default='4.9'` | Overall platform average rating |
+| `total_reviews` | `INTEGER` | `NOT NULL`, `server_default='0'` | Published review count |
+| `stats` | `JSON` | `NULLABLE` | Serialized frontend stat cards array |
+| `metadata_json` | `JSON` | `NULLABLE` | Optional extensible payload for additional metrics |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
 

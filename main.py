@@ -11,10 +11,29 @@ from app.core.logging_config import configure_logging
 from app.core.redis import redis_client
 from app.core.leader_election import RedisLeaderElector
 from app.events.subscriber import start_event_subscriber
+from app.schedulers import start_scheduler, stop_scheduler
 import asyncio
 import logging
 from app.api.router import api_router
 import uvicorn
+
+
+async def run_leader_tasks():
+    """Run background services exclusive to the single elected leader worker."""
+    logger = logging.getLogger(__name__)
+    tasks = [start_event_subscriber()]
+
+    if getattr(settings, "ENABLE_SCHEDULER", True):
+        logger.info("Starting scheduler on elected leader worker")
+        start_scheduler()
+
+    try:
+        await asyncio.gather(*tasks)
+    finally:
+        if getattr(settings, "ENABLE_SCHEDULER", True):
+            stop_scheduler()
+
+
 class Application:
     def __init__(self):
        
@@ -39,12 +58,14 @@ class Application:
         try:
             await redis_client.connect()
             app.state.redis = redis_client
-            # Continuous leader election: ONLY the single elected leader runs start_event_subscriber
+            # Continuous leader election: ONLY the single elected leader runs background tasks
             leader_elector = RedisLeaderElector()
-            await leader_elector.start(start_event_subscriber)
+            await leader_elector.start(run_leader_tasks)
             app.state.leader_elector = leader_elector
         except Exception:
             logger.warning("Redis connection could not be established at startup")
+            if getattr(settings, "ENABLE_SCHEDULER", True):
+                start_scheduler()
 
 
         yield
@@ -52,6 +73,8 @@ class Application:
 
         if hasattr(app.state, "leader_elector") and app.state.leader_elector is not None:
             await app.state.leader_elector.stop()
+
+        stop_scheduler()
 
         if hasattr(app.state, "db") and app.state.db is not None:
             await app.state.db.disconnect()

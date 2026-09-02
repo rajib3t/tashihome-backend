@@ -40,6 +40,7 @@ from .company_model import Company
 from .address_model import Address
 from .host_request_model import HostRequest, HostRequestStatus
 from .host_request_message_model import HostRequestMessage
+from .public_stat_model import PublicStat
 
 
 __all__ = [
@@ -98,4 +99,5 @@ __all__ = [
     "HostRequest",
     "HostRequestStatus",
     "HostRequestMessage",
+    "PublicStat",
 ]

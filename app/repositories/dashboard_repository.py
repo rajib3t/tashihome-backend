@@ -14,6 +14,7 @@ from app.models.payment_model import Payment, TransactionStatus
 from app.models.payout_model import Payout, PayoutStatus
 from app.models.property_asset_model import PropertyAsset
 from app.models.property_model import Property, PropertyStatus, PropertyType
+from app.models.public_stat_model import PublicStat
 from app.models.refund_request_model import RefundRequest, RefundRequestStatus
 from app.models.review_model import Review, ReviewStatus
 from app.models.room_block_model import RoomBlock
@@ -1452,8 +1453,8 @@ class DashboardRepository:
     # PUBLIC STATISTICS METHOD
     # ──────────────────────────────────────────────────────────────────────────
 
-    async def get_public_stats(self) -> Dict[str, Any]:
-        """Fetch statistics for public homepage strip."""
+    async def calculate_public_stats(self) -> Dict[str, Any]:
+        """Aggregate statistics across properties, cities, and reviews."""
         # 1. Homes on register (active homestays or total homestays)
         active_prop_query = select(func.count(Property.id)).where(Property.status == PropertyStatus.ACTIVE)
         active_homes = (await self.db.execute(active_prop_query)).scalar_one() or 0
@@ -1535,4 +1536,94 @@ class DashboardRepository:
             "total_reviews": total_reviews,
             "stats": stats_items,
         }
+
+    async def refresh_public_stats(self, key: str = "overview") -> Dict[str, Any]:
+        """Compute public stats and upsert into the public_stats pre-aggregated table."""
+        data = await self.calculate_public_stats()
+
+        query = select(PublicStat).where(PublicStat.key == key)
+        result = await self.db.execute(query)
+        record = result.scalars().first()
+
+        if record:
+            record.total_homes = data["total_homes"]
+            record.total_destinations = data["total_destinations"]
+            record.verified_percent = data["verified_percent"]
+            record.average_rating = data["average_rating"]
+            record.total_reviews = data["total_reviews"]
+            record.stats = data["stats"]
+        else:
+            record = PublicStat(
+                key=key,
+                total_homes=data["total_homes"],
+                total_destinations=data["total_destinations"],
+                verified_percent=data["verified_percent"],
+                average_rating=data["average_rating"],
+                total_reviews=data["total_reviews"],
+                stats=data["stats"],
+            )
+            self.db.add(record)
+
+        await self.db.commit()
+        return data
+
+    async def get_public_stats(self, key: str = "overview") -> Dict[str, Any]:
+        """
+        Fetch pre-aggregated statistics from public_stats table in O(1) time without joins.
+        Self-heals if the table row is not yet populated.
+        """
+        query = select(PublicStat).where(PublicStat.key == key)
+        result = await self.db.execute(query)
+        record = result.scalars().first()
+
+        if record:
+            # Fallback formatting for stats list if null
+            stats_list = record.stats
+            if not stats_list:
+                stats_list = [
+                    {
+                        "key": "homes",
+                        "target": float(record.total_homes),
+                        "current": 0.0,
+                        "suffix": None,
+                        "decimals": 0,
+                        "label": "homes on the register",
+                    },
+                    {
+                        "key": "states",
+                        "target": float(record.total_destinations),
+                        "current": 0.0,
+                        "suffix": None,
+                        "decimals": 0,
+                        "label": "hill states, one circuit",
+                    },
+                    {
+                        "key": "verified",
+                        "target": float(record.verified_percent),
+                        "current": 0.0,
+                        "suffix": "%",
+                        "decimals": 0,
+                        "label": "visited on foot by us first",
+                    },
+                    {
+                        "key": "rating",
+                        "target": float(record.average_rating),
+                        "current": 0.0,
+                        "suffix": None,
+                        "decimals": 1,
+                        "label": "average guest rating",
+                    },
+                ]
+
+            return {
+                "total_homes": int(record.total_homes),
+                "total_destinations": int(record.total_destinations),
+                "verified_percent": int(record.verified_percent),
+                "average_rating": round(float(record.average_rating), 1),
+                "total_reviews": int(record.total_reviews),
+                "stats": stats_list,
+            }
+
+        # Table not yet populated (e.g. before first cron run) -> compute and cache
+        return await self.refresh_public_stats(key=key)
 

@@ -124,4 +124,8 @@ class DashboardService:
         """Fetch statistics for public homepage strip."""
         return await self.dashboard_repository.get_public_stats()
 
+    async def refresh_public_stats(self, key: str = "overview") -> Dict[str, Any]:
+        """Manually trigger calculation and cache refresh for public stats."""
+        return await self.dashboard_repository.refresh_public_stats(key=key)
+
 

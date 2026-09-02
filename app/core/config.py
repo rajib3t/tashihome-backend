@@ -146,6 +146,10 @@ class Settings(BaseSettings):
     RAZORPAY_WEBHOOK_SECRET: Optional[str] = None
     RAZORPAYX_ACCOUNT_NUMBER: Optional[str] = None
     DEFAULT_COMMISSION_PERCENTAGE: float = 10.0
+ 
+     # Scheduler Configuration
+     ENABLE_SCHEDULER: bool = True
+     PUBLIC_STATS_UPDATE_INTERVAL_MINUTES: int = 15
 
 
     @property
