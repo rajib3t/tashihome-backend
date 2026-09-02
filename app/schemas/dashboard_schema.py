@@ -83,10 +83,20 @@ class ReviewStatsSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RoomBlockStatsSchema(BaseModel):
+    total: int = 0
+    active: int = 0
+    upcoming: int = 0
+    past: int = 0
+    total_units_blocked_today: int = 0
+    model_config = ConfigDict(from_attributes=True)
+
+
 class OccupancyTodaySchema(BaseModel):
     today_check_ins: int = 0
     today_check_outs: int = 0
     active_guests: int = 0
+    blocked_units_today: int = 0
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -284,6 +294,31 @@ class RecentPayoutSchema(BaseModel):
         return float(value)
 
 
+class RecentRoomBlockSchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    property_name: Optional[str] = None
+    property_slug: Optional[str] = None
+    room_type_name: Optional[str] = None
+    block_start_date: date
+    block_end_date: date
+    units_blocked: int = 1
+    reason: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        return str(value)
+
+
 # ─────────────────────────────────────────────
 # Full Dashboard Data & Response Schemas
 # ─────────────────────────────────────────────
@@ -295,6 +330,7 @@ class AdminDashboardDataSchema(BaseModel):
     users_summary: UserStatsSchema
     refunds_summary: RefundStatsSchema
     payouts_summary: PayoutStatsSchema
+    room_blocks_summary: RoomBlockStatsSchema = Field(default_factory=RoomBlockStatsSchema)
     occupancy_today: OccupancyTodaySchema
     revenue_trends: List[RevenueTrendItemSchema] = Field(default_factory=list)
     recent_bookings: List[RecentBookingSchema] = Field(default_factory=list)
@@ -302,6 +338,7 @@ class AdminDashboardDataSchema(BaseModel):
     recent_users: List[RecentUserSchema] = Field(default_factory=list)
     recent_refund_requests: List[RecentRefundRequestSchema] = Field(default_factory=list)
     recent_payouts: List[RecentPayoutSchema] = Field(default_factory=list)
+    recent_room_blocks: List[RecentRoomBlockSchema] = Field(default_factory=list)
     top_properties: List[TopPropertySchema] = Field(default_factory=list)
     model_config = ConfigDict(from_attributes=True)
 
@@ -316,11 +353,13 @@ class VendorDashboardDataSchema(BaseModel):
     properties_summary: PropertyStatsSchema
     payouts_summary: PayoutStatsSchema
     reviews_summary: ReviewStatsSchema
+    room_blocks_summary: RoomBlockStatsSchema = Field(default_factory=RoomBlockStatsSchema)
     occupancy_today: OccupancyTodaySchema
     revenue_trends: List[RevenueTrendItemSchema] = Field(default_factory=list)
     recent_bookings: List[RecentBookingSchema] = Field(default_factory=list)
     upcoming_bookings: List[RecentBookingSchema] = Field(default_factory=list)
     recent_payouts: List[RecentPayoutSchema] = Field(default_factory=list)
+    recent_room_blocks: List[RecentRoomBlockSchema] = Field(default_factory=list)
     top_properties: List[TopPropertySchema] = Field(default_factory=list)
     model_config = ConfigDict(from_attributes=True)
 
@@ -340,6 +379,7 @@ class AdminSummaryDataSchema(BaseModel):
     users_summary: UserStatsSchema
     refunds_summary: RefundStatsSchema
     payouts_summary: PayoutStatsSchema
+    room_blocks_summary: RoomBlockStatsSchema = Field(default_factory=RoomBlockStatsSchema)
     occupancy_today: OccupancyTodaySchema
     model_config = ConfigDict(from_attributes=True)
 
@@ -354,6 +394,7 @@ class VendorSummaryDataSchema(BaseModel):
     properties_summary: PropertyStatsSchema
     payouts_summary: PayoutStatsSchema
     reviews_summary: ReviewStatsSchema
+    room_blocks_summary: RoomBlockStatsSchema = Field(default_factory=RoomBlockStatsSchema)
     occupancy_today: OccupancyTodaySchema
     model_config = ConfigDict(from_attributes=True)
 

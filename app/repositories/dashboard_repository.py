@@ -16,6 +16,8 @@ from app.models.property_asset_model import PropertyAsset
 from app.models.property_model import Property, PropertyStatus, PropertyType
 from app.models.refund_request_model import RefundRequest, RefundRequestStatus
 from app.models.review_model import Review, ReviewStatus
+from app.models.room_block_model import RoomBlock
+from app.models.room_type_model import RoomType
 from app.models.user_model import User, UserRole, UserStatus
 
 
@@ -275,10 +277,21 @@ class DashboardRepository:
         )
         active_guests = (await self.db.execute(active_query)).scalar_one()
 
+        blocked_units_query = select(
+            func.coalesce(func.sum(RoomBlock.units_blocked), 0)
+        ).where(
+            and_(
+                RoomBlock.block_start_date <= today,
+                RoomBlock.block_end_date >= today,
+            )
+        )
+        blocked_units_today = (await self.db.execute(blocked_units_query)).scalar_one()
+
         return {
             "today_check_ins": int(today_check_ins or 0),
             "today_check_outs": int(today_check_outs or 0),
             "active_guests": int(active_guests or 0),
+            "blocked_units_today": int(blocked_units_today or 0),
         }
 
     async def get_admin_revenue_trends(self, months: int = 12) -> List[Dict[str, Any]]:
@@ -658,6 +671,87 @@ class DashboardRepository:
             })
         return items
 
+    async def get_admin_room_block_stats(self) -> Dict[str, int]:
+        today = datetime.now(timezone.utc).date()
+        query = select(
+            func.count(RoomBlock.id).label("total"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date >= today), 1),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("active"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (RoomBlock.block_start_date > today, 1),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("upcoming"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (RoomBlock.block_end_date < today, 1),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("past"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date >= today), RoomBlock.units_blocked),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("total_units_blocked_today"),
+        )
+        result = await self.db.execute(query)
+        row = result.one()
+        return {
+            "total": int(row.total or 0),
+            "active": int(row.active or 0),
+            "upcoming": int(row.upcoming or 0),
+            "past": int(row.past or 0),
+            "total_units_blocked_today": int(row.total_units_blocked_today or 0),
+        }
+
+    async def get_admin_recent_room_blocks(self, limit: int = 5) -> List[Dict[str, Any]]:
+        query = (
+            select(RoomBlock)
+            .options(
+                selectinload(RoomBlock.property),
+                selectinload(RoomBlock.room_type),
+                selectinload(RoomBlock.creator),
+            )
+            .order_by(RoomBlock.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        blocks = result.scalars().all()
+
+        items = []
+        for b in blocks:
+            items.append({
+                "id": str(b.public_id),
+                "property_name": b.property.name if b.property else None,
+                "property_slug": b.property.slug if b.property else None,
+                "room_type_name": b.room_type.name if b.room_type else None,
+                "block_start_date": b.block_start_date,
+                "block_end_date": b.block_end_date,
+                "units_blocked": b.units_blocked,
+                "reason": b.reason,
+                "created_by_name": b.creator.full_name if b.creator else None,
+                "created_at": b.created_at,
+            })
+        return items
+
     # ──────────────────────────────────────────────────────────────────────────
     # VENDOR REPOSITORY METHODS (Scoped to vendor_id)
     # ──────────────────────────────────────────────────────────────────────────
@@ -891,10 +985,22 @@ class DashboardRepository:
         )
         active_guests = (await self.db.execute(active_query)).scalar_one()
 
+        blocked_units_query = (
+            select(func.coalesce(func.sum(RoomBlock.units_blocked), 0))
+            .join(Property, RoomBlock.property_id == Property.id)
+            .where(
+                Property.vendor_id == vendor_id,
+                RoomBlock.block_start_date <= today,
+                RoomBlock.block_end_date >= today,
+            )
+        )
+        blocked_units_today = (await self.db.execute(blocked_units_query)).scalar_one()
+
         return {
             "today_check_ins": int(today_check_ins or 0),
             "today_check_outs": int(today_check_outs or 0),
             "active_guests": int(active_guests or 0),
+            "blocked_units_today": int(blocked_units_today or 0),
         }
 
     async def get_vendor_revenue_trends(self, vendor_id: int, months: int = 12) -> List[Dict[str, Any]]:
@@ -1252,6 +1358,93 @@ class DashboardRepository:
                 "notes": p.notes,
                 "paid_at": p.paid_at,
                 "created_at": p.created_at,
+            })
+        return items
+
+    async def get_vendor_room_block_stats(self, vendor_id: int) -> Dict[str, int]:
+        today = datetime.now(timezone.utc).date()
+        query = (
+            select(
+                func.count(RoomBlock.id).label("total"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date >= today), 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("active"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (RoomBlock.block_start_date > today, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("upcoming"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (RoomBlock.block_end_date < today, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("past"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date >= today), RoomBlock.units_blocked),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("total_units_blocked_today"),
+            )
+            .join(Property, RoomBlock.property_id == Property.id)
+            .where(Property.vendor_id == vendor_id)
+        )
+        result = await self.db.execute(query)
+        row = result.one()
+        return {
+            "total": int(row.total or 0),
+            "active": int(row.active or 0),
+            "upcoming": int(row.upcoming or 0),
+            "past": int(row.past or 0),
+            "total_units_blocked_today": int(row.total_units_blocked_today or 0),
+        }
+
+    async def get_vendor_recent_room_blocks(self, vendor_id: int, limit: int = 5) -> List[Dict[str, Any]]:
+        query = (
+            select(RoomBlock)
+            .join(Property, RoomBlock.property_id == Property.id)
+            .options(
+                selectinload(RoomBlock.property),
+                selectinload(RoomBlock.room_type),
+                selectinload(RoomBlock.creator),
+            )
+            .where(Property.vendor_id == vendor_id)
+            .order_by(RoomBlock.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        blocks = result.scalars().all()
+
+        items = []
+        for b in blocks:
+            items.append({
+                "id": str(b.public_id),
+                "property_name": b.property.name if b.property else None,
+                "property_slug": b.property.slug if b.property else None,
+                "room_type_name": b.room_type.name if b.room_type else None,
+                "block_start_date": b.block_start_date,
+                "block_end_date": b.block_end_date,
+                "units_blocked": b.units_blocked,
+                "reason": b.reason,
+                "created_by_name": b.creator.full_name if b.creator else None,
+                "created_at": b.created_at,
             })
         return items
 

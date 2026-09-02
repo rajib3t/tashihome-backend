@@ -157,6 +157,28 @@ export interface OccupancyToday {
   today_check_ins: number;
   today_check_outs: number;
   active_guests: number;
+  blocked_units_today: number;
+}
+
+export interface RoomBlockStats {
+  total: number;
+  active: number;
+  upcoming: number;
+  past: number;
+  total_units_blocked_today: number;
+}
+
+export interface DashboardRoomBlockItem {
+  id: string;
+  property_name: string | null;
+  property_slug: string | null;
+  room_type_name: string | null;
+  block_start_date: string;
+  block_end_date: string;
+  units_blocked: number;
+  reason: string | null;
+  created_by_name: string | null;
+  created_at: string | null;
 }
 
 export interface RevenueTrendItem {
@@ -258,6 +280,7 @@ export interface AdminDashboardData {
   users_summary: UserStats;
   refunds_summary: RefundStats;
   payouts_summary: PayoutStats;
+  room_blocks_summary: RoomBlockStats;
   occupancy_today: OccupancyToday;
   revenue_trends: RevenueTrendItem[];
   recent_bookings: DashboardBookingItem[];
@@ -265,6 +288,7 @@ export interface AdminDashboardData {
   recent_users: DashboardUserItem[];
   recent_refund_requests: DashboardRefundItem[];
   recent_payouts: DashboardPayoutItem[];
+  recent_room_blocks: DashboardRoomBlockItem[];
   top_properties: TopPropertyItem[];
 }
 
@@ -275,6 +299,7 @@ export interface AdminSummaryData {
   users_summary: UserStats;
   refunds_summary: RefundStats;
   payouts_summary: PayoutStats;
+  room_blocks_summary: RoomBlockStats;
   occupancy_today: OccupancyToday;
 }
 

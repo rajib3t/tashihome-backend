@@ -89,10 +89,18 @@ def test_admin_dashboard_use_case_success():
             "last_payout_amount": 25000.0,
             "currency": "INR",
         }
+        mock_repo.get_admin_room_block_stats.return_value = {
+            "total": 14,
+            "active": 3,
+            "upcoming": 8,
+            "past": 3,
+            "total_units_blocked_today": 5,
+        }
         mock_repo.get_admin_occupancy_today.return_value = {
             "today_check_ins": 4,
             "today_check_outs": 2,
             "active_guests": 18,
+            "blocked_units_today": 5,
         }
         mock_repo.get_admin_revenue_trends.return_value = [
             {"month": "2026-07", "revenue": 65000.0, "gross_revenue": 65000.0, "refunded": 0.0, "bookings_count": 18},
@@ -175,6 +183,20 @@ def test_admin_dashboard_use_case_success():
                 "created_at": datetime.now(timezone.utc),
             }
         ]
+        mock_repo.get_admin_recent_room_blocks.return_value = [
+            {
+                "id": str(uuid.uuid4()),
+                "property_name": "Mountain View Homestay",
+                "property_slug": "mountain-view-homestay",
+                "room_type_name": "Deluxe Suite",
+                "block_start_date": date(2026, 9, 2),
+                "block_end_date": date(2026, 9, 6),
+                "units_blocked": 2,
+                "reason": "Annual room maintenance",
+                "created_by_name": "Admin User",
+                "created_at": datetime.now(timezone.utc),
+            }
+        ]
         mock_repo.get_admin_top_properties.return_value = [
             {
                 "id": str(uuid.uuid4()),
@@ -201,11 +223,16 @@ def test_admin_dashboard_use_case_success():
         assert result["revenue_summary"]["refunded_amount"] == 3500.0
         assert result["payouts_summary"]["total_paid_amount"] == 120000.0
         assert result["payouts_summary"]["pending_payout_amount"] == 15000.0
+        assert result["room_blocks_summary"]["total"] == 14
+        assert result["room_blocks_summary"]["active"] == 3
+        assert result["room_blocks_summary"]["total_units_blocked_today"] == 5
         assert result["properties_summary"]["active"] == 9
         assert result["users_summary"]["total"] == 120
         assert len(result["recent_bookings"]) == 1
         assert len(result["recent_refund_requests"]) == 1
         assert len(result["recent_payouts"]) == 1
+        assert len(result["recent_room_blocks"]) == 1
+        assert result["recent_room_blocks"][0]["units_blocked"] == 2
         assert len(result["top_properties"]) == 1
 
         # Verify Pydantic schema validation
@@ -218,7 +245,12 @@ def test_admin_dashboard_use_case_success():
         assert response_model.data.refunds_summary.processed == 2
         assert response_model.data.refunds_summary.total_amount_refunded == 7000.0
         assert response_model.data.payouts_summary.paid_count == 6
+        assert response_model.data.room_blocks_summary.total == 14
+        assert response_model.data.room_blocks_summary.active == 3
         assert response_model.data.occupancy_today.active_guests == 18
+        assert response_model.data.occupancy_today.blocked_units_today == 5
+        assert len(response_model.data.recent_room_blocks) == 1
+        assert response_model.data.recent_room_blocks[0].property_name == "Mountain View Homestay"
 
     asyncio.run(run_test())
 
@@ -241,7 +273,8 @@ def test_admin_summary_use_case_success():
         mock_repo.get_admin_user_stats.return_value = {"total": 50, "active": 45, "inactive": 5, "suspended": 0, "by_role": {}, "pending_hosts": 1}
         mock_repo.get_admin_refund_stats.return_value = {"total_requests": 1, "pending": 0, "approved": 1, "rejected": 0, "total_amount_refunded": 1000.0}
         mock_repo.get_admin_payout_stats.return_value = {"total_payouts": 4, "total_paid_amount": 45000.0, "pending_payout_amount": 5000.0, "processing_payout_amount": 0.0, "failed_payout_amount": 0.0, "pending_count": 1, "processing_count": 0, "paid_count": 3, "failed_count": 0, "last_payout_date": None, "last_payout_amount": 0.0, "currency": "INR"}
-        mock_repo.get_admin_occupancy_today.return_value = {"today_check_ins": 2, "today_check_outs": 1, "active_guests": 5}
+        mock_repo.get_admin_room_block_stats.return_value = {"total": 10, "active": 2, "upcoming": 5, "past": 3, "total_units_blocked_today": 3}
+        mock_repo.get_admin_occupancy_today.return_value = {"today_check_ins": 2, "today_check_outs": 1, "active_guests": 5, "blocked_units_today": 3}
 
         service = DashboardService(dashboard_repository=mock_repo)
         use_case = GetAdminSummaryUseCase(dashboard_service=service)
@@ -257,6 +290,9 @@ def test_admin_summary_use_case_success():
         assert response.data.revenue_summary.gross_revenue == 50000.0
         assert response.data.revenue_summary.refunded_amount == 1000.0
         assert response.data.payouts_summary.total_paid_amount == 45000.0
+        assert response.data.room_blocks_summary.total == 10
+        assert response.data.room_blocks_summary.active == 2
+        assert response.data.occupancy_today.blocked_units_today == 3
 
     asyncio.run(run_test())
 
@@ -312,10 +348,18 @@ def test_vendor_dashboard_use_case_success():
             "total_reviews": 12,
             "average_rating": 4.9,
         }
+        mock_repo.get_vendor_room_block_stats.return_value = {
+            "total": 4,
+            "active": 1,
+            "upcoming": 2,
+            "past": 1,
+            "total_units_blocked_today": 2,
+        }
         mock_repo.get_vendor_occupancy_today.return_value = {
             "today_check_ins": 1,
             "today_check_outs": 1,
             "active_guests": 6,
+            "blocked_units_today": 2,
         }
         mock_repo.get_vendor_revenue_trends.return_value = [
             {"month": "2026-08", "revenue": 52500.0, "gross_revenue": 52500.0, "refunded": 0.0, "bookings_count": 15}
@@ -378,6 +422,20 @@ def test_vendor_dashboard_use_case_success():
                 "created_at": datetime.now(timezone.utc),
             }
         ]
+        mock_repo.get_vendor_recent_room_blocks.return_value = [
+            {
+                "id": str(uuid.uuid4()),
+                "property_name": "Riverfront Villa",
+                "property_slug": "riverfront-villa",
+                "room_type_name": "Deluxe Room",
+                "block_start_date": date(2026, 9, 5),
+                "block_end_date": date(2026, 9, 8),
+                "units_blocked": 2,
+                "reason": "Family gathering",
+                "created_by_name": "Vendor Test",
+                "created_at": datetime.now(timezone.utc),
+            }
+        ]
         mock_repo.get_vendor_top_properties.return_value = [
             {
                 "id": str(uuid.uuid4()),
@@ -403,11 +461,18 @@ def test_vendor_dashboard_use_case_success():
         mock_repo.get_vendor_revenue_stats.assert_called_once_with(vendor_id=77)
         mock_repo.get_vendor_payout_stats.assert_called_once_with(vendor_id=77)
         mock_repo.get_vendor_recent_payouts.assert_called_once_with(vendor_id=77, limit=5)
+        mock_repo.get_vendor_room_block_stats.assert_called_once_with(vendor_id=77)
+        mock_repo.get_vendor_recent_room_blocks.assert_called_once_with(vendor_id=77, limit=5)
 
         assert result["bookings_summary"]["total"] == 15
         assert result["reviews_summary"]["average_rating"] == 4.9
         assert result["payouts_summary"]["total_paid_amount"] == 42000.0
+        assert result["room_blocks_summary"]["total"] == 4
+        assert result["room_blocks_summary"]["active"] == 1
+        assert result["room_blocks_summary"]["total_units_blocked_today"] == 2
         assert len(result["recent_payouts"]) == 1
+        assert len(result["recent_room_blocks"]) == 1
+        assert result["recent_room_blocks"][0]["property_name"] == "Riverfront Villa"
 
         # Validate against schema
         response_model = VendorDashboardResponseSchema(
@@ -417,8 +482,13 @@ def test_vendor_dashboard_use_case_success():
         )
         assert response_model.data.bookings_summary.confirmed == 8
         assert response_model.data.payouts_summary.paid_count == 2
+        assert response_model.data.room_blocks_summary.total == 4
+        assert response_model.data.room_blocks_summary.active == 1
+        assert response_model.data.occupancy_today.blocked_units_today == 2
         assert len(response_model.data.upcoming_bookings) == 1
         assert len(response_model.data.recent_payouts) == 1
+        assert len(response_model.data.recent_room_blocks) == 1
+        assert response_model.data.recent_room_blocks[0].property_name == "Riverfront Villa"
 
     asyncio.run(run_test())
 
@@ -440,7 +510,8 @@ def test_vendor_summary_use_case_success():
         mock_repo.get_vendor_property_stats.return_value = {"total": 2, "active": 2, "draft": 0, "inactive": 0, "archived": 0, "featured": 0, "by_type": {}}
         mock_repo.get_vendor_payout_stats.return_value = {"total_payouts": 3, "total_paid_amount": 22000.0, "pending_payout_amount": 6000.0, "processing_payout_amount": 0.0, "failed_payout_amount": 0.0, "pending_count": 1, "processing_count": 0, "paid_count": 2, "failed_count": 0, "last_payout_date": None, "last_payout_amount": 0.0, "currency": "INR"}
         mock_repo.get_vendor_review_stats.return_value = {"total_reviews": 5, "average_rating": 5.0}
-        mock_repo.get_vendor_occupancy_today.return_value = {"today_check_ins": 1, "today_check_outs": 0, "active_guests": 2}
+        mock_repo.get_vendor_room_block_stats.return_value = {"total": 2, "active": 1, "upcoming": 1, "past": 0, "total_units_blocked_today": 1}
+        mock_repo.get_vendor_occupancy_today.return_value = {"today_check_ins": 1, "today_check_outs": 0, "active_guests": 2, "blocked_units_today": 1}
 
         current_user = CurrentUser(id=88, role="vendor")
         service = DashboardService(dashboard_repository=mock_repo)
@@ -456,7 +527,46 @@ def test_vendor_summary_use_case_success():
         assert response.data.reviews_summary.average_rating == 5.0
         assert response.data.revenue_summary.total_revenue == 28000.0
         assert response.data.payouts_summary.total_paid_amount == 22000.0
+        assert response.data.room_blocks_summary.total == 2
+        assert response.data.room_blocks_summary.active == 1
+        assert response.data.occupancy_today.blocked_units_today == 1
 
     asyncio.run(run_test())
+
+
+def test_room_block_dashboard_schema_validation():
+    from app.schemas.dashboard_schema import RecentRoomBlockSchema, RoomBlockStatsSchema
+
+    # Test RoomBlockStatsSchema
+    stats = RoomBlockStatsSchema(
+        total=10,
+        active=3,
+        upcoming=5,
+        past=2,
+        total_units_blocked_today=4,
+    )
+    assert stats.total == 10
+    assert stats.active == 3
+    assert stats.upcoming == 5
+    assert stats.past == 2
+    assert stats.total_units_blocked_today == 4
+
+    # Test RecentRoomBlockSchema public_id mapping
+    test_uuid = uuid.uuid4()
+    item = RecentRoomBlockSchema.model_validate({
+        "public_id": test_uuid,
+        "property_name": "Test Homestay",
+        "property_slug": "test-homestay",
+        "room_type_name": "Standard Room",
+        "block_start_date": date(2026, 9, 1),
+        "block_end_date": date(2026, 9, 5),
+        "units_blocked": 1,
+        "reason": "Renovation",
+        "created_by_name": "Host Dorji",
+        "created_at": datetime.now(timezone.utc),
+    })
+    assert item.id == str(test_uuid)
+    assert item.property_name == "Test Homestay"
+    assert item.units_blocked == 1
 
 

@@ -15,6 +15,7 @@ class DashboardService:
         users_summary = await self.dashboard_repository.get_admin_user_stats()
         refunds_summary = await self.dashboard_repository.get_admin_refund_stats()
         payouts_summary = await self.dashboard_repository.get_admin_payout_stats()
+        room_blocks_summary = await self.dashboard_repository.get_admin_room_block_stats()
         occupancy_today = await self.dashboard_repository.get_admin_occupancy_today()
         revenue_trends = await self.dashboard_repository.get_admin_revenue_trends(months=months)
         recent_bookings = await self.dashboard_repository.get_admin_recent_bookings(limit=5)
@@ -22,6 +23,7 @@ class DashboardService:
         recent_users = await self.dashboard_repository.get_admin_recent_users(limit=5)
         recent_refund_requests = await self.dashboard_repository.get_admin_recent_refund_requests(limit=5)
         recent_payouts = await self.dashboard_repository.get_admin_recent_payouts(limit=5)
+        recent_room_blocks = await self.dashboard_repository.get_admin_recent_room_blocks(limit=5)
         top_properties = await self.dashboard_repository.get_admin_top_properties(limit=5)
 
         return {
@@ -31,6 +33,7 @@ class DashboardService:
             "users_summary": users_summary,
             "refunds_summary": refunds_summary,
             "payouts_summary": payouts_summary,
+            "room_blocks_summary": room_blocks_summary,
             "occupancy_today": occupancy_today,
             "revenue_trends": revenue_trends,
             "recent_bookings": recent_bookings,
@@ -38,6 +41,7 @@ class DashboardService:
             "recent_users": recent_users,
             "recent_refund_requests": recent_refund_requests,
             "recent_payouts": recent_payouts,
+            "recent_room_blocks": recent_room_blocks,
             "top_properties": top_properties,
         }
 
@@ -50,6 +54,7 @@ class DashboardService:
         users_summary = await self.dashboard_repository.get_admin_user_stats()
         refunds_summary = await self.dashboard_repository.get_admin_refund_stats()
         payouts_summary = await self.dashboard_repository.get_admin_payout_stats()
+        room_blocks_summary = await self.dashboard_repository.get_admin_room_block_stats()
         occupancy_today = await self.dashboard_repository.get_admin_occupancy_today()
 
         return {
@@ -59,6 +64,7 @@ class DashboardService:
             "users_summary": users_summary,
             "refunds_summary": refunds_summary,
             "payouts_summary": payouts_summary,
+            "room_blocks_summary": room_blocks_summary,
             "occupancy_today": occupancy_today,
         }
 
@@ -69,11 +75,13 @@ class DashboardService:
         properties_summary = await self.dashboard_repository.get_vendor_property_stats(vendor_id=vendor_id)
         payouts_summary = await self.dashboard_repository.get_vendor_payout_stats(vendor_id=vendor_id)
         reviews_summary = await self.dashboard_repository.get_vendor_review_stats(vendor_id=vendor_id)
+        room_blocks_summary = await self.dashboard_repository.get_vendor_room_block_stats(vendor_id=vendor_id)
         occupancy_today = await self.dashboard_repository.get_vendor_occupancy_today(vendor_id=vendor_id)
         revenue_trends = await self.dashboard_repository.get_vendor_revenue_trends(vendor_id=vendor_id, months=months)
         recent_bookings = await self.dashboard_repository.get_vendor_recent_bookings(vendor_id=vendor_id, limit=5)
         upcoming_bookings = await self.dashboard_repository.get_vendor_upcoming_bookings(vendor_id=vendor_id, limit=5)
         recent_payouts = await self.dashboard_repository.get_vendor_recent_payouts(vendor_id=vendor_id, limit=5)
+        recent_room_blocks = await self.dashboard_repository.get_vendor_recent_room_blocks(vendor_id=vendor_id, limit=5)
         top_properties = await self.dashboard_repository.get_vendor_top_properties(vendor_id=vendor_id, limit=5)
 
         return {
@@ -82,11 +90,13 @@ class DashboardService:
             "properties_summary": properties_summary,
             "payouts_summary": payouts_summary,
             "reviews_summary": reviews_summary,
+            "room_blocks_summary": room_blocks_summary,
             "occupancy_today": occupancy_today,
             "revenue_trends": revenue_trends,
             "recent_bookings": recent_bookings,
             "upcoming_bookings": upcoming_bookings,
             "recent_payouts": recent_payouts,
+            "recent_room_blocks": recent_room_blocks,
             "top_properties": top_properties,
         }
 
@@ -97,6 +107,7 @@ class DashboardService:
         properties_summary = await self.dashboard_repository.get_vendor_property_stats(vendor_id=vendor_id)
         payouts_summary = await self.dashboard_repository.get_vendor_payout_stats(vendor_id=vendor_id)
         reviews_summary = await self.dashboard_repository.get_vendor_review_stats(vendor_id=vendor_id)
+        room_blocks_summary = await self.dashboard_repository.get_vendor_room_block_stats(vendor_id=vendor_id)
         occupancy_today = await self.dashboard_repository.get_vendor_occupancy_today(vendor_id=vendor_id)
 
         return {
@@ -105,6 +116,7 @@ class DashboardService:
             "properties_summary": properties_summary,
             "payouts_summary": payouts_summary,
             "reviews_summary": reviews_summary,
+            "room_blocks_summary": room_blocks_summary,
             "occupancy_today": occupancy_today,
         }
 
