@@ -1,0 +1,24 @@
+[Unit]
+Description=Homestay Background Scheduler Daemon
+After=network.target redis.service postgresql.service
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=project-path
+
+ExecStart=project-path/.venv/bin/python scripts/run_scheduler.py
+
+Restart=always
+RestartSec=5
+
+Environment="PATH=project-path/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+
+# Log settings
+StandardOutput=append:/var/log/homestay-worker.log
+StandardError=append:/var/log/homestay-worker-error.log
+
+[Install]
+WantedBy=multi-user.target
+
