@@ -29,12 +29,20 @@ class StorageService:
         if settings.S3_USE_SSL is not None:
             self.client_params["use_ssl"] = settings.S3_USE_SSL
 
-    async def upload_bytes(self, key: str, data: bytes, content_type: Optional[str] = None) -> str:
+    async def upload_bytes(
+        self,
+        key: str,
+        data: bytes,
+        content_type: Optional[str] = None,
+        cache_control: str = "public, max-age=31536000, immutable",
+    ) -> str:
         """Upload raw bytes to S3 and return object key."""
         async with self.session.client("s3", **self.client_params) as client:
             kwargs = {"Bucket": self.bucket, "Key": key, "Body": data}
             if content_type:
                 kwargs["ContentType"] = content_type
+            if cache_control:
+                kwargs["CacheControl"] = cache_control
             await client.put_object(**kwargs)
         return key
 
@@ -77,9 +85,9 @@ class StorageService:
         self,
         key: str,
         data: bytes,
-        quality: int = 82,
+        quality: int = 76,
         lossless: bool = False,
-        max_dimension: Optional[int] = 1920,
+        max_dimension: Optional[int] = 1280,
         strip_metadata: bool = True,
         lat: Optional[float] = None,
         lon: Optional[float] = None,
