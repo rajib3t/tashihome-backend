@@ -73,7 +73,7 @@ class UpdateSettingUseCase(BaseUseCase):
             except SettingNotFoundError:
                 old_setting = None
             new_file_key = await self._upload_file(
-                payload["app_logo"], folder="settings", field_name="app_logo"
+                payload["app_logo"], folder="settings", field_name="app_logo", webp=True
             )
             await self._delete_replaced_file(old_setting, new_file_key)
             payload["app_logo"] = new_file_key
@@ -84,7 +84,7 @@ class UpdateSettingUseCase(BaseUseCase):
             except SettingNotFoundError:
                 old_setting = None
             new_file_key = await self._upload_file(
-                payload["white_logo"], folder="settings", field_name="white_logo"
+                payload["white_logo"], folder="settings", field_name="white_logo", webp=True
             )
             await self._delete_replaced_file(old_setting, new_file_key)
             payload["white_logo"] = new_file_key
