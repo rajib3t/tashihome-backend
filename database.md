@@ -51,6 +51,7 @@ The backend uses **PostgreSQL** with **SQLAlchemy (Async)** ORM models and **Ale
 
   bookings --1:N--> refund_requests <--N:1-- payments
   users (vendor) --1:N--> payouts
+  users (user/vendor) --1:N--> testimonials
 ```
 
 ---
@@ -660,7 +661,7 @@ A refund request against a specific payment/booking, with an approval workflow. 
 
 ---
 
-### 8. Reviews & Ratings
+### 8. Reviews & Testimonials
 
 #### `reviews`
 One review per completed booking, with an optional host reply and moderation status.
@@ -676,7 +677,7 @@ One review per completed booking, with an optional host reply and moderation sta
 | `comment` | `TEXT` | `NULLABLE` | Guest's written review |
 | `host_reply` | `TEXT` | `NULLABLE` | Vendor's reply, if any |
 | `host_replied_at` | `TIMESTAMPTZ` | `NULLABLE` | When the host replied |
-| `status` | `Enum(ReviewStatus)` | `NOT NULL`, `INDEX`, `default='published'` | Moderation status (`published`, `hidden`, `flagged`) |
+| `status` | `Enum(ReviewStatus)` | `NOT NULL`, `INDEX`, `default='pending'` | Moderation status (`pending`, `published`, `hidden`, `flagged`, `rejected`) |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
 
@@ -687,6 +688,32 @@ One review per completed booking, with an optional host reply and moderation sta
   - `booking` -> 1:1 [`Booking`](#bookings)
   - `guest` -> N:1 [`User`](#users)
   - `property` -> N:1 [`Property`](#properties)
+
+---
+
+#### `testimonials`
+Platform-level testimonials and endorsements submitted by guests or hosts/vendors with an admin moderation & feature workflow.
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
+| `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
+| `user_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> users.id (CASCADE)` | Submitting user or vendor |
+| `user_role` | `VARCHAR(50)` | `NOT NULL`, `INDEX`, `default='user'` | Author role (`user`, `vendor`) |
+| `name` | `VARCHAR(255)` | `NOT NULL` | Author display name |
+| `designation` | `VARCHAR(255)` | `NULLABLE` | Author designation or subtitle |
+| `avatar_url` | `VARCHAR(500)` | `NULLABLE` | Author avatar / profile image URL |
+| `rating` | `SMALLINT` | `NULLABLE`, `CHECK(1-5)` | Overall satisfaction rating |
+| `content` | `TEXT` | `NOT NULL` | Testimonial message content |
+| `status` | `Enum(TestimonialStatus)` | `NOT NULL`, `INDEX`, `default='pending'` | Moderation status (`pending`, `approved`, `rejected`, `hidden`) |
+| `is_featured` | `BOOLEAN` | `NOT NULL`, `INDEX`, `default=False` | Flag to feature on landing/marketing pages |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+- **Table Constraints**:
+  - `chk_testimonials_rating` (`CHECK(rating IS NULL OR (rating >= 1 AND rating <= 5))`)
+- **Relationships**:
+  - `user` -> N:1 [`User`](#users)
 
 ---
 
@@ -747,7 +774,8 @@ Pre-aggregated statistics table updated periodically by scheduled jobs / cron to
 | `paymentmethod` | `PaymentMethod` | `'card'`, `'upi'`, `'netbanking'`, `'wallet'`, `'cash'`, `'bank_transfer'` |
 | `cancellationpolicystatus` | `CancellationPolicyStatus` | `'active'`, `'inactive'` |
 | `roomunitstatus` | `RoomUnitStatus` | `'active'`, `'maintenance'`, `'inactive'` |
-| `reviewstatus` | `ReviewStatus` | `'published'`, `'hidden'`, `'flagged'` |
+| `reviewstatus` | `ReviewStatus` | `'pending'`, `'published'`, `'hidden'`, `'flagged'`, `'rejected'` |
+| `testimonialstatus` | `TestimonialStatus` | `'pending'`, `'approved'`, `'rejected'`, `'hidden'` |
 | `payoutstatus` | `PayoutStatus` | `'pending'`, `'processing'`, `'paid'`, `'failed'` |
 | `refundrequeststatus` | `RefundRequestStatus` | `'pending'`, `'approved'`, `'rejected'`, `'processed'` |
 
@@ -788,6 +816,7 @@ alembic history
    - `payments.booking_id` uses `ondelete="CASCADE"` — payment history is meaningless without its parent booking, and bookings themselves are never hard-deleted in practice due to the `RESTRICT` rules above.
    - `payouts.vendor_id`, `refund_requests.payment_id`, and `refund_requests.booking_id` use `ondelete="RESTRICT"` for the same reason — financial audit trails must not silently disappear.
    - `reviews.booking_id` uses `ondelete="CASCADE"` (deleting a booking removes its review), while `reviews.guest_id`/`property_id` also cascade for consistency with existing entity-cleanup patterns.
+   - `testimonials.user_id` uses `ondelete="CASCADE"` (deleting a user account removes their testimonials).
 3. **Overbooking Prevention**:
    - Room inventory is enforced by a `BEFORE INSERT OR UPDATE` trigger on `bookings` (`check_booking_availability()`), not a database exclusion constraint — this correctly accounts for properties with multiple units of the same room type, and also subtracts any overlapping `room_blocks`. See the note under [`bookings`](#bookings) for details.
 4. **Cancellation & Refund Flow**:

@@ -2,6 +2,7 @@ from app.schemas.response import PaginationResponse
 from app.schemas.response import BaseResponse
 from app.schemas.property_schema import PropertyCitySchema
 from app.schemas.property_schema import PropertyLocationSchema
+from app.schemas.review_schema import PropertyRatingSummarySchema
 
 from typing import Optional
 
@@ -48,6 +49,10 @@ class PublicPropertyBase(BaseModel):
     sale_per_night: Optional[float] = None
     address: Optional[str] = None
     feature_image: Optional[PropertyAssetSchema] = None
+    average_rating: Optional[float] = 0.0
+    total_reviews: Optional[int] = 0
+    rating_summary: Optional[PropertyRatingSummarySchema] = None
+
 
 class PropertyRoomTypeSchema(BaseModel):
     id: UUID | str | None = Field(

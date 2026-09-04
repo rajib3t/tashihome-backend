@@ -1,3 +1,5 @@
+from typing import Optional
+
 from app.core.exceptions import AppException
 from app.models.property_model import PropertyStatus
 from app.services.location_service import LocationService
@@ -6,21 +8,25 @@ from app.repositories.base_repository import Page
 from app.application.dto.properties.public.property import PublicPropertyQueryDTO
 from app.services.storage_service import StorageService
 from app.services.property_service import PropertyService
+from app.services.review_service import ReviewService
 from app.application.use_case.base_use_case import BaseUseCase
 from app.application.use_case.admin.properties.property_serializer_mixin import PropertySerializerMixin
 
 class PublicPropertiesUseCase(BaseUseCase, PropertySerializerMixin):
     def __init__(
         self,
-        property_service : PropertyService,
-        storage_service : StorageService,
-        city_service : CityService,
-        location_service : LocationService,
+        property_service: PropertyService,
+        storage_service: StorageService,
+        city_service: CityService,
+        location_service: LocationService,
+        review_service: Optional[ReviewService] = None,
     ):
         self.property_service = property_service
         self.storage_service = storage_service
         self.city_service = city_service
         self.location_service = location_service
+        self.review_service = review_service
+
 
     async def execute(self, params : PublicPropertyQueryDTO) -> Page:
         filters = list(params.filters or [])
@@ -73,14 +79,22 @@ class PublicPropertiesUseCase(BaseUseCase, PropertySerializerMixin):
             )
 
         
+        # Fetch rating summaries for properties if review_service is available
+        rating_summaries = {}
+        if self.review_service and properties_page.items:
+            property_ids = [p.id for p in properties_page.items if p.id]
+            rating_summaries = await self.review_service.get_properties_rating_summary(property_ids)
+
         # Serialize properties to avoid lazy loading issues during response validation
         items = []
         for property_data in properties_page.items:
-            serialized = await self.serialize_property_list_item(property_data)
+            rating_summary = rating_summaries.get(property_data.id)
+            serialized = await self.serialize_property_list_item(property_data, rating_summary=rating_summary)
             items.append(serialized)
 
         properties_page.items = items
         return properties_page
+
 
 
         

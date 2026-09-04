@@ -18,7 +18,13 @@ class PropertySerializerMixin:
         property_data: Property,
         vendor_email_disabled: bool = False,
         availability_map: dict | None = None,
+        rating_summary: dict | None = None,
     ) -> dict:
+        rating_data = rating_summary or {
+            "average_rating": 0.0,
+            "total_reviews": 0,
+            "rating_distribution": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0},
+        }
         return {
             "internal_id": property_data.id,
             "id": str(property_data.public_id),
@@ -123,10 +129,22 @@ class PropertySerializerMixin:
             "cover_image": await self._serialize_single_asset_by_use_for(property_data.property_assets or [], "cover"),
             "status": property_data.status.value if hasattr(property_data.status, "value") else property_data.status,
             "is_featured": property_data.is_featured,
+            "average_rating": rating_data.get("average_rating", 0.0),
+            "total_reviews": rating_data.get("total_reviews", 0),
+            "rating_summary": rating_data,
         }
 
-    async def serialize_property_list_item(self, property_data: Property) -> dict:
+    async def serialize_property_list_item(
+        self,
+        property_data: Property,
+        rating_summary: dict | None = None,
+    ) -> dict:
         """Lightweight serializer for list views to avoid lazy-loading unneeded relations"""
+        rating_data = rating_summary or {
+            "average_rating": 0.0,
+            "total_reviews": 0,
+            "rating_distribution": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0},
+        }
         return {
             "internal_id": property_data.id,
             "id": str(property_data.public_id),
@@ -158,7 +176,11 @@ class PropertySerializerMixin:
             "description": property_data.description,
             "feature_image": await self._serialize_single_asset_by_use_for(getattr(property_data, "property_assets", []), "feature"),
             "status": property_data.status.value if hasattr(property_data.status, "value") else property_data.status,
+            "average_rating": rating_data.get("average_rating", 0.0),
+            "total_reviews": rating_data.get("total_reviews", 0),
+            "rating_summary": rating_data,
         }
+
 
     async def _serialize_assets(self, assets) -> list[dict]:
         result = []

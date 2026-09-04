@@ -324,3 +324,23 @@ async def get_vendor_bank_account_service(
 ) -> VendorBankAccountService:
     return VendorBankAccountService(vendor_bank_account_repository)
 
+
+from app.deps.repository import get_review_repository, get_testimonial_repository
+from app.repositories.review_repository import ReviewRepository
+from app.repositories.testimonial_repository import TestimonialRepository
+from app.services.review_service import ReviewService
+from app.services.testimonial_service import TestimonialService
+
+
+async def get_review_service(
+    review_repository: ReviewRepository = Depends(get_review_repository),
+) -> ReviewService:
+    return ReviewService(review_repository)
+
+
+async def get_testimonial_service(
+    testimonial_repository: TestimonialRepository = Depends(get_testimonial_repository),
+) -> TestimonialService:
+    return TestimonialService(testimonial_repository)
+
+

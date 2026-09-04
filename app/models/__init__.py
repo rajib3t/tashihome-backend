@@ -35,6 +35,7 @@ from .payout_model import Payout, PayoutStatus
 from .vendor_bank_account_model import VendorBankAccount, BankAccountType
 from .refund_request_model import RefundRequest, RefundRequestStatus
 from .review_model import Review, ReviewStatus
+from .testimonial_model import Testimonial, TestimonialStatus
 
 from .company_model import Company
 from .address_model import Address
@@ -94,6 +95,8 @@ __all__ = [
     "RefundRequestStatus",
     "Review",
     "ReviewStatus",
+    "Testimonial",
+    "TestimonialStatus",
     "Company",
     "Address",
     "HostRequest",

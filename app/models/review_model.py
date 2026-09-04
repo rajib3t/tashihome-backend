@@ -19,9 +19,11 @@ from app.core.database import Base
 
 
 class ReviewStatus(str, enum.Enum):
+    PENDING = "pending"
     PUBLISHED = "published"
     HIDDEN = "hidden"
     FLAGGED = "flagged"
+    REJECTED = "rejected"
 
 
 class Review(Base):
@@ -62,7 +64,7 @@ class Review(Base):
     host_replied_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(
         Enum(ReviewStatus),
-        default=ReviewStatus.PUBLISHED,
+        default=ReviewStatus.PENDING,
         nullable=False,
         index=True,
     )

@@ -31,6 +31,7 @@ from app.deps.service import (
     get_property_food_option_service,
     get_property_asset_service,
     get_property_service,
+    get_review_service,
     get_storage_service,
     get_property_room_type_service,
     get_room_type_service,
@@ -42,6 +43,7 @@ from app.services.city_service import CityService
 from app.services.room_type_service import RoomTypeService
 from app.services.location_service import LocationService
 from app.services.property_service import PropertyService
+from app.services.review_service import ReviewService
 from app.services.storage_service import StorageService
 from app.services.property_amenity_service import PropertyAmenityService
 from app.services.property_facility_service import PropertyFacilityService
@@ -51,13 +53,22 @@ from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.user_service import UserService
 
 
+
 async def get_list_properties_use_case(
     property_service: PropertyService = Depends(get_property_service),
     user_service: UserService = Depends(get_user_service),
     storage_service: StorageService = Depends(get_storage_service),
     current_user: CurrentUser = Depends(require_admin_or_staff),
+    review_service: ReviewService = Depends(get_review_service),
 ) -> GetPropertiesUseCase:
-    return GetPropertiesUseCase(property_service=property_service, user_service=user_service, storage_service=storage_service, current_user=current_user)
+    return GetPropertiesUseCase(
+        property_service=property_service,
+        user_service=user_service,
+        storage_service=storage_service,
+        current_user=current_user,
+        review_service=review_service,
+    )
+
 
 
 async def get_create_property_use_case(
@@ -139,8 +150,15 @@ async def get_property_use_case(
     property_service: PropertyService = Depends(get_property_service),
     storage_service: StorageService = Depends(get_storage_service),
     current_user: CurrentUser = Depends(require_admin_or_staff),
+    review_service: ReviewService = Depends(get_review_service),
 ) -> GetPropertyUseCase:
-    return GetPropertyUseCase(property_service=property_service, storage_service=storage_service, current_user=current_user)
+    return GetPropertyUseCase(
+        property_service=property_service,
+        storage_service=storage_service,
+        current_user=current_user,
+        review_service=review_service,
+    )
+
 
 
 async def get_upload_property_assets_use_case(
@@ -177,13 +195,16 @@ async def get_vendor_property_list_use_case(
     storage_service: StorageService = Depends(get_storage_service),
     verify_csrf=Depends(verify_csrf),
     current_user: CurrentUser = Depends(require_vendor),
+    review_service: ReviewService = Depends(get_review_service),
 ) -> GetVendorPropertyUseCase:
     return GetVendorPropertyUseCase(
         property_service=property_service,
         storage_service=storage_service,
         verify_csrf=verify_csrf,
         current_user=current_user,
+        review_service=review_service,
     )
+
 
 
 async def get_vendor_create_property_use_case(
@@ -252,12 +273,15 @@ async def get_vendor_get_property_use_case(
     property_service: PropertyService = Depends(get_property_service),
     storage_service: StorageService = Depends(get_storage_service),
     current_user: CurrentUser = Depends(require_vendor),
+    review_service: ReviewService = Depends(get_review_service),
 ) -> VendorGetPropertyUseCase:
     return VendorGetPropertyUseCase(
         property_service=property_service,
         storage_service=storage_service,
         current_user=current_user,
+        review_service=review_service,
     )
+
 
 
 async def get_vendor_upload_property_assets_use_case(

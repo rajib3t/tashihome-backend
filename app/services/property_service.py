@@ -33,6 +33,22 @@ class PropertyService:
     ) -> Optional[Property]:
         return await self.property_repository.get_by_public_id(public_id, with_relations=with_relations, flush=flush)
 
+    async def get_property_by_public_id(
+        self,
+        public_id: str,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Property]:
+        return await self.get_by_public_id(public_id, with_relations=with_relations, flush=flush)
+
+    async def get_property_by_id(
+        self,
+        property_id: int,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Property]:
+        return await self.get_by_id(property_id, with_relations=with_relations, flush=flush)
+
     async def get_by_slug(
         self,
         slug: str,
@@ -40,6 +56,20 @@ class PropertyService:
         flush: bool = False,
     ) -> Optional[Property]:
         return await self.property_repository.get_by_slug(slug, with_relations=with_relations, flush=flush)
+
+    async def get_property_by_slug(
+        self,
+        slug: str,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Property]:
+        return await self.get_by_slug(slug, with_relations=with_relations, flush=flush)
+
+    async def get_properties_by_vendor(
+        self,
+        vendor_id: int,
+    ) -> list[Property]:
+        return await self.property_repository.get_all_by_vendor(vendor_id)
     async def get_by_vendor_and_slug(
         self,
         vendor_id: int,

@@ -179,3 +179,20 @@ async def get_vendor_bank_account_repository(
 ) -> VendorBankAccountRepository:
     return VendorBankAccountRepository(db)
 
+
+from app.repositories.review_repository import ReviewRepository
+from app.repositories.testimonial_repository import TestimonialRepository
+
+
+async def get_review_repository(
+    db: AsyncSession = Depends(get_db),
+) -> ReviewRepository:
+    return ReviewRepository(db)
+
+
+async def get_testimonial_repository(
+    db: AsyncSession = Depends(get_db),
+) -> TestimonialRepository:
+    return TestimonialRepository(db)
+
+

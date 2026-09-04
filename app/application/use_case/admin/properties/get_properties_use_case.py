@@ -1,3 +1,5 @@
+from typing import Optional
+
 from app.application.dto.properties.property import PropertyQueryDTO
 from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
@@ -5,6 +7,7 @@ from app.deps.auth import CurrentUser
 from app.models.property_model import Property, PropertyStatus
 from app.repositories.base_repository import Page
 from app.services.property_service import PropertyService
+from app.services.review_service import ReviewService
 from app.services.storage_service import StorageService
 from app.services.user_service import UserService
 
@@ -13,15 +16,18 @@ class GetPropertiesUseCase(BaseUseCase):
 
     def __init__(
             self,
-            property_service : PropertyService,
-            storage_service : StorageService,
-            user_service : UserService,
-            current_user : CurrentUser
+            property_service: PropertyService,
+            storage_service: StorageService,
+            user_service: UserService,
+            current_user: CurrentUser,
+            review_service: Optional[ReviewService] = None,
     ):
         self.property_service = property_service
         self.storage_service = storage_service
         self.user_service = user_service
         self.current_user = current_user
+        self.review_service = review_service
+
 
 
     async def execute(self, params: PropertyQueryDTO)->Page:
@@ -75,16 +81,28 @@ class GetPropertiesUseCase(BaseUseCase):
             flush=True,
         )
         
+        # Fetch rating summaries for properties if review_service is available
+        rating_summaries = {}
+        if self.review_service and properties_page.items:
+            property_ids = [p.id for p in properties_page.items if p.id]
+            rating_summaries = await self.review_service.get_properties_rating_summary(property_ids)
+
         # Serialize properties to avoid lazy loading issues during response validation
         serialized_items = []
         for property_data in properties_page.items:
-            serialized_property = await self._serialize_property(property_data)
+            rating_summary = rating_summaries.get(property_data.id)
+            serialized_property = await self._serialize_property(property_data, rating_summary=rating_summary)
             serialized_items.append(serialized_property)
         
         properties_page.items = serialized_items
         return properties_page
 
-    async def _serialize_property(self, property_data: Property) -> dict:
+    async def _serialize_property(self, property_data: Property, rating_summary: dict | None = None) -> dict:
+        rating_data = rating_summary or {
+            "average_rating": 0.0,
+            "total_reviews": 0,
+            "rating_distribution": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0},
+        }
         return {
             "internal_id": property_data.id,
             "id": str(property_data.public_id),
@@ -182,8 +200,12 @@ class GetPropertiesUseCase(BaseUseCase):
             "feature_image": await self._serialize_single_asset_by_use_for(property_data.property_assets or [], "feature"),
             "cover_image": await self._serialize_single_asset_by_use_for(property_data.property_assets or [], "cover"),
             "status": property_data.status.value if hasattr(property_data.status, "value") else property_data.status,
-            "is_featured": property_data.is_featured ,
+            "is_featured": property_data.is_featured,
+            "average_rating": rating_data.get("average_rating", 0.0),
+            "total_reviews": rating_data.get("total_reviews", 0),
+            "rating_summary": rating_data,
         }
+
 
     async def _serialize_property_assets(self, property_assets) -> list[dict]:
         assets = []

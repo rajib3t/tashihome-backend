@@ -6,6 +6,7 @@ from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
 from app.services.booking_service import BookingService
 from app.services.property_service import PropertyService
+from app.services.review_service import ReviewService
 from app.services.storage_service import StorageService
 
 
@@ -15,10 +16,12 @@ class PublicGetPropertyUseCase(BaseUseCase, PropertySerializerMixin):
         property_service: PropertyService,
         storage_service: StorageService,
         booking_service: Optional[BookingService] = None,
+        review_service: Optional[ReviewService] = None,
     ):
         self.property_service = property_service
         self.storage_service = storage_service
         self.booking_service = booking_service
+        self.review_service = review_service
 
     async def execute(
         self,
@@ -72,8 +75,13 @@ class PublicGetPropertyUseCase(BaseUseCase, PropertySerializerMixin):
                     "is_available": avail > 0,
                 }
 
+        rating_summary = None
+        if self.review_service and property_data.id:
+            rating_summary = await self.review_service.get_property_rating_summary(property_data.id)
+
         return await self.serialize_property(
             property_data,
             vendor_email_disabled=True,
             availability_map=availability_map,
+            rating_summary=rating_summary,
         )

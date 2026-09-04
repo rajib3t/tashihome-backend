@@ -6,6 +6,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.response import BaseResponse, PaginationResponse
 from app.schemas.property_asset_schema import PropertyAssetSchema
+from app.schemas.review_schema import PropertyRatingSummarySchema
 
 
 class PropertyVendorSchema(BaseModel):
@@ -235,6 +236,9 @@ class PropertyBase(BaseModel):
 
     status: str
     is_featured: Optional[bool] = None
+    average_rating: Optional[float] = 0.0
+    total_reviews: Optional[int] = 0
+    rating_summary: Optional[PropertyRatingSummarySchema] = None
     model_config = ConfigDict(from_attributes=True)
 
 
