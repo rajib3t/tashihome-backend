@@ -53,7 +53,7 @@ class PropertyQueryDTO:
         return value
 
 
-@dataclass(config=ConfigDict(extra="forbid"))
+@dataclass(config=ConfigDict(extra="ignore"))
 class PropertyDTO:
     name: str
     vendor: Optional[str] = None
@@ -119,24 +119,29 @@ class PropertyDTO:
         return value or None
 
 
-@dataclass(config=ConfigDict(extra="forbid"))
+@dataclass(config=ConfigDict(extra="ignore"))
 class PropertyAmenitiesDTO:
-    id: str
+    id: Optional[str] = None
+    amenity_id: Optional[str] = None
+    amenity: Optional[dict] = None
 
 
-@dataclass(config=ConfigDict(extra="forbid"))
+@dataclass(config=ConfigDict(extra="ignore"))
 class PropertyFacilityDTO:
-    id: str
+    id: Optional[str] = None
+    facility_id: Optional[str] = None
+    facility: Optional[dict] = None
 
 
-@dataclass(config=ConfigDict(extra="forbid"))
+@dataclass(config=ConfigDict(extra="ignore"))
 class PropertyRoomTypePriceDTO:
-    occupancy: int
-    price_per_night: float
+    id: Optional[str] = None
+    occupancy: int = 1
+    price_per_night: float = 0.0
     sale_per_night: Optional[float] = 0.0
 
 
-@dataclass(config=ConfigDict(extra="forbid"))
+@dataclass(config=ConfigDict(extra="ignore"))
 class PropertyRoomTypeDTO:
     id: Optional[str] = None
     room_type_id: Optional[str] = None
@@ -144,15 +149,18 @@ class PropertyRoomTypeDTO:
     price_per_night: Optional[float] = None
     sale_per_night: Optional[float] = None
     pricing_tiers: Optional[List[PropertyRoomTypePriceDTO]] = None
+    room_type: Optional[dict] = None
 
 
-@dataclass(config=ConfigDict(extra="forbid"))
+@dataclass(config=ConfigDict(extra="ignore"))
 class FoodOptionDTO:
-    name: str
+    id: Optional[str] = None
+    name: Optional[str] = None
+    is_included: Optional[bool] = None
     allow: bool = True
 
 
-@dataclass(config=ConfigDict(extra="forbid"))
+@dataclass(config=ConfigDict(extra="ignore"))
 class PropertyUpdateDTO(PropertyDTO):
     name: Optional[str] = None
     vendor: Optional[str] = None

@@ -244,7 +244,12 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         room_types_data = []
         if property_dto.room_types is not None:
             for rt in property_dto.room_types:
-                rt_id = getattr(rt, "room_type_id", None) or getattr(rt, "id", None)
+                rt_id = (
+                    getattr(rt, "room_type_id", None)
+                    or (rt.room_type.get("id") or rt.room_type.get("public_id") if isinstance(getattr(rt, "room_type", None), dict) else None)
+                    or (getattr(rt.room_type, "id", None) or getattr(rt.room_type, "public_id", None) if getattr(rt, "room_type", None) else None)
+                    or getattr(rt, "id", None)
+                )
                 if rt_id:
                     units = getattr(rt, "total_units", None)
                     units = units if units is not None else 1
@@ -293,6 +298,10 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                         error_code="TOTAL_UNITS_INVALID",
                     )
                 room_type = await self.room_type_service.get_by_public_id(rt_id, flush=True)
+                if not room_type:
+                    prop_rt = await self.property_room_type_service.get_by_public_id(rt_id, with_relations={"room_type": True}, flush=True)
+                    if prop_rt and prop_rt.room_type:
+                        room_type = prop_rt.room_type
                 if not room_type:
                     raise AppException(
                         status_code=404,
