@@ -1,4 +1,5 @@
 import enum
+from typing import Optional
 import uuid
 
 from sqlalchemy import (
@@ -57,8 +58,6 @@ class VendorBankAccount(Base):
     is_primary = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
 
-    razorpay_contact_id = Column(String(255), nullable=True, index=True)
-    razorpay_fund_account_id = Column(String(255), nullable=True, index=True)
     notes = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -71,4 +70,22 @@ class VendorBankAccount(Base):
 
     # Relationships
     vendor = relationship("User", foreign_keys=[vendor_id])
+    razorpay_fund_account = relationship(
+        "VendorRazorpayFundAccount",
+        back_populates="bank_account",
+        uselist=False,
+    )
+
+    @property
+    def razorpay_fund_account_id(self) -> Optional[str]:
+        if self.razorpay_fund_account:
+            return self.razorpay_fund_account.razorpay_fund_account_id
+        return None
+
+    @property
+    def razorpay_contact_id(self) -> Optional[str]:
+        if self.razorpay_fund_account and self.razorpay_fund_account.contact:
+            return self.razorpay_fund_account.contact.razorpay_contact_id
+        return None
+
 

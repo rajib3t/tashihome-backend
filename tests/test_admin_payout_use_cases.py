@@ -28,7 +28,10 @@ from app.application.use_case.admin.payouts.list_payouts_use_case import (
 )
 from app.application.use_case.admin.payouts.manage_vendor_bank_account_use_case import (
     CreateVendorBankAccountUseCase,
+    CreateVendorRazorpayContactUseCase,
+    DeleteVendorBankAccountUseCase,
     ListVendorBankAccountsUseCase,
+    SetPrimaryVendorBankAccountUseCase,
 )
 from app.application.use_case.admin.payouts.process_razorpay_payout_use_case import (
     ProcessRazorpayPayoutUseCase,
@@ -41,6 +44,8 @@ from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.payout_model import Payout, PayoutStatus
 from app.models.vendor_bank_account_model import BankAccountType, VendorBankAccount
+from app.models.vendor_razorpay_contact_model import VendorRazorpayContact
+from app.models.vendor_razorpay_fund_account_model import VendorRazorpayFundAccount
 from app.repositories.base_repository import Page
 
 
@@ -181,6 +186,8 @@ def test_process_razorpay_payout_success():
         payout_service = AsyncMock()
         user_service = AsyncMock()
         bank_service = AsyncMock()
+        contact_service = AsyncMock()
+        fund_account_service = AsyncMock()
         razorpay_service = AsyncMock()
         current_user = CurrentUser(id=1, role="admin")
 
@@ -197,8 +204,10 @@ def test_process_razorpay_payout_success():
         mock_bank.account_holder_name = "Host Vendor"
         mock_bank.account_number = "1234567890"
         mock_bank.ifsc_code = "HDFC0001234"
-        mock_bank.razorpay_contact_id = "cont_123"
-        mock_bank.razorpay_fund_account_id = "fa_123"
+
+        mock_fund_account = MagicMock(spec=VendorRazorpayFundAccount)
+        mock_fund_account.razorpay_fund_account_id = "fa_123"
+        fund_account_service.get_by_bank_account_id.return_value = mock_fund_account
 
         mock_payout = MagicMock(spec=Payout)
         mock_payout.id = 1
@@ -225,6 +234,8 @@ def test_process_razorpay_payout_success():
             payout_service=payout_service,
             user_service=user_service,
             vendor_bank_account_service=bank_service,
+            vendor_razorpay_contact_service=contact_service,
+            vendor_razorpay_fund_account_service=fund_account_service,
             razorpay_service=razorpay_service,
             current_user=current_user,
         )
@@ -247,6 +258,8 @@ def test_process_razorpay_payout_payment_disabled():
                 payout_service=AsyncMock(),
                 user_service=AsyncMock(),
                 vendor_bank_account_service=AsyncMock(),
+                vendor_razorpay_contact_service=AsyncMock(),
+                vendor_razorpay_fund_account_service=AsyncMock(),
                 razorpay_service=AsyncMock(),
                 current_user=CurrentUser(id=1, role="admin"),
             )
@@ -313,6 +326,8 @@ def test_cancel_payout_use_case():
 def test_create_vendor_bank_account_use_case():
     async def run_test():
         bank_service = AsyncMock()
+        contact_service = AsyncMock()
+        fund_account_service = AsyncMock()
         user_service = AsyncMock()
         razorpay_service = AsyncMock()
 
@@ -324,13 +339,25 @@ def test_create_vendor_bank_account_use_case():
         mock_vendor.public_id = uuid.uuid4()
         user_service.get_user_by_public_id.return_value = mock_vendor
 
+        contact_service.get_by_vendor_id.return_value = None
         razorpay_service.is_configured.return_value = True
         razorpay_service.create_contact.return_value = {"id": "cont_abc"}
         razorpay_service.create_fund_account_bank.return_value = {"id": "fa_abc"}
 
-        bank_service.create.side_effect = lambda a: a
+        mock_saved_account = MagicMock(spec=VendorBankAccount)
+        mock_saved_account.id = 1
+        mock_saved_account.vendor_id = 12
+        mock_saved_account.is_verified = True
+        bank_service.create.return_value = mock_saved_account
+        bank_service.get_by_id.return_value = mock_saved_account
 
-        use_case = CreateVendorBankAccountUseCase(bank_service, user_service, razorpay_service)
+        use_case = CreateVendorBankAccountUseCase(
+            vendor_bank_account_service=bank_service,
+            vendor_razorpay_contact_service=contact_service,
+            vendor_razorpay_fund_account_service=fund_account_service,
+            user_service=user_service,
+            razorpay_service=razorpay_service,
+        )
         dto = VendorBankAccountCreateDTO(
             account_type="bank_account",
             account_holder_name="Host",
@@ -341,9 +368,238 @@ def test_create_vendor_bank_account_use_case():
 
         result = await use_case.execute(str(mock_vendor.public_id), dto)
         assert result.vendor_id == 12
-        assert result.razorpay_contact_id == "cont_abc"
-        assert result.razorpay_fund_account_id == "fa_abc"
         assert result.is_verified is True
+        contact_service.create.assert_called_once()
+        fund_account_service.create.assert_called_once()
 
     asyncio.run(run_test())
 
+
+def test_create_vendor_vpa_fund_account_with_existing_contact():
+    async def run_test():
+        bank_service = AsyncMock()
+        contact_service = AsyncMock()
+        fund_account_service = AsyncMock()
+        user_service = AsyncMock()
+        razorpay_service = AsyncMock()
+
+        mock_vendor = MagicMock()
+        mock_vendor.id = 12
+        mock_vendor.email = "v@example.com"
+        mock_vendor.phone = "9999999999"
+        mock_vendor.full_name = "Host"
+        mock_vendor.public_id = uuid.uuid4()
+        user_service.get_user_by_public_id.return_value = mock_vendor
+
+        # Vendor already has a contact in DB
+        mock_contact = MagicMock(spec=VendorRazorpayContact)
+        mock_contact.id = 1
+        mock_contact.razorpay_contact_id = "cont_existing_123"
+        contact_service.get_by_vendor_id.return_value = mock_contact
+
+        razorpay_service.is_configured.return_value = True
+        razorpay_service.create_fund_account_vpa.return_value = {"id": "fa_vpa_999"}
+
+        mock_saved_account = MagicMock(spec=VendorBankAccount)
+        mock_saved_account.id = 2
+        mock_saved_account.vendor_id = 12
+        mock_saved_account.account_type = BankAccountType.VPA
+        mock_saved_account.is_verified = True
+        bank_service.create.return_value = mock_saved_account
+        bank_service.get_by_id.return_value = mock_saved_account
+
+        use_case = CreateVendorBankAccountUseCase(
+            vendor_bank_account_service=bank_service,
+            vendor_razorpay_contact_service=contact_service,
+            vendor_razorpay_fund_account_service=fund_account_service,
+            user_service=user_service,
+            razorpay_service=razorpay_service,
+        )
+        dto = VendorBankAccountCreateDTO(
+            account_type="vpa",
+            account_holder_name="Host UPI",
+            upi_id="host@okaxis",
+        )
+
+        result = await use_case.execute(str(mock_vendor.public_id), dto)
+        assert result.vendor_id == 12
+        assert result.account_type == BankAccountType.VPA
+        assert result.is_verified is True
+        # Contact creation should NOT have been called because contact ID was reused
+        razorpay_service.create_contact.assert_not_called()
+        razorpay_service.create_fund_account_vpa.assert_called_once_with(
+            contact_id="cont_existing_123",
+            vpa_address="host@okaxis",
+        )
+
+    asyncio.run(run_test())
+
+
+def test_create_vendor_razorpay_contact_use_case():
+    async def run_test():
+        contact_service = AsyncMock()
+        user_service = AsyncMock()
+        razorpay_service = AsyncMock()
+
+        mock_vendor = MagicMock()
+        mock_vendor.id = 15
+        mock_vendor.email = "vendor15@example.com"
+        mock_vendor.phone = "9876543210"
+        mock_vendor.full_name = "Vendor Fifteen"
+        mock_vendor.public_id = uuid.uuid4()
+        user_service.get_user_by_public_id.return_value = mock_vendor
+
+        contact_service.get_by_vendor_id.return_value = None
+        razorpay_service.create_contact.return_value = {
+            "id": "cont_new_15",
+            "entity": "contact",
+            "name": "Vendor Fifteen",
+            "email": "vendor15@example.com",
+            "contact": "9876543210",
+            "type": "vendor",
+            "active": True,
+        }
+
+        use_case = CreateVendorRazorpayContactUseCase(
+            vendor_razorpay_contact_service=contact_service,
+            user_service=user_service,
+            razorpay_service=razorpay_service,
+        )
+        result = await use_case.execute(str(mock_vendor.public_id))
+        assert result["id"] == "cont_new_15"
+        razorpay_service.create_contact.assert_called_once()
+        contact_service.create.assert_called_once()
+
+    asyncio.run(run_test())
+
+
+def test_set_primary_vendor_bank_account_use_case():
+    async def run_test():
+        bank_service = AsyncMock()
+        user_service = AsyncMock()
+
+        mock_vendor = MagicMock()
+        mock_vendor.id = 10
+        mock_vendor.public_id = uuid.uuid4()
+        user_service.get_user_by_public_id.return_value = mock_vendor
+
+        mock_bank = MagicMock(spec=VendorBankAccount)
+        mock_bank.id = 5
+        mock_bank.vendor_id = 10
+        mock_bank.is_primary = False
+        bank_service.get_by_public_id.return_value = mock_bank
+
+        updated_bank = MagicMock(spec=VendorBankAccount)
+        updated_bank.id = 5
+        updated_bank.is_primary = True
+        bank_service.set_primary.return_value = updated_bank
+        bank_service.get_by_id.return_value = updated_bank
+
+        use_case = SetPrimaryVendorBankAccountUseCase(bank_service, user_service)
+        result = await use_case.execute(str(mock_vendor.public_id), "bank-uuid")
+        assert result.is_primary is True
+        bank_service.set_primary.assert_called_once_with(5, 10)
+
+    asyncio.run(run_test())
+
+
+def test_delete_vendor_bank_account_use_case():
+    async def run_test():
+        bank_service = AsyncMock()
+        user_service = AsyncMock()
+
+        mock_vendor = MagicMock()
+        mock_vendor.id = 10
+        mock_vendor.public_id = uuid.uuid4()
+        user_service.get_user_by_public_id.return_value = mock_vendor
+
+        mock_bank = MagicMock(spec=VendorBankAccount)
+        mock_bank.id = 5
+        mock_bank.vendor_id = 10
+        bank_service.get_by_public_id.return_value = mock_bank
+
+        use_case = DeleteVendorBankAccountUseCase(bank_service, user_service)
+        result = await use_case.execute(str(mock_vendor.public_id), "bank-uuid")
+        assert result is True
+        bank_service.delete.assert_called_once_with(mock_bank)
+
+    asyncio.run(run_test())
+
+
+def test_process_razorpay_payout_upi_mode():
+    async def run_test():
+        payout_service = AsyncMock()
+        user_service = AsyncMock()
+        bank_service = AsyncMock()
+        contact_service = AsyncMock()
+        fund_account_service = AsyncMock()
+        razorpay_service = AsyncMock()
+        current_user = CurrentUser(id=1, role="admin")
+
+        mock_vendor = MagicMock()
+        mock_vendor.id = 5
+        mock_vendor.email = "vendor@test.com"
+        mock_vendor.phone = "9876543210"
+        mock_vendor.full_name = "Host UPI Vendor"
+        mock_vendor.public_id = uuid.uuid4()
+
+        mock_bank = MagicMock(spec=VendorBankAccount)
+        mock_bank.id = 3
+        mock_bank.account_type = BankAccountType.VPA
+        mock_bank.upi_id = "vendor@okhdfcbank"
+
+        mock_fund_account = MagicMock(spec=VendorRazorpayFundAccount)
+        mock_fund_account.razorpay_fund_account_id = "fa_vpa_123"
+        fund_account_service.get_by_bank_account_id.return_value = mock_fund_account
+
+        mock_payout = MagicMock(spec=Payout)
+        mock_payout.id = 1
+        mock_payout.public_id = uuid.uuid4()
+        mock_payout.vendor_id = 5
+        mock_payout.vendor = mock_vendor
+        mock_payout.bank_account = mock_bank
+        mock_payout.status = PayoutStatus.PENDING
+        mock_payout.amount = 2500.0
+        mock_payout.currency = "INR"
+        mock_payout.mode = None
+
+        payout_service.get_by_public_id.return_value = mock_payout
+        payout_service.update.side_effect = lambda p, **kw: p
+
+        razorpay_service.create_payout.return_value = {
+            "id": "pout_upi_999",
+            "status": "processed",
+            "utr": "UPIUTR12345",
+            "amount": 250000,
+        }
+
+        use_case = ProcessRazorpayPayoutUseCase(
+            payout_service=payout_service,
+            user_service=user_service,
+            vendor_bank_account_service=bank_service,
+            vendor_razorpay_contact_service=contact_service,
+            vendor_razorpay_fund_account_service=fund_account_service,
+            razorpay_service=razorpay_service,
+            current_user=current_user,
+        )
+
+        result = await use_case.execute(str(mock_payout.public_id))
+        assert result.status == PayoutStatus.PAID
+        assert result.razorpay_payout_id == "pout_upi_999"
+        assert result.mode == "UPI"
+        razorpay_service.create_payout.assert_called_once_with(
+            fund_account_id="fa_vpa_123",
+            amount=2500.0,
+            currency="INR",
+            mode="UPI",
+            purpose="payout",
+            reference_id=str(mock_payout.public_id),
+            narration="Homestay Payout",
+            notes={
+                "payout_id": str(mock_payout.public_id),
+                "vendor_id": str(mock_vendor.public_id),
+            },
+            idempotency_key=str(mock_payout.public_id),
+        )
+
+    asyncio.run(run_test())

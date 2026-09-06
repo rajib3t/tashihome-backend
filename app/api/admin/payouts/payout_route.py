@@ -25,7 +25,10 @@ from app.application.use_case.admin.payouts.list_payouts_use_case import (
 )
 from app.application.use_case.admin.payouts.manage_vendor_bank_account_use_case import (
     CreateVendorBankAccountUseCase,
+    CreateVendorRazorpayContactUseCase,
+    DeleteVendorBankAccountUseCase,
     ListVendorBankAccountsUseCase,
+    SetPrimaryVendorBankAccountUseCase,
 )
 from app.application.use_case.admin.payouts.process_razorpay_payout_use_case import (
     ProcessRazorpayPayoutUseCase,
@@ -38,20 +41,25 @@ from app.deps.payout import (
     get_cancel_payout_use_case,
     get_create_payout_use_case,
     get_create_vendor_bank_account_use_case,
+    get_create_vendor_razorpay_contact_use_case,
+    get_delete_vendor_bank_account_use_case,
     get_get_payout_use_case,
     get_list_payouts_use_case,
     get_list_vendor_bank_accounts_use_case,
     get_process_razorpay_payout_use_case,
+    get_set_primary_vendor_bank_account_use_case,
     get_sync_razorpay_payout_use_case,
 )
 from app.schemas.payout_schema import (
     PayoutListResponseSchema,
     PayoutResponseSchema,
     ProcessPayoutResponseSchema,
+    RazorpayContactResponseSchema,
     VendorBankAccountListResponseSchema,
     VendorBankAccountResponseSchema,
     VendorEarningsSummaryResponseSchema,
 )
+from app.schemas.response import BaseResponse
 from app.utils.exception_decorate import handle_api_exceptions
 
 
@@ -74,6 +82,9 @@ class AdminPayoutController(BaseController):
             ("post", "/{payout_id}/cancel", self._cancel_payout, {"response_model": PayoutResponseSchema}),
             ("get", "/vendors/{vendor_id}/bank-accounts", self._list_vendor_bank_accounts, {"response_model": VendorBankAccountListResponseSchema}),
             ("post", "/vendors/{vendor_id}/bank-accounts", self._create_vendor_bank_account, {"response_model": VendorBankAccountResponseSchema, "status_code": 201}),
+            ("post", "/vendors/{vendor_id}/razorpay-contact", self._create_vendor_razorpay_contact, {"response_model": RazorpayContactResponseSchema, "status_code": 201}),
+            ("patch", "/vendors/{vendor_id}/bank-accounts/{bank_account_id}/primary", self._set_primary_vendor_bank_account, {"response_model": VendorBankAccountResponseSchema}),
+            ("delete", "/vendors/{vendor_id}/bank-accounts/{bank_account_id}", self._delete_vendor_bank_account, {"response_model": BaseResponse}),
         ]
         for method, path, handler, kwargs in routes:
             self.router.add_api_route(path, handler, methods=[method.upper()], **kwargs)
@@ -187,6 +198,44 @@ class AdminPayoutController(BaseController):
         return self.build_response(
             message="Vendor bank account added successfully.",
             data=account,
+        )
+
+    @handle_api_exceptions
+    async def _create_vendor_razorpay_contact(
+        self,
+        vendor_id: str,
+        use_case: CreateVendorRazorpayContactUseCase = Depends(get_create_vendor_razorpay_contact_use_case),
+    ):
+        contact = await use_case.execute(vendor_id)
+        return self.build_response(
+            message="Vendor Razorpay contact processed successfully.",
+            data=contact,
+        )
+
+    @handle_api_exceptions
+    async def _set_primary_vendor_bank_account(
+        self,
+        vendor_id: str,
+        bank_account_id: str,
+        use_case: SetPrimaryVendorBankAccountUseCase = Depends(get_set_primary_vendor_bank_account_use_case),
+    ):
+        account = await use_case.execute(vendor_id, bank_account_id)
+        return self.build_response(
+            message="Vendor primary bank account updated successfully.",
+            data=account,
+        )
+
+    @handle_api_exceptions
+    async def _delete_vendor_bank_account(
+        self,
+        vendor_id: str,
+        bank_account_id: str,
+        use_case: DeleteVendorBankAccountUseCase = Depends(get_delete_vendor_bank_account_use_case),
+    ):
+        await use_case.execute(vendor_id, bank_account_id)
+        return self.build_response(
+            message="Vendor bank account removed successfully.",
+            data={},
         )
 
 

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     REDIS_HOST: Optional[str] = None
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: Optional[str] = None
-    REDIS_DB: int = 0
+    REDIS_DB: str = "0"  # Redis database index (default: 0)
 
     # Rate Limiting configuration (setting-driven)
     RATE_LIMIT_ENABLED: bool = True

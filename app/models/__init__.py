@@ -33,6 +33,8 @@ from .booking_model import Booking, BookingStatus, PaymentStatus
 from .payment_model import Payment, PaymentMethod, TransactionStatus
 from .payout_model import Payout, PayoutStatus
 from .vendor_bank_account_model import VendorBankAccount, BankAccountType
+from .vendor_razorpay_contact_model import VendorRazorpayContact
+from .vendor_razorpay_fund_account_model import VendorRazorpayFundAccount
 from .refund_request_model import RefundRequest, RefundRequestStatus
 from .review_model import Review, ReviewStatus
 from .testimonial_model import Testimonial, TestimonialStatus
@@ -91,6 +93,8 @@ __all__ = [
     "PayoutStatus",
     "VendorBankAccount",
     "BankAccountType",
+    "VendorRazorpayContact",
+    "VendorRazorpayFundAccount",
     "RefundRequest",
     "RefundRequestStatus",
     "Review",

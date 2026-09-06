@@ -111,6 +111,7 @@ class AdminPayoutCreateDTO(BaseModel):
 class AdminPayoutProcessDTO(BaseModel):
     """Request body for processing a payout via RazorpayX."""
     mode: Optional[str] = None  # Override mode if needed (NEFT, IMPS, RTGS, UPI)
+    purpose: Optional[str] = "payout"
     narration: Optional[str] = "Vendor Payout"
     notes: Optional[dict] = None
 

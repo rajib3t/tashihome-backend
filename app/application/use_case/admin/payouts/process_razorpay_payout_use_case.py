@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from typing import Optional
 
 from app.application.dto.payouts.payout import AdminPayoutProcessDTO
@@ -8,10 +9,14 @@ from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.payout_model import Payout, PayoutStatus
 from app.models.vendor_bank_account_model import BankAccountType, VendorBankAccount
+from app.models.vendor_razorpay_contact_model import VendorRazorpayContact
+from app.models.vendor_razorpay_fund_account_model import VendorRazorpayFundAccount
 from app.services.payout_service import PayoutService
 from app.services.razorpay_service import RazorpayService
 from app.services.user_service import UserService
 from app.services.vendor_bank_account_service import VendorBankAccountService
+from app.services.vendor_razorpay_contact_service import VendorRazorpayContactService
+from app.services.vendor_razorpay_fund_account_service import VendorRazorpayFundAccountService
 
 _RELATIONS = {
     "vendor": True,
@@ -26,12 +31,16 @@ class ProcessRazorpayPayoutUseCase(BaseUseCase):
         payout_service: PayoutService,
         user_service: UserService,
         vendor_bank_account_service: VendorBankAccountService,
+        vendor_razorpay_contact_service: VendorRazorpayContactService,
+        vendor_razorpay_fund_account_service: VendorRazorpayFundAccountService,
         razorpay_service: RazorpayService,
         current_user: CurrentUser,
     ):
         self.payout_service = payout_service
         self.user_service = user_service
         self.vendor_bank_account_service = vendor_bank_account_service
+        self.vendor_razorpay_contact_service = vendor_razorpay_contact_service
+        self.vendor_razorpay_fund_account_service = vendor_razorpay_fund_account_service
         self.razorpay_service = razorpay_service
         self.current_user = current_user
 
@@ -83,14 +92,26 @@ class ProcessRazorpayPayoutUseCase(BaseUseCase):
             payout.bank_account_id = bank_account.id
 
         # Ensure Razorpay Contact & Fund Account exist
-        fund_account_id = bank_account.razorpay_fund_account_id
-        if not fund_account_id:
+        fund_account = await self.vendor_razorpay_fund_account_service.get_by_bank_account_id(bank_account.id)
+        if fund_account:
+            fund_account_id = fund_account.razorpay_fund_account_id
+        else:
             fund_account_id = await self._ensure_razorpay_fund_account(vendor, bank_account)
 
-        # Determine payout mode
-        payout_mode = (data.mode if data and data.mode else payout.mode) or "NEFT"
+        # Determine payout mode and purpose
+        if data and data.mode:
+            payout_mode = data.mode.upper()
+        elif bank_account.account_type == BankAccountType.VPA:
+            payout_mode = "UPI"
+        else:
+            payout_mode = (payout.mode or "IMPS").upper()
+
+        purpose = (data.purpose if data and data.purpose else "payout")
         narration = (data.narration if data and data.narration else "Homestay Payout")
-        notes = data.notes if data and data.notes else {"payout_id": str(payout.public_id)}
+        notes = data.notes if data and data.notes else {
+            "payout_id": str(payout.public_id),
+            "vendor_id": str(vendor.public_id),
+        }
 
         try:
             rzp_response = await self.razorpay_service.create_payout(
@@ -98,10 +119,11 @@ class ProcessRazorpayPayoutUseCase(BaseUseCase):
                 amount=float(payout.amount),
                 currency=payout.currency or "INR",
                 mode=payout_mode,
-                purpose="payout",
+                purpose=purpose,
                 reference_id=str(payout.public_id),
                 narration=narration,
                 notes=notes,
+                idempotency_key=str(payout.public_id),
             )
 
             payout.razorpay_payout_id = rzp_response.get("id")
@@ -135,21 +157,35 @@ class ProcessRazorpayPayoutUseCase(BaseUseCase):
 
     async def _ensure_razorpay_fund_account(self, vendor, bank_account: VendorBankAccount) -> str:
         """Helper to create contact & fund account on RazorpayX if not already created."""
-        contact_id = bank_account.razorpay_contact_id
-        if not contact_id:
+        contact = await self.vendor_razorpay_contact_service.get_by_vendor_id(vendor.id)
+        if not contact:
             contact_res = await self.razorpay_service.create_contact(
                 name=vendor.full_name or "Vendor",
                 email=vendor.email,
                 contact=vendor.phone,
                 type="vendor",
                 reference_id=str(vendor.public_id),
+                notes={
+                    "vendor_id": str(vendor.public_id),
+                    "user_id": str(vendor.id),
+                },
             )
-            contact_id = contact_res.get("id")
-            bank_account.razorpay_contact_id = contact_id
+            contact = VendorRazorpayContact(
+                vendor_id=vendor.id,
+                razorpay_contact_id=contact_res.get("id"),
+                name=contact_res.get("name") or vendor.full_name or "Vendor",
+                email=contact_res.get("email") or vendor.email,
+                phone=contact_res.get("contact") or vendor.phone,
+                type=contact_res.get("type", "vendor"),
+                reference_id=contact_res.get("reference_id") or str(vendor.public_id),
+                active=contact_res.get("active", True),
+                raw_response=json.dumps(contact_res) if isinstance(contact_res, dict) else str(contact_res),
+            )
+            contact = await self.vendor_razorpay_contact_service.create(contact)
 
         if bank_account.account_type == BankAccountType.VPA and bank_account.upi_id:
             fa_res = await self.razorpay_service.create_fund_account_vpa(
-                contact_id=contact_id,
+                contact_id=contact.razorpay_contact_id,
                 vpa_address=bank_account.upi_id,
             )
         else:
@@ -160,15 +196,21 @@ class ProcessRazorpayPayoutUseCase(BaseUseCase):
                     error_code="INVALID_BANK_DETAILS",
                 )
             fa_res = await self.razorpay_service.create_fund_account_bank(
-                contact_id=contact_id,
+                contact_id=contact.razorpay_contact_id,
                 account_holder_name=bank_account.account_holder_name,
                 account_number=bank_account.account_number,
                 ifsc=bank_account.ifsc_code,
             )
 
-        fund_account_id = fa_res.get("id")
-        bank_account.razorpay_fund_account_id = fund_account_id
+        fund_account = VendorRazorpayFundAccount(
+            contact_id=contact.id,
+            bank_account_id=bank_account.id,
+            razorpay_fund_account_id=fa_res.get("id"),
+            account_type=bank_account.account_type.value if hasattr(bank_account.account_type, "value") else str(bank_account.account_type),
+            active=fa_res.get("active", True),
+            raw_response=json.dumps(fa_res) if isinstance(fa_res, dict) else str(fa_res),
+        )
+        fund_account = await self.vendor_razorpay_fund_account_service.create(fund_account)
         bank_account.is_verified = True
         await self.vendor_bank_account_service.update(bank_account)
-        return fund_account_id
-
+        return fund_account.razorpay_fund_account_id

@@ -146,3 +146,7 @@ class VendorEarningsSummaryResponseSchema(BaseResponse):
 
 class ProcessPayoutResponseSchema(BaseResponse):
     data: PayoutSchema
+
+
+class RazorpayContactResponseSchema(BaseResponse):
+    data: dict

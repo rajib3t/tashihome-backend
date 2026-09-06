@@ -59,3 +59,17 @@ class VendorBankAccountService:
     ) -> VendorBankAccount:
         return await self.repository.update(bank_account, with_relations=with_relations, commit=commit)
 
+    async def set_primary(
+        self,
+        bank_account_id: int,
+        vendor_id: int,
+    ) -> Optional[VendorBankAccount]:
+        return await self.repository.set_primary(bank_account_id, vendor_id)
+
+    async def delete(
+        self,
+        bank_account: VendorBankAccount,
+        commit: bool = True,
+    ) -> None:
+        await self.repository.delete(bank_account, commit=commit)
+

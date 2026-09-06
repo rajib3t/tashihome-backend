@@ -298,13 +298,19 @@ from app.deps.repository import (
     get_dashboard_repository,
     get_payout_repository,
     get_vendor_bank_account_repository,
+    get_vendor_razorpay_contact_repository,
+    get_vendor_razorpay_fund_account_repository,
 )
 from app.repositories.dashboard_repository import DashboardRepository
 from app.repositories.payout_repository import PayoutRepository
 from app.repositories.vendor_bank_account_repository import VendorBankAccountRepository
+from app.repositories.vendor_razorpay_contact_repository import VendorRazorpayContactRepository
+from app.repositories.vendor_razorpay_fund_account_repository import VendorRazorpayFundAccountRepository
 from app.services.dashboard_service import DashboardService
 from app.services.payout_service import PayoutService
 from app.services.vendor_bank_account_service import VendorBankAccountService
+from app.services.vendor_razorpay_contact_service import VendorRazorpayContactService
+from app.services.vendor_razorpay_fund_account_service import VendorRazorpayFundAccountService
 
 
 async def get_dashboard_service(
@@ -323,6 +329,19 @@ async def get_vendor_bank_account_service(
     vendor_bank_account_repository: VendorBankAccountRepository = Depends(get_vendor_bank_account_repository),
 ) -> VendorBankAccountService:
     return VendorBankAccountService(vendor_bank_account_repository)
+
+
+async def get_vendor_razorpay_contact_service(
+    vendor_razorpay_contact_repository: VendorRazorpayContactRepository = Depends(get_vendor_razorpay_contact_repository),
+) -> VendorRazorpayContactService:
+    return VendorRazorpayContactService(vendor_razorpay_contact_repository)
+
+
+async def get_vendor_razorpay_fund_account_service(
+    vendor_razorpay_fund_account_repository: VendorRazorpayFundAccountRepository = Depends(get_vendor_razorpay_fund_account_repository),
+) -> VendorRazorpayFundAccountService:
+    return VendorRazorpayFundAccountService(vendor_razorpay_fund_account_repository)
+
 
 
 from app.deps.repository import get_review_repository, get_testimonial_repository

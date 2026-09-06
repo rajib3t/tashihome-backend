@@ -347,6 +347,7 @@ class RazorpayService:
         reference_id: Optional[str] = None,
         narration: Optional[str] = "Homestay Payout",
         notes: Optional[Dict[str, Any]] = None,
+        idempotency_key: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Executes a direct payout via RazorpayX.
@@ -378,11 +379,16 @@ class RazorpayService:
         if notes:
             payload["notes"] = {k: str(v) for k, v in notes.items()}
 
+        headers: Dict[str, str] = {}
+        if idempotency_key:
+            headers["X-Payout-Idempotency"] = str(idempotency_key)
+
         async with httpx.AsyncClient(timeout=20.0) as client:
             try:
                 response = await client.post(
                     f"{self.BASE_URL}/payouts",
                     json=payload,
+                    headers=headers if headers else None,
                     auth=auth,
                 )
                 if response.status_code not in (200, 201):

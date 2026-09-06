@@ -1,18 +1,24 @@
 from typing import Optional, TypedDict
 
 from sqlalchemy import select, update
+from sqlalchemy.orm import selectinload
 
 from app.models.vendor_bank_account_model import VendorBankAccount
+from app.models.vendor_razorpay_fund_account_model import VendorRazorpayFundAccount
 from app.repositories.base_repository import BaseRepository, Page
 
 
 class VendorBankAccountWithRelations(TypedDict, total=False):
     vendor: bool
+    razorpay_fund_account: bool
 
 
 class VendorBankAccountRepository(BaseRepository[VendorBankAccount]):
     _relation_map = {
         "vendor": VendorBankAccount.vendor,
+        "razorpay_fund_account": selectinload(VendorBankAccount.razorpay_fund_account).selectinload(
+            VendorRazorpayFundAccount.contact
+        ),
     }
 
     async def create(
@@ -125,4 +131,35 @@ class VendorBankAccountRepository(BaseRepository[VendorBankAccount]):
             if reloaded:
                 return reloaded
         return bank_account
+
+    async def set_primary(
+        self,
+        bank_account_id: int,
+        vendor_id: int,
+    ) -> Optional[VendorBankAccount]:
+        """Sets the specified bank account as primary and resets all other accounts for this vendor."""
+        await self.db.execute(
+            update(VendorBankAccount)
+            .where(VendorBankAccount.vendor_id == vendor_id)
+            .values(is_primary=False)
+        )
+        await self.db.execute(
+            update(VendorBankAccount)
+            .where(
+                VendorBankAccount.id == bank_account_id,
+                VendorBankAccount.vendor_id == vendor_id,
+            )
+            .values(is_primary=True)
+        )
+        await self.db.commit()
+        return await self.get_by_id(bank_account_id)
+
+    async def delete(
+        self,
+        bank_account: VendorBankAccount,
+        commit: bool = True,
+    ) -> None:
+        await self.db.delete(bank_account)
+        if commit:
+            await self.db.commit()
 

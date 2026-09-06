@@ -160,6 +160,8 @@ async def get_cancellation_policy_repository(
 from app.repositories.dashboard_repository import DashboardRepository
 from app.repositories.payout_repository import PayoutRepository
 from app.repositories.vendor_bank_account_repository import VendorBankAccountRepository
+from app.repositories.vendor_razorpay_contact_repository import VendorRazorpayContactRepository
+from app.repositories.vendor_razorpay_fund_account_repository import VendorRazorpayFundAccountRepository
 
 
 async def get_dashboard_repository(
@@ -178,6 +180,19 @@ async def get_vendor_bank_account_repository(
     db: AsyncSession = Depends(get_db),
 ) -> VendorBankAccountRepository:
     return VendorBankAccountRepository(db)
+
+
+async def get_vendor_razorpay_contact_repository(
+    db: AsyncSession = Depends(get_db),
+) -> VendorRazorpayContactRepository:
+    return VendorRazorpayContactRepository(db)
+
+
+async def get_vendor_razorpay_fund_account_repository(
+    db: AsyncSession = Depends(get_db),
+) -> VendorRazorpayFundAccountRepository:
+    return VendorRazorpayFundAccountRepository(db)
+
 
 
 from app.repositories.review_repository import ReviewRepository
