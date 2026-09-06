@@ -22,6 +22,8 @@ from app.deps.service import (
     get_property_service,
     get_refund_request_service,
     get_room_type_service,
+    get_setting_service,
+    get_tax_service,
 )
 from app.services.booking_service import BookingService
 from app.services.payment_service import PaymentService
@@ -29,6 +31,8 @@ from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.property_service import PropertyService
 from app.services.refund_request_service import RefundRequestService
 from app.services.room_type_service import RoomTypeService
+from app.services.setting_service import SettingService
+from app.services.tax_service import TaxService
 
 
 async def get_create_booking_use_case(
@@ -37,6 +41,8 @@ async def get_create_booking_use_case(
     room_type_service: RoomTypeService = Depends(get_room_type_service),
     property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
     current_user: CurrentUser = Depends(get_current_user),
+    tax_service: TaxService = Depends(get_tax_service),
+    setting_service: SettingService = Depends(get_setting_service),
 ) -> CreateBookingUseCase:
     return CreateBookingUseCase(
         booking_service=booking_service,
@@ -44,6 +50,8 @@ async def get_create_booking_use_case(
         room_type_service=room_type_service,
         property_room_type_service=property_room_type_service,
         current_user=current_user,
+        tax_service=tax_service,
+        setting_service=setting_service,
     )
 
 
@@ -97,12 +105,16 @@ async def get_check_availability_use_case(
     property_service: PropertyService = Depends(get_property_service),
     room_type_service: RoomTypeService = Depends(get_room_type_service),
     property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
+    tax_service: TaxService = Depends(get_tax_service),
+    setting_service: SettingService = Depends(get_setting_service),
 ) -> CheckAvailabilityUseCase:
     return CheckAvailabilityUseCase(
         booking_service=booking_service,
         property_service=property_service,
         room_type_service=room_type_service,
         property_room_type_service=property_room_type_service,
+        tax_service=tax_service,
+        setting_service=setting_service,
     )
 
 

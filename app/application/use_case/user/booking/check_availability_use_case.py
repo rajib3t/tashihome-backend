@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from uuid import UUID
 
 from app.application.dto.bookings.booking import BookingAvailabilityDTO
@@ -10,6 +10,8 @@ from app.services.booking_service import BookingService
 from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.property_service import PropertyService
 from app.services.room_type_service import RoomTypeService
+from app.services.setting_service import SettingService
+from app.services.tax_service import TaxService
 
 
 class CheckAvailabilityUseCase(BaseUseCase):
@@ -19,11 +21,43 @@ class CheckAvailabilityUseCase(BaseUseCase):
         property_service: PropertyService,
         room_type_service: RoomTypeService,
         property_room_type_service: Optional[PropertyRoomTypeService] = None,
+        tax_service: Optional[TaxService] = None,
+        setting_service: Optional[SettingService] = None,
     ):
         self.booking_service = booking_service
         self.property_service = property_service
         self.room_type_service = room_type_service
         self.property_room_type_service = property_room_type_service
+        self.tax_service = tax_service
+        self.setting_service = setting_service
+
+    async def _resolve_tax_settings(self) -> Tuple[float, bool, Optional[str], Optional[str]]:
+        """Resolve default active tax settings for pricing calculation."""
+        if self.tax_service:
+            try:
+                default_tax = await self.tax_service.get_default_tax()
+                if default_tax and default_tax.rate is not None:
+                    return (
+                        float(default_tax.rate),
+                        bool(default_tax.is_inclusive),
+                        default_tax.name,
+                        default_tax.code,
+                    )
+            except Exception:
+                pass
+
+        if self.setting_service:
+            try:
+                is_gst_enabled = await self.setting_service.get_value("is_gst_enabled", "false")
+                if is_gst_enabled and is_gst_enabled.lower() == "true":
+                    gst_pct = await self.setting_service.get_value("gst_percentage", "0")
+                    is_inc = await self.setting_service.get_value("is_tax_inclusive", "false")
+                    rate = float(gst_pct or 0)
+                    return rate, is_inc.lower() == "true", "GST", "GST"
+            except Exception:
+                pass
+
+        return 0.0, False, None, None
 
     async def execute(self, data: BookingAvailabilityDTO) -> Dict[str, Any]:
         today = date.today()
@@ -114,6 +148,7 @@ class CheckAvailabilityUseCase(BaseUseCase):
 
         quote = None
         if availability["is_available"]:
+            tax_rate, is_tax_inclusive, tax_name, tax_code = await self._resolve_tax_settings()
             quote = self.booking_service.calculate_pricing_quote(
                 property_=property_,
                 check_in_date=data.check_in_date,
@@ -121,6 +156,10 @@ class CheckAvailabilityUseCase(BaseUseCase):
                 num_rooms=data.num_rooms,
                 num_guests=data.num_guests,
                 room_type_id=room_type_id_db,
+                tax_rate=tax_rate,
+                is_tax_inclusive=is_tax_inclusive,
+                tax_name=tax_name,
+                tax_code=tax_code,
             )
 
         return {

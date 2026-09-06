@@ -1,11 +1,11 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, Tuple
 from uuid import UUID
 
 from app.application.dto.bookings.booking import BookingCreateDTO
 from app.application.use_case.base_use_case import BaseUseCase
-from app.core.exceptions import AppException
 from app.core.config import settings
+from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.booking_model import Booking, BookingStatus, PaymentStatus
 from app.models.property_model import PropertyStatus
@@ -13,6 +13,8 @@ from app.services.booking_service import BookingService
 from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.property_service import PropertyService
 from app.services.room_type_service import RoomTypeService
+from app.services.setting_service import SettingService
+from app.services.tax_service import TaxService
 
 
 class CreateBookingUseCase(BaseUseCase):
@@ -23,20 +25,52 @@ class CreateBookingUseCase(BaseUseCase):
         room_type_service: RoomTypeService,
         current_user: CurrentUser,
         property_room_type_service: Optional[PropertyRoomTypeService] = None,
+        tax_service: Optional[TaxService] = None,
+        setting_service: Optional[SettingService] = None,
     ):
         self.booking_service = booking_service
         self.property_service = property_service
         self.room_type_service = room_type_service
         self.current_user = current_user
         self.property_room_type_service = property_room_type_service
+        self.tax_service = tax_service
+        self.setting_service = setting_service
+
+    async def _resolve_tax_settings(self) -> Tuple[float, bool, Optional[str], Optional[str]]:
+        """Resolve default active tax settings for pricing calculation."""
+        if self.tax_service:
+            try:
+                default_tax = await self.tax_service.get_default_tax()
+                if default_tax and default_tax.rate is not None:
+                    return (
+                        float(default_tax.rate),
+                        bool(default_tax.is_inclusive),
+                        default_tax.name,
+                        default_tax.code,
+                    )
+            except Exception:
+                pass
+
+        if self.setting_service:
+            try:
+                is_gst_enabled = await self.setting_service.get_value("is_gst_enabled", "false")
+                if is_gst_enabled and is_gst_enabled.lower() == "true":
+                    gst_pct = await self.setting_service.get_value("gst_percentage", "0")
+                    is_inc = await self.setting_service.get_value("is_tax_inclusive", "false")
+                    rate = float(gst_pct or 0)
+                    return rate, is_inc.lower() == "true", "GST", "GST"
+            except Exception:
+                pass
+
+        return 0.0, False, None, None
 
     async def execute(self, data: BookingCreateDTO) -> Booking:
         if not settings.PAYMENT_ENABLED:
-                    raise AppException(
-                        status_code=400,
-                        message="Payment processing is currently disabled.",
-                        error_code="PAYMENT_DISABLED",
-                    )
+            raise AppException(
+                status_code=400,
+                message="Payment processing is currently disabled.",
+                error_code="PAYMENT_DISABLED",
+            )
         today = date.today()
         if data.check_in_date < today:
             raise AppException(
@@ -136,7 +170,8 @@ class CreateBookingUseCase(BaseUseCase):
                 error_code="ROOMS_UNAVAILABLE",
             )
 
-        # 4. Calculate Quote
+        # 4. Calculate Quote with setting-driven Tax
+        tax_rate, is_tax_inclusive, tax_name, tax_code = await self._resolve_tax_settings()
         quote = self.booking_service.calculate_pricing_quote(
             property_=property_,
             check_in_date=data.check_in_date,
@@ -144,6 +179,10 @@ class CreateBookingUseCase(BaseUseCase):
             num_rooms=data.num_rooms,
             num_guests=data.num_guests,
             room_type_id=room_type_id_db,
+            tax_rate=tax_rate,
+            is_tax_inclusive=is_tax_inclusive,
+            tax_name=tax_name,
+            tax_code=tax_code,
         )
 
         # 5. Generate Reference and Create Booking
@@ -184,4 +223,3 @@ class CreateBookingUseCase(BaseUseCase):
         )
 
         return created_booking
-

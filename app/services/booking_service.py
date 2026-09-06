@@ -161,6 +161,10 @@ class BookingService:
         num_guests: int = 1,
         room_type_id: Optional[int] = None,
         property_room_type: Optional[PropertyRoomType] = None,
+        tax_rate: float = 0.0,
+        is_tax_inclusive: bool = False,
+        tax_name: Optional[str] = None,
+        tax_code: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Calculates nights, nightly rate (factoring in room capacity & occupancy tiers),
@@ -236,10 +240,21 @@ class BookingService:
             else:
                 price_per_night = prop_price
 
-        base_amount = price_per_night * num_rooms * nights
+        base_amount = round(price_per_night * num_rooms * nights, 2)
         discount_amount = 0.0
         tax_amount = 0.0
-        total_amount = round(base_amount - discount_amount + tax_amount, 2)
+
+        if tax_rate > 0:
+            if is_tax_inclusive:
+                net_base = base_amount / (1 + (tax_rate / 100.0))
+                tax_amount = round(base_amount - net_base, 2)
+                total_amount = round(base_amount - discount_amount, 2)
+            else:
+                tax_amount = round((base_amount - discount_amount) * (tax_rate / 100.0), 2)
+                total_amount = round(base_amount - discount_amount + tax_amount, 2)
+        else:
+            total_amount = round(base_amount - discount_amount, 2)
+
         currency = property_.currency if (property_ and property_.currency) else "INR"
 
         return {
@@ -248,9 +263,13 @@ class BookingService:
             "num_guests": num_guests,
             "guests_per_room": guests_per_room,
             "price_per_night": price_per_night,
-            "base_amount": round(base_amount, 2),
+            "base_amount": base_amount,
             "discount_amount": round(discount_amount, 2),
-            "tax_amount": round(tax_amount, 2),
+            "tax_amount": tax_amount,
+            "tax_rate": tax_rate,
+            "is_tax_inclusive": is_tax_inclusive,
+            "tax_name": tax_name,
+            "tax_code": tax_code,
             "total_amount": total_amount,
             "currency": currency,
             "applied_tier": applied_tier,

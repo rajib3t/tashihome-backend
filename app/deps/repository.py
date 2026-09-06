@@ -203,7 +203,14 @@ async def get_vendor_razorpay_fund_account_repository(
 
 
 from app.repositories.review_repository import ReviewRepository
+from app.repositories.tax_repository import TaxRepository
 from app.repositories.testimonial_repository import TestimonialRepository
+
+
+async def get_tax_repository(
+    db: AsyncSession = Depends(get_db),
+) -> TaxRepository:
+    return TaxRepository(db)
 
 
 async def get_review_repository(

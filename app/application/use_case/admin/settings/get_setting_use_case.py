@@ -1,5 +1,4 @@
 from typing import List
-
 from app.schemas.setting_schema import SettingSchema
 from app.services.setting_service import SettingService
 from app.services.storage_service import StorageService
@@ -11,6 +10,14 @@ class GetSettingUseCase:
         "coming_background_image",
         "coming_soon_video",
         "launch_date",
+    }
+
+    FILE_SETTING_KEYS = {
+        "app_logo",
+        "white_logo",
+        "app_favicon",
+        "coming_background_image",
+        "coming_soon_video",
     }
 
     def __init__(
@@ -37,14 +44,8 @@ class GetSettingUseCase:
 
             value = setting.value
 
-            if setting.key in {
-                "app_logo",
-                "white_logo",
-                "app_favicon",
-                "coming_background_image",
-                "coming_soon_video",
-            }:
-                value = value
+            if setting.key in self.FILE_SETTING_KEYS:
+                value = await self.storage_service.get_display_url(value)
             elif setting.key == "is_enabled_coming_soon":
                 value = str(value).lower()
 
@@ -56,4 +57,3 @@ class GetSettingUseCase:
             )
 
         return response
-

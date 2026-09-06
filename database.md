@@ -777,6 +777,35 @@ Pre-aggregated statistics table updated periodically by scheduled jobs / cron to
 
 ---
 
+#### `taxes`
+Tax and GST configurations for booking calculation, invoicing, and tax compliance.
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
+| `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
+| `name` | `VARCHAR(255)` | `NOT NULL` | Tax display title (e.g. "GST", "Standard GST") |
+| `code` | `VARCHAR(50)` | `UNIQUE`, `NOT NULL`, `INDEX` | Unique tax code (e.g. "GST_12", "GST_18") |
+| `rate` | `NUMERIC(5, 2)` | `NOT NULL`, `default=0.00` | Tax rate percentage or fixed amount |
+| `tax_type` | `Enum(TaxType)` | `NOT NULL`, `default='percentage'` | Tax type (`percentage`, `fixed`) |
+| `is_inclusive` | `BOOLEAN` | `NOT NULL`, `default=False` | Whether tax is included in base room rate |
+| `is_default` | `BOOLEAN` | `NOT NULL`, `default=False` | Whether this is the platform default tax rate |
+| `gst_number` | `VARCHAR(50)` | `NULLABLE` | Business GSTIN identifier |
+| `legal_name` | `VARCHAR(255)` | `NULLABLE` | Registered legal business entity name |
+| `address` | `TEXT` | `NULLABLE` | Registered tax address |
+| `hsn_sac_code` | `VARCHAR(50)` | `NULLABLE` | SAC classification code (e.g. "996311") |
+| `cgst_rate` | `NUMERIC(5, 2)` | `NULLABLE` | CGST component rate |
+| `sgst_rate` | `NUMERIC(5, 2)` | `NULLABLE` | SGST component rate |
+| `igst_rate` | `NUMERIC(5, 2)` | `NULLABLE` | IGST component rate |
+| `description` | `TEXT` | `NULLABLE` | Policy / tax description notes |
+| `status` | `Enum(TaxStatus)` | `NOT NULL`, `INDEX`, `default='active'` | Status (`active`, `inactive`) |
+| `created_by` | `BigInteger` | `NULLABLE`, `FK -> users.id (SET NULL)` | Creator user ID |
+| `updated_by` | `BigInteger` | `NULLABLE`, `FK -> users.id (SET NULL)` | Updater user ID |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+---
+
 ## Enumerations Reference
 
 | Enum Name | Python Class | Allowed Values |
@@ -784,6 +813,8 @@ Pre-aggregated statistics table updated periodically by scheduled jobs / cron to
 | `userrole` | `UserRole` | `'admin'`, `'vendor'`, `'user'`, `'staff'`, `'agent'` |
 | `userstatus` | `UserStatus` | `'active'`, `'inactive'`, `'suspended'` |
 | `tokentype` | `TokenType` | `'access_token'`, `'refresh_token'`, `'password_reset_token'`, `'email_verification_token'`, `'account_activation_token'` |
+| `taxstatus` | `TaxStatus` | `'active'`, `'inactive'` |
+| `taxtype` | `TaxType` | `'percentage'`, `'fixed'` |
 | `countrystatus` | `CountryStatus` | `'active'`, `'inactive'` |
 | `citystatus` | `CityStatus` | `'active'`, `'inactive'` |
 | `locationstatus` | `LocationStatus` | `'active'`, `'inactive'` |

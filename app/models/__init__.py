@@ -9,6 +9,7 @@ from .user_model import User, UserRole, UserStatus
 from .token_model import Token, TokenType
 from .login_log_model import LoginLog
 from .setting_model import Setting
+from .tax_model import Tax, TaxStatus, TaxType
 
 from .country_model import Country, CountryStatus
 from .city_model import City, CityStatus
@@ -55,6 +56,9 @@ __all__ = [
     "TokenType",
     "LoginLog",
     "Setting",
+    "Tax",
+    "TaxStatus",
+    "TaxType",
     "Country",
     "CountryStatus",
     "City",

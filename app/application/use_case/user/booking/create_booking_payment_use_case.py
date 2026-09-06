@@ -128,7 +128,7 @@ class CreateBookingPaymentUseCase(BaseUseCase):
         booking.updated_by = self.current_user.id
         updated_booking = await self.booking_service.update_booking(
             booking,
-            with_relations={"guest": True, "property": True} if booking_just_completed else None,
+            with_relations={"guest": True, "property": True, "room_type": True} if booking_just_completed else None,
         )
 
         # Publish event so the email + PDF handler fires asynchronously

@@ -4,9 +4,12 @@ from typing import Any
 
 from app.core.database import db as database
 from app.deps.service import get_email_service, get_email_template_service, get_storage_service
+from app.repositories.booking_repository import BookingRepository
 from app.repositories.setting_repository import SettingRepository
+from app.repositories.tax_repository import TaxRepository
 from app.services.invoice_service import InvoiceService
 from app.services.setting_service import SettingService
+from app.services.tax_service import TaxService
 
 logger = logging.getLogger(__name__)
 
@@ -16,34 +19,126 @@ class BookingCompletedHandler:
 
     @staticmethod
     async def handle(payload: dict[str, Any]) -> None:
-        guest_email = payload.get("guest_email")
-        if not guest_email:
-            logger.warning(
-                "booking.completed: missing guest_email for booking %s, skipping email.",
-                payload.get("booking_reference"),
-            )
-            return
-
-        guest_name = payload.get("guest_name") or "Guest"
-        booking_reference = payload.get("booking_reference", "")
-        invoice_number = payload.get("invoice_number", "")
-        property_name = payload.get("property_name", "")
-        check_in_date = payload.get("check_in_date", "")
-        check_out_date = payload.get("check_out_date", "")
-        total_amount = payload.get("total_amount", 0.0)
-        currency = payload.get("currency", "INR")
-
-        try:
-            nights = 0
-            ci = date_cls.fromisoformat(str(check_in_date))
-            co = date_cls.fromisoformat(str(check_out_date))
-            nights = (co - ci).days
-        except Exception:
-            nights = 0
+        booking_id = payload.get("booking_id")
 
         async with database.async_session() as session:
+            booking_repo = BookingRepository(session)
             setting_service = SettingService(SettingRepository(session))
+            tax_service = TaxService(TaxRepository(session))
             storage_service = get_storage_service()
+
+            # Safely fetch booking with all relations in this async session
+            db_booking = None
+            if booking_id:
+                try:
+                    db_booking = await booking_repo.get_by_id(
+                        booking_id=booking_id,
+                        with_relations={"guest": True, "property": True, "room_type": True},
+                    )
+                except Exception as exc:
+                    logger.warning("Could not reload booking %s in handler: %s", booking_id, exc)
+
+            guest = db_booking.guest if db_booking else None
+            prop = db_booking.property if db_booking else None
+            room_type = db_booking.room_type if db_booking else None
+
+            guest_email = (
+                guest.email
+                if guest and guest.email
+                else payload.get("guest_email")
+            )
+            if not guest_email:
+                logger.warning(
+                    "booking.completed: missing guest_email for booking %s, skipping email.",
+                    payload.get("booking_reference"),
+                )
+                return
+
+            guest_name = (
+                guest.full_name
+                if guest and guest.full_name
+                else payload.get("guest_name") or "Guest"
+            )
+            guest_phone = (
+                getattr(guest, "phone", None)
+                if guest
+                else payload.get("guest_phone")
+            )
+            booking_reference = (
+                db_booking.booking_reference
+                if db_booking
+                else payload.get("booking_reference", "")
+            )
+            invoice_number = (
+                db_booking.invoice_number
+                if db_booking
+                else payload.get("invoice_number", "")
+            )
+            property_name = (
+                prop.name
+                if prop
+                else payload.get("property_name", "Homestay")
+            )
+            property_address = (
+                prop.address
+                if prop
+                else payload.get("property_address")
+            )
+            room_type_name = (
+                room_type.name
+                if room_type
+                else payload.get("room_type_name")
+            )
+            check_in_date = (
+                str(db_booking.check_in_date)
+                if db_booking
+                else payload.get("check_in_date", "")
+            )
+            check_out_date = (
+                str(db_booking.check_out_date)
+                if db_booking
+                else payload.get("check_out_date", "")
+            )
+            num_guests = (
+                db_booking.num_guests
+                if db_booking
+                else payload.get("num_guests", 1)
+            )
+            num_rooms = (
+                db_booking.num_rooms
+                if db_booking
+                else payload.get("num_rooms", 1)
+            )
+            price_per_night = (
+                float(db_booking.price_per_night)
+                if db_booking
+                else float(payload.get("price_per_night", 0))
+            )
+            discount_amount = (
+                float(db_booking.discount_amount or 0)
+                if db_booking
+                else float(payload.get("discount_amount", 0))
+            )
+            tax_amount = (
+                float(db_booking.tax_amount or 0)
+                if db_booking
+                else float(payload.get("tax_amount", 0))
+            )
+            total_amount = (
+                float(db_booking.total_amount)
+                if db_booking
+                else float(payload.get("total_amount", 0.0))
+            )
+            currency = (
+                db_booking.currency
+                if db_booking
+                else payload.get("currency", "INR")
+            )
+            special_requests = (
+                db_booking.special_requests
+                if db_booking
+                else payload.get("special_requests")
+            )
 
             app_name_setting = await setting_service.get_by_key("app_name")
             logo_setting = await setting_service.get_by_key("app_logo")
@@ -57,14 +152,114 @@ class BookingCompletedHandler:
                 else None
             )
 
+            contact_email = await setting_service.get_value("contact_email", "")
+            contact_phone = await setting_service.get_value("contact_phone", "")
+            contact_address = await setting_service.get_value("contact_address", "")
+
+            # Resolve default active tax
+            default_tax = await tax_service.get_default_tax()
+            gst_number = (
+                default_tax.gst_number
+                if default_tax and default_tax.gst_number
+                else await setting_service.get_value("gst_number", "")
+            )
+            legal_name = (
+                default_tax.legal_name
+                if default_tax and default_tax.legal_name
+                else await setting_service.get_value("legal_name", app_name)
+            )
+            tax_address = (
+                default_tax.address
+                if default_tax and default_tax.address
+                else contact_address
+            )
+            hsn_sac_code = (
+                default_tax.hsn_sac_code
+                if default_tax and default_tax.hsn_sac_code
+                else await setting_service.get_value("hsn_sac_code", "996311")
+            )
+
+            tax_rate = (
+                float(default_tax.rate)
+                if default_tax and default_tax.rate is not None
+                else float(await setting_service.get_value("gst_percentage", "0") or 0)
+            )
+            cgst_rate = (
+                float(default_tax.cgst_rate)
+                if default_tax and default_tax.cgst_rate is not None
+                else (tax_rate / 2.0 if tax_rate > 0 else None)
+            )
+            sgst_rate = (
+                float(default_tax.sgst_rate)
+                if default_tax and default_tax.sgst_rate is not None
+                else (tax_rate / 2.0 if tax_rate > 0 else None)
+            )
+            igst_rate = (
+                float(default_tax.igst_rate)
+                if default_tax and default_tax.igst_rate is not None
+                else None
+            )
+            is_tax_inclusive = (
+                bool(default_tax.is_inclusive)
+                if default_tax
+                else (await setting_service.get_value("is_tax_inclusive", "false")).lower()
+                == "true"
+            )
+
+            check_in_time = await setting_service.get_value("check_in_time", "14:00")
+            check_out_time = await setting_service.get_value("check_out_time", "11:00")
+            currency_symbol = await setting_service.get_value("currency_symbol", "₹")
+
+        nights = 0
+        try:
+            ci = date_cls.fromisoformat(str(check_in_date))
+            co = date_cls.fromisoformat(str(check_out_date))
+            nights = (co - ci).days
+        except Exception:
+            nights = 0
+
         current_year = date_cls.today().year
 
         # ── 1. Generate PDF invoice ─────────────────────────────────────────
         pdf_data = {
-            **payload,
+            "booking_id": booking_id,
+            "guest_id": payload.get("guest_id"),
+            "guest_name": guest_name,
+            "guest_email": guest_email,
+            "guest_phone": guest_phone,
+            "guest_gstin": payload.get("guest_gstin"),
+            "booking_reference": booking_reference,
+            "invoice_number": invoice_number,
+            "property_name": property_name,
+            "property_address": property_address,
+            "room_type_name": room_type_name,
+            "check_in_date": check_in_date,
+            "check_out_date": check_out_date,
+            "num_guests": num_guests,
+            "num_rooms": num_rooms,
+            "price_per_night": price_per_night,
+            "discount_amount": discount_amount,
+            "tax_amount": tax_amount,
+            "total_amount": total_amount,
+            "currency": currency,
+            "special_requests": special_requests,
             "app_name": app_name,
             "logo_url": logo_url,
             "app_date_format": app_date_format,
+            "gst_number": gst_number,
+            "legal_name": legal_name,
+            "company_address": tax_address,
+            "contact_email": contact_email,
+            "contact_phone": contact_phone,
+            "hsn_sac_code": hsn_sac_code,
+            "tax_rate": tax_rate,
+            "cgst_rate": cgst_rate,
+            "sgst_rate": sgst_rate,
+            "igst_rate": igst_rate,
+            "is_tax_inclusive": is_tax_inclusive,
+            "check_in_time": check_in_time,
+            "check_out_time": check_out_time,
+            "currency_symbol": currency_symbol,
         }
         invoice_bytes: bytes = b""
         try:
@@ -84,18 +279,24 @@ class BookingCompletedHandler:
             )
             # Continue to send email without PDF attachment if generation fails
 
-        # ── 2. Render HTML email template ───────────────────────────────────
+        # ── 2. Format dates using platform setting ──────────────────────────
+        from app.services.invoice_service import format_booking_date
+
+        formatted_check_in = format_booking_date(check_in_date, app_date_format)
+        formatted_check_out = format_booking_date(check_out_date, app_date_format)
+
+        # ── 3. Render HTML email template ───────────────────────────────────
         template_values = {
             "logo_url": logo_url,
             "full_name": guest_name,
             "booking_reference": booking_reference,
             "invoice_number": invoice_number,
             "property_name": property_name,
-            "check_in_date": check_in_date,
-            "check_out_date": check_out_date,
+            "check_in_date": formatted_check_in,
+            "check_out_date": formatted_check_out,
             "nights": nights,
-            "num_guests": payload.get("num_guests", 1),
-            "num_rooms": payload.get("num_rooms", 1),
+            "num_guests": num_guests,
+            "num_rooms": num_rooms,
             "total_amount": f"{total_amount:,.2f}",
             "currency": currency,
             "app_name": app_name,
@@ -117,15 +318,15 @@ class BookingCompletedHandler:
                 exc,
             )
 
-        # ── 3. Send email ───────────────────────────────────────────────────
+        # ── 4. Send email ───────────────────────────────────────────────────
         subject = f"Booking Confirmed — {property_name} [{booking_reference}]"
         text_body = (
             f"Hi {guest_name},\n\n"
             f"Your booking at {property_name} is confirmed!\n\n"
             f"Booking Reference : {booking_reference}\n"
             f"Invoice Number    : {invoice_number}\n"
-            f"Check-in          : {check_in_date}\n"
-            f"Check-out         : {check_out_date}\n"
+            f"Check-in          : {formatted_check_in}\n"
+            f"Check-out         : {formatted_check_out}\n"
             f"Total Amount      : {currency} {total_amount:,.2f}\n\n"
             "Please find your invoice attached to this email.\n\n"
             f"Thank you for choosing {app_name}!"

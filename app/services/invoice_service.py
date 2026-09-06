@@ -23,17 +23,25 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 logger = logging.getLogger(__name__)
 
 # ── Brand palette ────────────────────────────────────────────────────────────
-PRIMARY    = colors.HexColor("#F4A020")   # amber
-DARK       = colors.HexColor("#0C4550")   # deep teal / navy
-LIGHT_GRAY = colors.HexColor("#F5F7F8")
-MID_GRAY   = colors.HexColor("#888888")
-WHITE      = colors.white
+PRIMARY         = colors.HexColor("#D97706")   # Amber / Gold accent
+PRIMARY_DARK    = colors.HexColor("#B45309")
+PRIMARY_LIGHT   = colors.HexColor("#FEF3C7")   # Soft amber tint
+DARK            = colors.HexColor("#0F2937")   # Deep navy / charcoal
+DARK_HEADER     = colors.HexColor("#1E293B")   # Slate 800
+LIGHT_BG        = colors.HexColor("#F8FAFC")   # Slate 50
+CARD_BORDER     = colors.HexColor("#E2E8F0")   # Slate 200
+LINE_BORDER     = colors.HexColor("#CBD5E1")   # Slate 300
+TEXT_DARK       = colors.HexColor("#0F172A")   # Slate 900
+TEXT_MUTED      = colors.HexColor("#64748B")   # Slate 500
+GREEN_PAID      = colors.HexColor("#16A34A")   # Emerald 600
+GREEN_BG        = colors.HexColor("#DCFCE7")   # Emerald 100
+WHITE           = colors.white
 
-# Usable page width: A4 (210mm) − 15mm left − 15mm right = 180mm
-PAGE_W = 180 * mm
+# Usable page width: A4 (210mm) − 12mm left − 12mm right = 186mm
+PAGE_W = 186 * mm
 
 
-def _format_booking_date(value: Any, date_format: str) -> str:
+def format_booking_date(value: Any, date_format: str = "DD/MM/YYYY") -> str:
     """Format an ISO booking date using the app's Moment-style date setting."""
     if not value:
         return ""
@@ -62,15 +70,64 @@ def _format_booking_date(value: Any, date_format: str) -> str:
         return booking_date.strftime("%d/%m/%Y")
 
 
+# Backward compatibility alias
+_format_booking_date = format_booking_date
+
+
+def _amount_to_words(amount: float, currency: str = "INR") -> str:
+    """Convert numerical amount into Indian currency words representation."""
+    units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+             "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+             "Seventeen", "Eighteen", "Nineteen"]
+    tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+    def _convert_below_thousand(n: int) -> str:
+        words = []
+        if n >= 100:
+            words.append(units[n // 100] + " Hundred")
+            n %= 100
+        if n >= 20:
+            words.append(tens[n // 10])
+            n %= 10
+        if n > 0:
+            words.append(units[n])
+        return " ".join(words)
+
+    val = int(round(amount))
+    if val == 0:
+        return "Zero Rupees Only"
+
+    parts = []
+    crores = val // 10000000
+    if crores > 0:
+        parts.append(_convert_below_thousand(crores) + " Crore")
+        val %= 10000000
+
+    lakhs = val // 100000
+    if lakhs > 0:
+        parts.append(_convert_below_thousand(lakhs) + " Lakh")
+        val %= 100000
+
+    thousands = val // 1000
+    if thousands > 0:
+        parts.append(_convert_below_thousand(thousands) + " Thousand")
+        val %= 1000
+
+    if val > 0:
+        parts.append(_convert_below_thousand(val))
+
+    currency_label = "Rupees" if currency.upper() in ("INR", "RS", "₹") else currency.upper()
+    return " ".join(parts).strip() + f" {currency_label} Only"
+
+
 def _fetch_logo(url: Optional[str], max_height: float = 14 * mm) -> Optional[Image]:
     """Download a logo image from a URL and return a scaled ReportLab Image, or None."""
     if not url:
         return None
     try:
-        with urllib.request.urlopen(url, timeout=5) as resp:
+        with urllib.request.urlopen(url, timeout=4) as resp:
             data = resp.read()
         img = Image(io.BytesIO(data))
-        # Scale proportionally so height == max_height
         ratio = img.imageWidth / img.imageHeight
         img.drawHeight = max_height
         img.drawWidth = max_height * ratio
@@ -81,11 +138,11 @@ def _fetch_logo(url: Optional[str], max_height: float = 14 * mm) -> Optional[Ima
 
 
 class InvoiceService:
-    """Generates a professional A4 PDF invoice for a completed booking."""
+    """Generates a professional, detailed A4 PDF tax invoice with full GST details for a booking."""
 
     def generate_pdf(self, booking_data: Dict[str, Any]) -> bytes:
         """
-        Generate a PDF invoice from booking data dict.
+        Generate a comprehensive PDF invoice from booking data dict.
         Returns raw PDF bytes ready to be attached to an email.
         """
         buffer = io.BytesIO()
@@ -93,229 +150,446 @@ class InvoiceService:
         doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
-            rightMargin=15 * mm,
-            leftMargin=15 * mm,
-            topMargin=15 * mm,
-            bottomMargin=15 * mm,
+            rightMargin=12 * mm,
+            leftMargin=12 * mm,
+            topMargin=10 * mm,
+            bottomMargin=10 * mm,
         )
 
         story: list = []
-        app_name = booking_data.get("app_name", "Tashi Homes")
 
-        # ── 1. HEADER: logo + "INVOICE" label ───────────────────────────────
-        logo_img = _fetch_logo(booking_data.get("logo_url"))
+        # ── 0. Extract Parameters & Settings ────────────────────────────────
+        app_name = booking_data.get("app_name") or "Tashi Homes"
+        legal_name = booking_data.get("legal_name") or app_name
+        gst_number = booking_data.get("gst_number") or ""
+        company_address = booking_data.get("company_address") or ""
+        contact_email = booking_data.get("contact_email") or ""
+        contact_phone = booking_data.get("contact_phone") or ""
+        hsn_sac_code = booking_data.get("hsn_sac_code") or "996311"
 
-        if logo_img:
-            left_cell = logo_img
+        date_format = booking_data.get("app_date_format", "DD/MM/YYYY")
+        currency = booking_data.get("currency", "INR")
+
+        check_in_raw = booking_data.get("check_in_date", "")
+        check_out_raw = booking_data.get("check_out_date", "")
+        formatted_check_in = format_booking_date(check_in_raw, date_format)
+        formatted_check_out = format_booking_date(check_out_raw, date_format)
+        formatted_issue_date = format_booking_date(datetime.utcnow().date(), date_format)
+
+        check_in_time = booking_data.get("check_in_time", "14:00")
+        check_out_time = booking_data.get("check_out_time", "11:00")
+
+        nights = 0
+        try:
+            from datetime import date as date_cls
+            nights = (date_cls.fromisoformat(str(check_out_raw)) -
+                      date_cls.fromisoformat(str(check_in_raw))).days
+        except Exception:
+            nights = 0
+        nights = max(1, nights)
+
+        price_per_night = float(booking_data.get("price_per_night", 0))
+        num_rooms = int(booking_data.get("num_rooms", 1))
+        num_guests = int(booking_data.get("num_guests", 1))
+        discount_amount = float(booking_data.get("discount_amount", 0))
+        tax_amount = float(booking_data.get("tax_amount", 0))
+        total_amount = float(booking_data.get("total_amount", 0))
+        base_amount = round(price_per_night * num_rooms * nights, 2)
+
+        tax_rate = float(booking_data.get("tax_rate") or 0)
+        cgst_rate = booking_data.get("cgst_rate")
+        sgst_rate = booking_data.get("sgst_rate")
+        igst_rate = booking_data.get("igst_rate")
+        is_tax_inclusive = bool(booking_data.get("is_tax_inclusive", False))
+
+        is_tax_invoice = bool(gst_number or tax_amount > 0)
+
+        # Calculate taxable value
+        if is_tax_inclusive and tax_amount > 0:
+            taxable_value = round(base_amount - discount_amount - tax_amount, 2)
         else:
-            left_cell = Paragraph(
-                f"<font color='#F4A020'><b>{app_name}</b></font>",
-                ParagraphStyle(
-                    "brand", fontSize=22, leading=26,
-                    textColor=DARK, fontName="Helvetica-Bold",
-                ),
+            taxable_value = round(base_amount - discount_amount, 2)
+
+        # ── 1. HEADER: BRAND & PROVIDER INFO (Left) vs TAX INVOICE BADGE & META (Right) ──
+        logo_img = _fetch_logo(booking_data.get("logo_url"), max_height=12 * mm)
+
+        company_html_lines = []
+        company_html_lines.append(f"<font size=10 color='#0F2937'><b>{legal_name}</b></font>")
+        if company_address:
+            company_html_lines.append(f"<font size=7.5 color='#64748B'>{company_address}</font>")
+        contact_line = []
+        if contact_email:
+            contact_line.append(f"Email: {contact_email}")
+        if contact_phone:
+            contact_line.append(f"Tel: {contact_phone}")
+        if contact_line:
+            company_html_lines.append(f"<font size=7.5 color='#64748B'>{' | '.join(contact_line)}</font>")
+        if gst_number:
+            company_html_lines.append(
+                f"<font size=8 color='#0F2937'><b>GSTIN / Tax ID:</b> <font color='#D97706'><b>{gst_number}</b></font></font>"
             )
 
-        right_cell = Paragraph(
-            "<b>INVOICE</b>",
-            ParagraphStyle(
-                "inv_label", fontSize=26, leading=30,
-                textColor=PRIMARY, alignment=TA_RIGHT,
-                fontName="Helvetica-Bold",
-            ),
+        left_header_elements = []
+        if logo_img:
+            left_header_elements.append(logo_img)
+            left_header_elements.append(Spacer(1, 1.5 * mm))
+        left_header_elements.append(
+            Paragraph(
+                "<br/>".join(company_html_lines),
+                ParagraphStyle("company_block", leading=11),
+            )
+        )
+
+        inv_title = "TAX INVOICE" if is_tax_invoice else "INVOICE"
+        right_header_lines = [
+            f"<font size=18 color='#D97706'><b>{inv_title}</b></font>  <font size=9 color='#16A34A'><b>[✓ PAID]</b></font>",
+            "<br/>",
+            f"<font size=8 color='#0F2937'><b>Invoice No:</b> {booking_data.get('invoice_number', '—')}</font>",
+            f"<font size=8 color='#0F2937'><b>Issue Date:</b> {formatted_issue_date}</font>",
+            f"<font size=8 color='#0F2937'><b>Booking Ref:</b> {booking_data.get('booking_reference', '—')}</font>",
+            f"<font size=8 color='#0F2937'><b>SAC / HSN:</b> {hsn_sac_code} (Accommodation)</font>",
+        ]
+
+        right_header_block = Paragraph(
+            "<br/>".join(right_header_lines),
+            ParagraphStyle("inv_meta_right", leading=12, alignment=TA_RIGHT),
         )
 
         header_table = Table(
-            [[left_cell, right_cell]],
+            [[left_header_elements, right_header_block]],
             colWidths=[PAGE_W * 0.55, PAGE_W * 0.45],
         )
         header_table.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
         ]))
         story.append(header_table)
+        story.append(Spacer(1, 2 * mm))
+        story.append(HRFlowable(width="100%", thickness=1.5, color=PRIMARY, spaceAfter=3 * mm))
 
-        # App name under logo (only when logo is shown)
-        if logo_img:
-            story.append(Spacer(1, 1 * mm))
-            story.append(Paragraph(
-                f"<b>{app_name}</b>",
-                ParagraphStyle(
-                    "brand_sub", fontSize=9, leading=11,
-                    textColor=DARK, fontName="Helvetica",
+        # ── 2. TWO-COLUMN CARDS: BILLED TO (Guest) & RESERVATION DETAILS (Property) ──
+        card_hdr_l = ParagraphStyle("chl", fontSize=7.5, fontName="Helvetica-Bold", textColor=WHITE, leading=9)
+        card_txt_b = ParagraphStyle("ctb", fontSize=9, fontName="Helvetica-Bold", textColor=DARK, leading=12)
+        card_txt_m = ParagraphStyle("ctm", fontSize=8, fontName="Helvetica", textColor=TEXT_MUTED, leading=11)
+        card_txt_d = ParagraphStyle("ctd", fontSize=8, fontName="Helvetica", textColor=DARK, leading=11)
+
+        guest_name = booking_data.get("guest_name", "Guest")
+        guest_email = booking_data.get("guest_email", "")
+        guest_phone = booking_data.get("guest_phone", "")
+        guest_gstin = booking_data.get("guest_gstin", "")
+
+        guest_lines = [
+            Paragraph(f"<b>{guest_name}</b>", card_txt_b),
+        ]
+        if guest_email:
+            guest_lines.append(Paragraph(f"Email: {guest_email}", card_txt_m))
+        if guest_phone:
+            guest_lines.append(Paragraph(f"Phone: {guest_phone}", card_txt_m))
+        if guest_gstin:
+            guest_lines.append(Paragraph(f"<b>Guest GSTIN:</b> {guest_gstin}", card_txt_d))
+        else:
+            guest_lines.append(Paragraph("Category: Retail / Individual Guest", card_txt_m))
+
+        prop_name = booking_data.get("property_name", "Homestay")
+        prop_addr = booking_data.get("property_address", "")
+        room_name = booking_data.get("room_type_name") or "Standard Room"
+
+        stay_lines = [
+            Paragraph(f"<b>{prop_name}</b>", card_txt_b),
+        ]
+        if prop_addr:
+            stay_lines.append(Paragraph(prop_addr, card_txt_m))
+        stay_lines.append(
+            Paragraph(
+                f"Room: <b>{room_name}</b>  ({num_rooms} Room{'s' if num_rooms > 1 else ''}, {num_guests} Guest{'s' if num_guests > 1 else ''})",
+                card_txt_d,
+            )
+        )
+        stay_lines.append(
+            Paragraph(
+                f"Check-in: <b>{formatted_check_in}</b> (from {check_in_time}) • Check-out: <b>{formatted_check_out}</b> (until {check_out_time})",
+                card_txt_m,
+            )
+        )
+
+        card_col_w = (PAGE_W - 4 * mm) / 2
+        cards_table = Table(
+            [
+                [
+                    Paragraph("<b>BILLED TO (CUSTOMER / GUEST)</b>", card_hdr_l),
+                    Paragraph("<b>HOMESTAY & STAY DETAILS</b>", card_hdr_l),
+                ],
+                [guest_lines, stay_lines],
+            ],
+            colWidths=[card_col_w, card_col_w],
+        )
+        cards_table.setStyle(TableStyle([
+            ("BACKGROUND",     (0, 0), (0, 0), DARK_HEADER),
+            ("BACKGROUND",     (1, 0), (1, 0), DARK),
+            ("BACKGROUND",     (0, 1), (-1, 1), LIGHT_BG),
+            ("GRID",           (0, 0), (-1, -1), 0.5, CARD_BORDER),
+            ("VALIGN",         (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING",     (0, 0), (-1, 0), 3),
+            ("BOTTOMPADDING",  (0, 0), (-1, 0), 3),
+            ("LEFTPADDING",    (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING",   (0, 0), (-1, -1), 5),
+            ("TOPPADDING",     (0, 1), (-1, 1), 4),
+            ("BOTTOMPADDING",  (0, 1), (-1, 1), 5),
+        ]))
+        story.append(cards_table)
+        story.append(Spacer(1, 4 * mm))
+
+        # ── 3. ITEMIZED STAY CHARGES TABLE ──────────────────────────────────
+        tbl_hdr = ParagraphStyle("th", fontSize=7.5, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER, leading=9)
+        tbl_cell_l = ParagraphStyle("tcl", fontSize=8, fontName="Helvetica", textColor=DARK, alignment=TA_LEFT, leading=10.5)
+        tbl_cell_c = ParagraphStyle("tcc", fontSize=8, fontName="Helvetica", textColor=DARK, alignment=TA_CENTER, leading=10.5)
+        tbl_cell_r = ParagraphStyle("tcr", fontSize=8, fontName="Helvetica", textColor=DARK, alignment=TA_RIGHT, leading=10.5)
+        tbl_cell_b = ParagraphStyle("tcb", fontSize=8, fontName="Helvetica-Bold", textColor=DARK, alignment=TA_RIGHT, leading=10.5)
+
+        col_widths = [8*mm, 56*mm, 40*mm, 14*mm, 14*mm, 24*mm, 30*mm]
+
+        items_table_data = [
+            [
+                Paragraph("#", tbl_hdr),
+                Paragraph("DESCRIPTION & SAC", tbl_hdr),
+                Paragraph("STAY PERIOD", tbl_hdr),
+                Paragraph("NIGHTS", tbl_hdr),
+                Paragraph("ROOMS", tbl_hdr),
+                Paragraph(f"RATE / NIGHT ({currency})", tbl_hdr),
+                Paragraph(f"TAXABLE AMT ({currency})", tbl_hdr),
+            ],
+            [
+                Paragraph("1", tbl_cell_c),
+                Paragraph(
+                    f"<b>Homestay Accommodation</b><br/><font color='#64748B'>SAC: {hsn_sac_code} • {room_name}</font>",
+                    tbl_cell_l,
                 ),
-            ))
-
-        story.append(HRFlowable(width="100%", thickness=2, color=PRIMARY, spaceAfter=6 * mm))
-
-        # ── 2. INVOICE META (ref + date) ─────────────────────────────────────
-        issued_date = datetime.utcnow().strftime("%d %b %Y")
-        meta_bold  = ParagraphStyle("mb",  fontSize=9, leading=13, fontName="Helvetica-Bold")
-        meta_style = ParagraphStyle("ms",  fontSize=9, leading=13, fontName="Helvetica")
-
-        meta_rows = [
-            [
-                Paragraph("Invoice No:",    meta_bold),
-                Paragraph(booking_data.get("invoice_number", "—"), meta_style),
-                Paragraph("Issue Date:",    meta_bold),
-                Paragraph(issued_date,      meta_style),
-            ],
-            [
-                Paragraph("Booking Ref:",   meta_bold),
-                Paragraph(booking_data.get("booking_reference", "—"), meta_style),
-                Paragraph("", meta_style),
-                Paragraph("", meta_style),
-            ],
-        ]
-        meta_table = Table(meta_rows, colWidths=[28*mm, 62*mm, 28*mm, 62*mm])
-        meta_table.setStyle(TableStyle([
-            ("VALIGN",         (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING",     (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING",  (0, 0), (-1, -1), 3),
-        ]))
-        story.append(meta_table)
-        story.append(Spacer(1, 7 * mm))
-
-        # ── 3. BILLED TO / PROPERTY ──────────────────────────────────────────
-        sec_style  = ParagraphStyle("sec", fontSize=8, leading=11,
-                                    textColor=MID_GRAY, fontName="Helvetica")
-        val_bold   = ParagraphStyle("vb",  fontSize=10, leading=14, fontName="Helvetica-Bold")
-        val_style  = ParagraphStyle("vs",  fontSize=9,  leading=13, fontName="Helvetica")
-
-        billed_table = Table(
-            [
-                [Paragraph("BILLED TO", sec_style),   Paragraph("PROPERTY", sec_style)],
-                [Paragraph(booking_data.get("guest_name", "Guest"), val_bold),
-                 Paragraph(booking_data.get("property_name", ""), val_bold)],
-                [Paragraph(booking_data.get("guest_email", "") or "", val_style),
-                 Paragraph(booking_data.get("property_address", "") or "", val_style)],
-            ],
-            colWidths=[PAGE_W / 2, PAGE_W / 2],
-        )
-        billed_table.setStyle(TableStyle([
-            ("VALIGN",         (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING",     (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING",  (0, 0), (-1, -1), 3),
-            ("LEFTPADDING",    (0, 0), (-1, -1), 7),
-            ("BACKGROUND",     (0, 0), (-1,  0), LIGHT_GRAY),
-            ("TOPPADDING",     (0, 0), (-1,  0), 6),
-            ("BOTTOMPADDING",  (0, 0), (-1,  0), 6),
-        ]))
-        story.append(billed_table)
-        story.append(Spacer(1, 7 * mm))
-
-        # ── 4. LINE ITEMS TABLE ──────────────────────────────────────────────
-        check_in  = booking_data.get("check_in_date", "")
-        check_out = booking_data.get("check_out_date", "")
-        date_format = booking_data.get("app_date_format", "DD/MM/YYYY")
-        formatted_check_in = _format_booking_date(check_in, date_format)
-        formatted_check_out = _format_booking_date(check_out, date_format)
-        nights    = 0
-        try:
-            from datetime import date as date_cls
-            nights = (date_cls.fromisoformat(str(check_out)) -
-                      date_cls.fromisoformat(str(check_in))).days
-        except Exception:
-            pass
-
-        currency       = booking_data.get("currency", "INR")
-        price_per_night = float(booking_data.get("price_per_night", 0))
-        num_rooms      = int(booking_data.get("num_rooms", 1))
-        num_guests     = int(booking_data.get("num_guests", 1))
-        discount       = float(booking_data.get("discount_amount", 0))
-        tax            = float(booking_data.get("tax_amount", 0))
-        total          = float(booking_data.get("total_amount", 0))
-        base_amount    = price_per_night * num_rooms * nights
-
-        col_hdr  = ParagraphStyle("ch",  fontSize=8, fontName="Helvetica-Bold",
-                                  textColor=WHITE, alignment=TA_CENTER, leading=11)
-        cell_l   = ParagraphStyle("cl",  fontSize=9, fontName="Helvetica",
-                                  alignment=TA_LEFT,  leading=12)
-        cell_c   = ParagraphStyle("cc",  fontSize=9, fontName="Helvetica",
-                                  alignment=TA_CENTER, leading=12)
-        cell_r   = ParagraphStyle("cr",  fontSize=9, fontName="Helvetica",
-                                  alignment=TA_RIGHT,  leading=12)
-
-        # Column widths — total = 180mm
-        # Desc=62, Check-in=26, Check-out=26, Nights=18, Rooms=18, Amount=30
-        col_w = [62*mm, 26*mm, 26*mm, 18*mm, 18*mm, 30*mm]
-
-        items_data = [
-            [
-                Paragraph("DESCRIPTION",        col_hdr),
-                Paragraph("CHECK-IN",           col_hdr),
-                Paragraph("CHECK-OUT",          col_hdr),
-                Paragraph("NIGHTS",             col_hdr),
-                Paragraph("ROOMS",              col_hdr),
-                Paragraph(f"AMOUNT ({currency})", col_hdr),
-            ],
-            [
-                Paragraph(f"Room stay — {booking_data.get('property_name', '')}", cell_l),
-                Paragraph(formatted_check_in,   cell_c),
-                Paragraph(formatted_check_out,  cell_c),
-                Paragraph(str(nights),          cell_c),
-                Paragraph(str(num_rooms),       cell_c),
-                Paragraph(f"{base_amount:,.2f}", cell_r),
+                Paragraph(f"{formatted_check_in} to<br/>{formatted_check_out}", tbl_cell_c),
+                Paragraph(str(nights), tbl_cell_c),
+                Paragraph(str(num_rooms), tbl_cell_c),
+                Paragraph(f"{price_per_night:,.2f}", tbl_cell_r),
+                Paragraph(f"{taxable_value:,.2f}", tbl_cell_b),
             ],
         ]
 
-        items_table = Table(items_data, colWidths=col_w)
-        items_table.setStyle(TableStyle([
-            ("BACKGROUND",    (0, 0), (-1,  0), DARK),
-            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [WHITE, LIGHT_GRAY]),
-            ("GRID",          (0, 0), (-1, -1), 0.3, colors.HexColor("#DDDDDD")),
-            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING",    (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 5),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
-            # Amber accent on first data column
-            ("TEXTCOLOR",     (0, 1), (0, -1),  PRIMARY),
-        ]))
-        story.append(items_table)
-        story.append(Spacer(1, 5 * mm))
-
-        # ── 5. TOTALS ────────────────────────────────────────────────────────
-        tot_r  = ParagraphStyle("tr",  fontSize=9,  fontName="Helvetica",      alignment=TA_RIGHT)
-        tot_rb = ParagraphStyle("trb", fontSize=10, fontName="Helvetica-Bold", alignment=TA_RIGHT)
-
-        totals_data = [
-            ["", Paragraph("Subtotal:", tot_r),
-                 Paragraph(f"{currency} {base_amount:,.2f}", tot_r)],
-        ]
-        if discount > 0:
-            totals_data.append(
-                ["", Paragraph("Discount:", tot_r),
-                     Paragraph(f"− {currency} {discount:,.2f}", tot_r)]
-            )
-        if tax > 0:
-            totals_data.append(
-                ["", Paragraph("Tax:", tot_r),
-                     Paragraph(f"+ {currency} {tax:,.2f}", tot_r)]
-            )
-        totals_data.append(
-            ["", Paragraph("<b>Total:</b>", tot_rb),
-                 Paragraph(f"<b>{currency} {total:,.2f}</b>", tot_rb)]
-        )
-
-        totals_table = Table(totals_data, colWidths=[95*mm, 45*mm, 40*mm])
-        totals_table.setStyle(TableStyle([
+        item_table = Table(items_table_data, colWidths=col_widths)
+        item_table.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, 0), DARK),
+            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [WHITE, LIGHT_BG]),
+            ("GRID",          (0, 0), (-1, -1), 0.4, CARD_BORDER),
             ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
             ("TOPPADDING",    (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LINEABOVE",     (1, -1), (-1, -1), 1.5, DARK),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 3),
         ]))
-        story.append(totals_table)
-        story.append(Spacer(1, 10 * mm))
+        story.append(item_table)
+        story.append(Spacer(1, 4 * mm))
 
-        # ── 6. FOOTER ────────────────────────────────────────────────────────
-        story.append(HRFlowable(width="100%", thickness=1, color=LIGHT_GRAY, spaceAfter=4 * mm))
+        # ── 4. LOWER SECTION: GST BREAKDOWN (Left) vs TOTALS & SUMMARY (Right) ──
+        has_cgst_sgst = (cgst_rate is not None and cgst_rate > 0) or (tax_rate > 0 and igst_rate is None)
+        effective_cgst_rate = float(cgst_rate) if cgst_rate is not None else (tax_rate / 2.0 if tax_rate > 0 else 0.0)
+        effective_sgst_rate = float(sgst_rate) if sgst_rate is not None else (tax_rate / 2.0 if tax_rate > 0 else 0.0)
+        effective_igst_rate = float(igst_rate) if igst_rate is not None else 0.0
+
+        if tax_amount > 0:
+            if effective_igst_rate > 0:
+                cgst_amt = 0.0
+                sgst_amt = 0.0
+                igst_amt = tax_amount
+            elif has_cgst_sgst:
+                cgst_amt = round(tax_amount / 2.0, 2)
+                sgst_amt = round(tax_amount - cgst_amt, 2)
+                igst_amt = 0.0
+            else:
+                cgst_amt = 0.0
+                sgst_amt = 0.0
+                igst_amt = tax_amount
+        else:
+            cgst_amt = 0.0
+            sgst_amt = 0.0
+            igst_amt = 0.0
+
+        left_box_elements = []
+
+        if is_tax_invoice and tax_amount > 0:
+            gst_th = ParagraphStyle("gth", fontSize=7, fontName="Helvetica-Bold", textColor=DARK, alignment=TA_CENTER, leading=8.5)
+            gst_td_c = ParagraphStyle("gtc", fontSize=7, fontName="Helvetica", textColor=DARK, alignment=TA_CENTER, leading=8.5)
+            gst_td_r = ParagraphStyle("gtr", fontSize=7, fontName="Helvetica", textColor=DARK, alignment=TA_RIGHT, leading=8.5)
+
+            if effective_igst_rate > 0:
+                gst_table_data = [
+                    [
+                        Paragraph("SAC", gst_th),
+                        Paragraph("Taxable Value", gst_th),
+                        Paragraph(f"IGST ({effective_igst_rate:g}%)", gst_th),
+                        Paragraph("Total Tax", gst_th),
+                    ],
+                    [
+                        Paragraph(str(hsn_sac_code), gst_td_c),
+                        Paragraph(f"{currency} {taxable_value:,.2f}", gst_td_r),
+                        Paragraph(f"{currency} {igst_amt:,.2f}", gst_td_r),
+                        Paragraph(f"{currency} {tax_amount:,.2f}", gst_td_r),
+                    ],
+                ]
+                gst_col_w = [18*mm, 28*mm, 28*mm, 26*mm]
+            else:
+                gst_table_data = [
+                    [
+                        Paragraph("SAC", gst_th),
+                        Paragraph("Taxable Value", gst_th),
+                        Paragraph(f"CGST ({effective_cgst_rate:g}%)", gst_th),
+                        Paragraph(f"SGST ({effective_sgst_rate:g}%)", gst_th),
+                        Paragraph("Total Tax", gst_th),
+                    ],
+                    [
+                        Paragraph(str(hsn_sac_code), gst_td_c),
+                        Paragraph(f"{currency} {taxable_value:,.2f}", gst_td_r),
+                        Paragraph(f"{currency} {cgst_amt:,.2f}", gst_td_r),
+                        Paragraph(f"{currency} {sgst_amt:,.2f}", gst_td_r),
+                        Paragraph(f"{currency} {tax_amount:,.2f}", gst_td_r),
+                    ],
+                ]
+                gst_col_w = [16*mm, 24*mm, 21*mm, 21*mm, 22*mm]
+
+            gst_tax_table = Table(gst_table_data, colWidths=gst_col_w)
+            gst_tax_table.setStyle(TableStyle([
+                ("BACKGROUND",    (0, 0), (-1, 0), PRIMARY_LIGHT),
+                ("GRID",          (0, 0), (-1, -1), 0.3, CARD_BORDER),
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING",    (0, 0), (-1, -1), 2.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
+            ]))
+
+            left_box_elements.append(
+                Paragraph(
+                    "<font size=8 color='#0F2937'><b>GST Tax Annexure (SAC 996311)</b></font>",
+                    ParagraphStyle("gst_title", leading=9),
+                )
+            )
+            left_box_elements.append(Spacer(1, 1 * mm))
+            left_box_elements.append(gst_tax_table)
+            left_box_elements.append(Spacer(1, 2 * mm))
+
+        # Amount in Words
+        words_str = _amount_to_words(total_amount, currency)
+        left_box_elements.append(
+            Paragraph(
+                f"<font size=7.5 color='#64748B'><b>Amount in Words:</b></font><br/>"
+                f"<font size=8 color='#0F2937'><i>{words_str}</i></font>",
+                ParagraphStyle("amt_words", leading=10),
+            )
+        )
+
+        special_reqs = booking_data.get("special_requests")
+        if special_reqs:
+            left_box_elements.append(Spacer(1, 1.5 * mm))
+            left_box_elements.append(
+                Paragraph(
+                    f"<font size=7 color='#64748B'><b>Special Requests:</b> {special_reqs}</font>",
+                    ParagraphStyle("spec_req", leading=9),
+                )
+            )
+
+        # Right Column: Totals Summary
+        tot_label = ParagraphStyle("tl", fontSize=8, fontName="Helvetica", textColor=DARK, alignment=TA_RIGHT, leading=11)
+        tot_val   = ParagraphStyle("tv", fontSize=8, fontName="Helvetica", textColor=DARK, alignment=TA_RIGHT, leading=11)
+        tot_grand_lbl = ParagraphStyle("tgl", fontSize=9, fontName="Helvetica-Bold", textColor=DARK, alignment=TA_RIGHT, leading=12)
+        tot_grand_val = ParagraphStyle("tgv", fontSize=10, fontName="Helvetica-Bold", textColor=PRIMARY_DARK, alignment=TA_RIGHT, leading=13)
+
+        totals_rows = [
+            [Paragraph("Taxable Subtotal:", tot_label), Paragraph(f"{currency} {taxable_value:,.2f}", tot_val)],
+        ]
+        if discount_amount > 0:
+            totals_rows.append(
+                [
+                    Paragraph("Discount Applied:", tot_label),
+                    Paragraph(f"− {currency} {discount_amount:,.2f}", ParagraphStyle("tdisc", parent=tot_val, textColor=GREEN_PAID)),
+                ]
+            )
+        if tax_amount > 0:
+            if effective_igst_rate > 0:
+                totals_rows.append(
+                    [Paragraph(f"IGST ({effective_igst_rate:g}%):", tot_label), Paragraph(f"+ {currency} {igst_amt:,.2f}", tot_val)]
+                )
+            elif has_cgst_sgst:
+                totals_rows.append(
+                    [Paragraph(f"CGST ({effective_cgst_rate:g}%):", tot_label), Paragraph(f"+ {currency} {cgst_amt:,.2f}", tot_val)]
+                )
+                totals_rows.append(
+                    [Paragraph(f"SGST ({effective_sgst_rate:g}%):", tot_label), Paragraph(f"+ {currency} {sgst_amt:,.2f}", tot_val)]
+                )
+            else:
+                totals_rows.append(
+                    [Paragraph(f"GST ({tax_rate:g}%):", tot_label), Paragraph(f"+ {currency} {tax_amount:,.2f}", tot_val)]
+                )
+
+        totals_rows.append(
+            [Paragraph("<b>Grand Total:</b>", tot_grand_lbl), Paragraph(f"<b>{currency} {total_amount:,.2f}</b>", tot_grand_val)]
+        )
+
+        totals_subtable = Table(totals_rows, colWidths=[42*mm, 36*mm])
+        totals_subtable.setStyle(TableStyle([
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING",    (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LINEABOVE",     (0, -1), (-1, -1), 1.2, DARK),
+            ("BACKGROUND",    (0, -1), (-1, -1), LIGHT_BG),
+            ("TOPPADDING",    (0, -1), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, -1), (-1, -1), 4),
+        ]))
+
+        right_box_elements = [
+            totals_subtable,
+            Spacer(1, 1.5 * mm),
+            Paragraph(
+                f"<font size=7 color='#16A34A'><b>Payment Mode:</b> Online (Prepaid)</font><br/>"
+                f"<font size=6.5 color='#64748B'>{'* Rate is inclusive of all taxes' if is_tax_inclusive else '* Inclusive of applicable GST'}</font>",
+                ParagraphStyle("pay_note", alignment=TA_RIGHT, leading=8.5),
+            ),
+        ]
+
+        summary_container = Table(
+            [[left_box_elements, right_box_elements]],
+            colWidths=[PAGE_W * 0.57, PAGE_W * 0.43],
+        )
+        summary_container.setStyle(TableStyle([
+            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+            ("TOPPADDING",    (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(summary_container)
+        story.append(Spacer(1, 4 * mm))
+
+        # ── 5. POLICIES, TERMS & VERIFICATION FOOTER ────────────────────────
+        story.append(HRFlowable(width="100%", thickness=0.6, color=LINE_BORDER, spaceAfter=2.5 * mm))
+
+        footer_text = (
+            f"<b>Thank you for choosing {app_name}!</b>  •  "
+            f"<font color='#64748B'>Standard Check-in: {check_in_time} | Standard Check-out: {check_out_time}. "
+            "Government-approved photo ID is required for all guests upon arrival.<br/>"
+            f"SAC 996311: Short-stay accommodation services. "
+            "This is a digitally generated tax invoice and does not require a physical signature.</font>"
+        )
         story.append(Paragraph(
-            f"Thank you for choosing <b>{app_name}</b>!  "
-            "This is a computer-generated invoice and does not require a signature.",
-            ParagraphStyle("footer", fontSize=8, leading=12,
-                           textColor=MID_GRAY, alignment=TA_CENTER),
+            footer_text,
+            ParagraphStyle(
+                "footer_style",
+                fontSize=7,
+                leading=9.5,
+                textColor=DARK,
+                alignment=TA_CENTER,
+            ),
         ))
 
         doc.build(story)
         return buffer.getvalue()
+
+
