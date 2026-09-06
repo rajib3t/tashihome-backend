@@ -370,7 +370,7 @@ Primary listing table representing homestays, hotels, villas, and apartments.
 ---
 
 #### `property_room_types`
-Association table linking properties to supported room types.
+Association table linking properties to supported room types, with optional base pricing and variable capacity pricing tiers.
 
 | Column | Type | Constraints / Defaults | Description |
 | :--- | :--- | :--- | :--- |
@@ -379,6 +379,8 @@ Association table linking properties to supported room types.
 | `property_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> properties.id (CASCADE)` | Linked property |
 | `room_type_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> room_types.id (CASCADE)` | Linked room type |
 | `total_units` | `INTEGER` | `NOT NULL`, `default=1`, `CHECK(> 0)` | How many rooms of this type this property has (inventory count) |
+| `price_per_night` | `NUMERIC(12, 2)` | `NULLABLE`, `default=0` | Base nightly rate for this room type |
+| `sale_per_night` | `NUMERIC(12, 2)` | `NULLABLE`, `default=0` | Discounted nightly rate for this room type |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
 
@@ -388,8 +390,34 @@ Association table linking properties to supported room types.
 - **Relationships**:
   - `property` -> N:1 [`Property`](#properties)
   - `room_type` -> N:1 [`RoomType`](#room_types)
+  - `property_room_units` -> 1:N [`PropertyRoomUnit`](#property_room_units), `cascade="all, delete-orphan"`
+  - `pricing_tiers` -> 1:N [`PropertyRoomTypePrice`](#property_room_type_prices), `cascade="all, delete-orphan"`
 
 > **Note**: `total_units` is the inventory count `bookings` checks against to prevent overbooking (see [`bookings`](#bookings)).
+
+---
+
+#### `property_room_type_prices`
+Stores variable pricing per guest occupancy / capacity for a property room type (e.g. 1 guest: ₹1500, 2 guests: ₹2200, 4 guests: ₹3500 in a 4-bedded room).
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
+| `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
+| `property_room_type_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> property_room_types.id (CASCADE)` | Linked property room type |
+| `occupancy` | `INTEGER` | `NOT NULL`, `CHECK(> 0)` | Guest count for this price tier (1, 2, 3, etc.) |
+| `price_per_night` | `NUMERIC(12, 2)` | `NOT NULL`, `CHECK(>= 0)` | Standard nightly rate for this occupancy |
+| `sale_per_night` | `NUMERIC(12, 2)` | `NULLABLE`, `default=0`, `CHECK(>= 0)` | Discounted nightly rate for this occupancy |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+- **Table Constraints**:
+  - `uq_property_room_type_price_occupancy` (`UNIQUE(property_room_type_id, occupancy)`)
+  - `chk_room_price_occupancy` (`CHECK(occupancy > 0)`)
+  - `chk_room_price_positive` (`CHECK(price_per_night >= 0)`)
+  - `chk_room_sale_price_positive` (`CHECK(sale_per_night >= 0)`)
+- **Relationships**:
+  - `property_room_type` -> N:1 [`PropertyRoomType`](#property_room_types)
 
 ---
 

@@ -143,6 +143,7 @@ class CreateBookingUseCase(BaseUseCase):
             check_out_date=data.check_out_date,
             num_rooms=data.num_rooms,
             num_guests=data.num_guests,
+            room_type_id=room_type_id_db,
         )
 
         # 5. Generate Reference and Create Booking

@@ -130,10 +130,20 @@ class PropertyFacilityDTO:
 
 
 @dataclass(config=ConfigDict(extra="forbid"))
+class PropertyRoomTypePriceDTO:
+    occupancy: int
+    price_per_night: float
+    sale_per_night: Optional[float] = 0.0
+
+
+@dataclass(config=ConfigDict(extra="forbid"))
 class PropertyRoomTypeDTO:
     id: Optional[str] = None
     room_type_id: Optional[str] = None
     total_units: Optional[int] = 1
+    price_per_night: Optional[float] = None
+    sale_per_night: Optional[float] = None
+    pricing_tiers: Optional[List[PropertyRoomTypePriceDTO]] = None
 
 
 @dataclass(config=ConfigDict(extra="forbid"))

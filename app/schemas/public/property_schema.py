@@ -54,6 +54,34 @@ class PublicPropertyBase(BaseModel):
     rating_summary: Optional[PropertyRatingSummarySchema] = None
 
 
+class PropertyRoomTypePriceSchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    occupancy: int
+    price_per_night: float
+    sale_per_night: Optional[float] = 0.0
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return str(value)
+
+    @field_validator("price_per_night", "sale_per_night", mode="before")
+    @classmethod
+    def validate_floats(cls, value):
+        if value is None:
+            return 0.0
+        return float(value)
+
+
 class PropertyRoomTypeSchema(BaseModel):
     id: UUID | str | None = Field(
         default=None,
@@ -61,6 +89,9 @@ class PropertyRoomTypeSchema(BaseModel):
         serialization_alias="id",
     )
     total_units: Optional[int] = 1
+    price_per_night: Optional[float] = None
+    sale_per_night: Optional[float] = None
+    pricing_tiers: Optional[list[PropertyRoomTypePriceSchema]] = None
     room_type: Optional["RoomTypeNestedSchema"] = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -72,6 +103,13 @@ class PropertyRoomTypeSchema(BaseModel):
         if isinstance(value, UUID):
             return str(value)
         return str(value)
+
+    @field_validator("price_per_night", "sale_per_night", mode="before")
+    @classmethod
+    def validate_floats(cls, value):
+        if value is None:
+            return None
+        return float(value)
 
 
 class PropertyAmenitySchema(BaseModel):

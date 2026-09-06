@@ -9,6 +9,7 @@ class WithRelations(TypedDict, total=False):
     property: bool
     room_type: bool
     property_room_units: bool
+    pricing_tiers: bool
 
 class PropertyRoomTypeRepository(BaseRepository[PropertyRoomType]):
     
@@ -16,6 +17,7 @@ class PropertyRoomTypeRepository(BaseRepository[PropertyRoomType]):
         "property": PropertyRoomType.property,
         "room_type": PropertyRoomType.room_type,
         "property_room_units": PropertyRoomType.property_room_units,
+        "pricing_tiers": PropertyRoomType.pricing_tiers,
     }
     _filter_map = {
         "property_id": PropertyRoomType.property_id,

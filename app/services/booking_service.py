@@ -1,4 +1,5 @@
 from datetime import date, datetime, time, timezone
+import math
 import secrets
 from typing import Any, Dict, Optional, Tuple
 
@@ -96,7 +97,7 @@ class BookingService:
         # Build per-room-type availability breakdown
         room_types_availability = []
         prop_room_types = await self.property_room_type_repository.get_by_property_id(
-            property_id, with_relations={"room_type": True}
+            property_id, with_relations={"room_type": True, "pricing_tiers": True}
         )
         if prop_room_types:
             for prt in prop_room_types:
@@ -115,10 +116,25 @@ class BookingService:
                     check_out_date=check_out_date,
                 )
                 prt_available = max(0, prt_total - (prt_booked + prt_blocked))
+
+                pricing_tiers_data = [
+                    {
+                        "id": str(tier.public_id),
+                        "occupancy": tier.occupancy,
+                        "price_per_night": float(tier.price_per_night),
+                        "sale_per_night": float(tier.sale_per_night or 0),
+                    }
+                    for tier in (getattr(prt, "pricing_tiers", None) or [])
+                ]
+
                 room_types_availability.append({
                     "property_room_type_id": str(prt.public_id),
                     "room_type_id": str(prt.room_type.public_id) if prt.room_type else None,
                     "room_type_name": prt.room_type.name if prt.room_type else None,
+                    "capacity": prt.room_type.capacity if prt.room_type else None,
+                    "price_per_night": float(prt.price_per_night) if prt.price_per_night is not None else None,
+                    "sale_per_night": float(prt.sale_per_night) if prt.sale_per_night is not None else None,
+                    "pricing_tiers": pricing_tiers_data,
                     "total_units": prt_total,
                     "booked_units": prt_booked,
                     "blocked_units": prt_blocked,
@@ -143,9 +159,12 @@ class BookingService:
         check_out_date: date,
         num_rooms: int = 1,
         num_guests: int = 1,
+        room_type_id: Optional[int] = None,
+        property_room_type: Optional[PropertyRoomType] = None,
     ) -> Dict[str, Any]:
         """
-        Calculates nights, nightly rate, taxes, discount, and total price.
+        Calculates nights, nightly rate (factoring in room capacity & occupancy tiers),
+        taxes, discount, and total price.
         """
         nights = (check_out_date - check_in_date).days
         if nights < 1:
@@ -156,29 +175,87 @@ class BookingService:
                 field="check_out_date",
             )
 
-        # Price per night: check sale_per_night first if positive, else price_per_night
-        price_per_night = float(
-            property_.sale_per_night
-            if property_.sale_per_night and property_.sale_per_night > 0
-            else (property_.price_per_night or 0)
-        )
+        num_rooms = max(1, num_rooms)
+        num_guests = max(1, num_guests)
+        guests_per_room = max(1, math.ceil(num_guests / num_rooms))
+
+        # 1. Resolve Target PropertyRoomType
+        target_prt: Optional[PropertyRoomType] = property_room_type
+        if not target_prt and property_ and getattr(property_, "property_room_types", None):
+            if room_type_id is not None:
+                for prt in property_.property_room_types:
+                    if prt.room_type_id == room_type_id or getattr(prt, "id", None) == room_type_id:
+                        target_prt = prt
+                        break
+            elif len(property_.property_room_types) == 1:
+                target_prt = property_.property_room_types[0]
+
+        # 2. Determine price_per_night based on room occupancy pricing_tiers
+        price_per_night: float = 0.0
+        applied_tier: Optional[Dict[str, Any]] = None
+
+        if target_prt and getattr(target_prt, "pricing_tiers", None):
+            tiers = list(target_prt.pricing_tiers)
+            sorted_tiers = sorted(tiers, key=lambda t: t.occupancy)
+
+            # Check exact match
+            matched_tier = next((t for t in sorted_tiers if t.occupancy == guests_per_room), None)
+            if not matched_tier:
+                # If no exact match: pick closest tier (highest <= guests_per_room, or lowest >= guests_per_room)
+                lower_tiers = [t for t in sorted_tiers if t.occupancy <= guests_per_room]
+                if lower_tiers:
+                    matched_tier = lower_tiers[-1]
+                elif sorted_tiers:
+                    matched_tier = sorted_tiers[0]
+
+            if matched_tier:
+                tier_sale = float(matched_tier.sale_per_night) if matched_tier.sale_per_night is not None else 0.0
+                tier_price = float(matched_tier.price_per_night) if matched_tier.price_per_night is not None else 0.0
+                price_per_night = tier_sale if tier_sale > 0 and (tier_price == 0 or tier_sale < tier_price) else tier_price
+                applied_tier = {
+                    "occupancy": matched_tier.occupancy,
+                    "price_per_night": tier_price,
+                    "sale_per_night": tier_sale,
+                }
+
+        # Fallback to room type base price
+        if price_per_night <= 0 and target_prt:
+            prt_sale = float(target_prt.sale_per_night) if target_prt.sale_per_night is not None else 0.0
+            prt_price = float(target_prt.price_per_night) if target_prt.price_per_night is not None else 0.0
+            if prt_sale > 0 and (prt_price == 0 or prt_sale < prt_price):
+                price_per_night = prt_sale
+            elif prt_price > 0:
+                price_per_night = prt_price
+
+        # Fallback to property level price
+        if price_per_night <= 0 and property_:
+            prop_sale = float(property_.sale_per_night) if property_.sale_per_night is not None else 0.0
+            prop_price = float(property_.price_per_night) if property_.price_per_night is not None else 0.0
+            if prop_sale > 0 and (prop_price == 0 or prop_sale < prop_price):
+                price_per_night = prop_sale
+            else:
+                price_per_night = prop_price
 
         base_amount = price_per_night * num_rooms * nights
         discount_amount = 0.0
         tax_amount = 0.0
         total_amount = round(base_amount - discount_amount + tax_amount, 2)
-        currency = property_.currency or "INR"
+        currency = property_.currency if (property_ and property_.currency) else "INR"
 
         return {
             "nights": nights,
             "num_rooms": num_rooms,
             "num_guests": num_guests,
+            "guests_per_room": guests_per_room,
             "price_per_night": price_per_night,
             "base_amount": round(base_amount, 2),
             "discount_amount": round(discount_amount, 2),
             "tax_amount": round(tax_amount, 2),
             "total_amount": total_amount,
             "currency": currency,
+            "applied_tier": applied_tier,
+            "room_type_id": str(target_prt.room_type.public_id) if target_prt and getattr(target_prt, "room_type", None) else None,
+            "room_type_name": target_prt.room_type.name if target_prt and getattr(target_prt, "room_type", None) else None,
         }
 
     def calculate_cancellation_refund(

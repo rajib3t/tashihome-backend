@@ -22,6 +22,7 @@ from .cancellation_policy_model import CancellationPolicy, CancellationPolicySta
 
 from .property_model import Property, PropertyStatus, PropertyType
 from .property_room_type_model import PropertyRoomType
+from .property_room_type_price_model import PropertyRoomTypePrice
 from .property_room_unit_model import PropertyRoomUnit, RoomUnitStatus
 from .property_asset_model import PropertyAsset, PropertyAssetStatus, PropertyAssetType, PropertyAssetUseFor
 from .property_facility_model import PropertyFacility
@@ -72,6 +73,7 @@ __all__ = [
     "PropertyStatus",
     "PropertyType",
     "PropertyRoomType",
+    "PropertyRoomTypePrice",
     "PropertyRoomUnit",
     "RoomUnitStatus",
     "PropertyAsset",

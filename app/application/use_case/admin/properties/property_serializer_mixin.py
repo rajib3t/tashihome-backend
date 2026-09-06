@@ -69,6 +69,17 @@ class PropertySerializerMixin:
                 {
                     "id": str(item.public_id) if getattr(item, "public_id", None) is not None else None,
                     "total_units": item.total_units if getattr(item, "total_units", None) is not None else 1,
+                    "price_per_night": float(item.price_per_night) if getattr(item, "price_per_night", None) is not None else None,
+                    "sale_per_night": float(item.sale_per_night) if getattr(item, "sale_per_night", None) is not None else None,
+                    "pricing_tiers": [
+                        {
+                            "id": str(tier.public_id),
+                            "occupancy": tier.occupancy,
+                            "price_per_night": float(tier.price_per_night),
+                            "sale_per_night": float(tier.sale_per_night or 0),
+                        }
+                        for tier in (getattr(item, "pricing_tiers", None) or [])
+                    ],
                     "booked_units": availability_map.get(item.room_type_id, {}).get("booked_units", 0) if availability_map else None,
                     "blocked_units": availability_map.get(item.room_type_id, {}).get("blocked_units", 0) if availability_map else None,
                     "available_units": availability_map.get(item.room_type_id, {}).get("available_units", item.total_units if getattr(item, "total_units", None) is not None else 1) if availability_map else (item.total_units if getattr(item, "total_units", None) is not None else 1),

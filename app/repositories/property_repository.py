@@ -31,7 +31,10 @@ class PropertyRepository(BaseRepository[Property]):
             "vendor": Property.vendor,
             "location": Property.location,
             "city": Property.city,
-            "property_room_types": selectinload(Property.property_room_types).selectinload(PropertyRoomType.room_type),
+            "property_room_types": selectinload(Property.property_room_types).options(
+                selectinload(PropertyRoomType.room_type),
+                selectinload(PropertyRoomType.pricing_tiers),
+            ),
             "property_assets": selectinload(Property.property_assets),
             "property_facilities": selectinload(Property.property_facilities).selectinload(PropertyFacility.facility),
             "property_amenities": selectinload(Property.property_amenities).selectinload(PropertyAmenity.amenity),

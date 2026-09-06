@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Numeric,
     UniqueConstraint,
     func,
 )
@@ -34,6 +35,8 @@ class PropertyRoomType(Base):
     property_id = Column(BigInteger, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     room_type_id = Column(BigInteger, ForeignKey("room_types.id", ondelete="CASCADE"), nullable=False, index=True)
     total_units = Column(Integer, nullable=False, default=1, server_default="1")
+    price_per_night = Column(Numeric(12, 2), nullable=True, default=0, comment="Base price per night for this room type")
+    sale_per_night = Column(Numeric(12, 2), nullable=True, default=0, comment="Sale price per night for this room type")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
@@ -50,4 +53,10 @@ class PropertyRoomType(Base):
         "PropertyRoomUnit",
         back_populates="property_room_type",
         cascade="all, delete-orphan",
+    )
+    pricing_tiers = relationship(
+        "PropertyRoomTypePrice",
+        back_populates="property_room_type",
+        cascade="all, delete-orphan",
+        order_by="PropertyRoomTypePrice.occupancy",
     )

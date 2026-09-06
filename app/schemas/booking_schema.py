@@ -209,12 +209,16 @@ class BookingQuoteSchema(BaseModel):
     nights: int
     num_rooms: int
     num_guests: int
+    guests_per_room: Optional[int] = None
     price_per_night: float
     base_amount: float
     discount_amount: float
     tax_amount: float
     total_amount: float
     currency: str = "INR"
+    applied_tier: Optional[Dict[str, Any]] = None
+    room_type_id: Optional[str] = None
+    room_type_name: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -226,6 +230,10 @@ class RoomTypeAvailabilitySchema(BaseModel):
     property_room_type_id: Optional[str] = None
     room_type_id: Optional[str] = None
     room_type_name: Optional[str] = None
+    capacity: Optional[int] = None
+    price_per_night: Optional[float] = None
+    sale_per_night: Optional[float] = None
+    pricing_tiers: Optional[List[Dict[str, Any]]] = None
     total_units: int
     booked_units: int
     blocked_units: int
