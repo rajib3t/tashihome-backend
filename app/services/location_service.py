@@ -24,13 +24,39 @@ class LocationService:
         self,
         name,
         city_id,
-        flush,
+        flush: bool = False,
     ) -> Optional[Location]:
          return await self.location_repository.get_by_name_and_city_id(
               name=name,
               city_id=city_id,
               flush=flush
          )
+
+    async def get_by_slug_and_city_id(
+        self,
+        slug: str,
+        city_id: int,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Location]:
+        return await self.location_repository.get_by_slug_and_city_id(
+            slug=slug,
+            city_id=city_id,
+            with_relations=with_relations,
+            flush=flush,
+        )
+
+    async def get_by_slug(
+        self,
+        slug: str,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Location]:
+        return await self.location_repository.get_by_slug(
+            slug=slug,
+            with_relations=with_relations,
+            flush=flush,
+        )
 
     async def get_by_id_with_city_country(
         self,

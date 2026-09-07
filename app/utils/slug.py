@@ -44,3 +44,35 @@ async def generate_slug(name: str) -> str:
     slug = slug.strip('-')
     
     return slug
+
+
+async def generate_unique_slug(base_slug: str, check_exists_fn) -> str:
+    """
+    WordPress-style slug uniqueness: if 'base_slug' is taken (check_exists_fn returns True/truthy),
+    try 'base_slug-2', 'base_slug-3', ... until a free one is found.
+
+    Args:
+        base_slug: The base slug string.
+        check_exists_fn: An async callable accepting a slug string and returning True/truthy if it exists.
+
+    Returns:
+        A unique slug string.
+    """
+    slug = base_slug
+    suffix = 2
+
+    while await check_exists_fn(slug):
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
+
+    return slug
+
+
+async def populate_existing_slugs(session) -> dict[str, int]:
+    """
+    Backfill / populate slugs for existing Country, City, and Location records that have empty or NULL slugs.
+    """
+    from app.utils.slug_backfill import populate_existing_slugs as _populate
+    return await _populate(session)
+
+

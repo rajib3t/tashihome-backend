@@ -23,6 +23,7 @@ class City(Base):
     )
 
     name = Column(String(255), unique=True, nullable=False, index=True)
+    slug = Column(String(255), unique=True, nullable=False, index=True)
     image_url = Column(String(500), nullable=True)
     country_id = Column(
         BigInteger,

@@ -8,6 +8,7 @@ class CountryBase(BaseModel):
     
     name: str
     code: str
+    slug: str | None = None
     status: str
 
 

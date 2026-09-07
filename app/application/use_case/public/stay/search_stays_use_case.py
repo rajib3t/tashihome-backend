@@ -76,8 +76,11 @@ class PublicSearchStaysUseCase(BaseUseCase, PropertySerializerMixin):
         properties_page = await self.property_service.search_stays(
             region=region_query,
             city_name=city_name,
+            city_slug=params.city_slug,
             location_name=location_name,
+            location_slug=params.location_slug,
             country_name=country_name,
+            country_slug=params.country_slug,
             city_id=params.city_id,
             location_id=params.location_id,
             country_id=params.country_id,

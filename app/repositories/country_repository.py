@@ -15,6 +15,7 @@ class CountryRepository(BaseRepository[Country]):
     _filter_map = {
         "name": Country.name,
         "code": Country.code,
+        "slug": Country.slug,
         "status": Country.status,
         "public_id": Country.public_id,
     }
@@ -81,6 +82,19 @@ class CountryRepository(BaseRepository[Country]):
     ) -> Optional[Country]:
         query = self._apply_relations(
             select(Country).where(func.lower(Country.code) == code.strip().lower()),
+            with_relations,
+            self._relation_map,
+        )
+        return await self._fetch_one(query, flush=flush)
+
+    async def get_by_slug(
+        self,
+        slug: str,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Country]:
+        query = self._apply_relations(
+            select(Country).where(Country.slug == slug.strip().lower()),
             with_relations,
             self._relation_map,
         )
@@ -157,7 +171,7 @@ class CountryRepository(BaseRepository[Country]):
         flush: bool = False,
     ) -> Page[Country]:
         query = select(Country).order_by(Country.created_at.desc())
-        query = self._apply_search(query, search, search_fields=[Country.name, Country.code])
+        query = self._apply_search(query, search, search_fields=[Country.name, Country.code, Country.slug])
         query = self._apply_dynamic_filters(query, filters, self._filter_map)
         query = self._apply_relations(query, with_relations, self._relation_map)
 

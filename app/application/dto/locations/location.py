@@ -8,6 +8,7 @@ from pydantic import ConfigDict, field_validator
 class LocationDTO:
     name: str
     city_id: str
+    slug: Optional[str] = None
 
     @field_validator("name")
     @classmethod
@@ -20,6 +21,7 @@ class LocationDTO:
 class UpdateLocationDTO:
     name: str
     city_id: str
+    slug: Optional[str] = None
 
     @field_validator("name")
     @classmethod
@@ -45,5 +47,6 @@ class LocationQueryDTO:
     sort_order: str = "desc"
     name: Optional[str] = None
     city_id: Optional[str] = None
+    slug: Optional[str] = None
     status: Optional[str] = None
     filters: Optional[list[LocationFilterDTO]] = None

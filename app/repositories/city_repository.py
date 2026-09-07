@@ -13,6 +13,7 @@ class CityRepository(BaseRepository[City]):
     }
     _filter_map = {
         "name": City.name,
+        "slug": City.slug,
         "country_id": City.country_id,
         "status": City.status,
         "public_id": City.public_id,
@@ -47,6 +48,19 @@ class CityRepository(BaseRepository[City]):
    ) -> Optional[City]:
         query = self._apply_relations(
             select(City).where(City.name.ilike(name.strip())),
+            with_relations,
+            self._relation_map,
+        )
+        return await self._fetch_one(query, flush=flush)
+
+    async def get_by_slug(
+        self,
+        slug: str,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[City]:
+        query = self._apply_relations(
+            select(City).where(City.slug == slug.strip().lower()),
             with_relations,
             self._relation_map,
         )
@@ -112,7 +126,7 @@ class CityRepository(BaseRepository[City]):
             flush: bool = False,
         ) -> Page[City]:
             query = select(City).order_by(City.created_at.desc())
-            query = self._apply_search(query, search, search_fields=[City.name, City.country_id])
+            query = self._apply_search(query, search, search_fields=[City.name, City.slug, City.country_id])
             query = self._apply_dynamic_filters(query, filters, self._filter_map)
             query = self._apply_relations(query, with_relations, self._relation_map)
     

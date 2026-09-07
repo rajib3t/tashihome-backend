@@ -5,6 +5,7 @@ from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.country_model import Country, CountryStatus
 from app.services.country_service import CountryService
+from app.utils.slug import generate_slug, generate_unique_slug
 
 
 class UpdateCountryUseCase:
@@ -54,6 +55,25 @@ class UpdateCountryUseCase:
                 field="code",
             )
 
+        target_slug_source = country_data.slug or (country_data.name if country_data.name != existing_country.name or not getattr(existing_country, "slug", None) else None)
+        if target_slug_source:
+            base_slug = await generate_slug(target_slug_source)
+            if base_slug:
+                duplicate_slug = await self.country_service.get_by_slug(base_slug, flush=False)
+                if duplicate_slug and duplicate_slug.id != existing_country.id:
+                    if country_data.slug:
+                        raise AppException(
+                            status_code=409,
+                            message="Country slug already exists",
+                            error_code="COUNTRY_SLUG_EXIST",
+                            field="slug",
+                        )
+                    base_slug = await generate_unique_slug(
+                        base_slug,
+                        lambda s: self._is_slug_taken_by_other(s, existing_country.id),
+                    )
+                existing_country.slug = base_slug
+
         existing_country.name = country_data.name
         existing_country.code = country_data.code
         existing_country.updated_by = self.current_user.id
@@ -61,6 +81,10 @@ class UpdateCountryUseCase:
         updated_country = await self.country_service.update_country(existing_country)
 
         return updated_country
+
+    async def _is_slug_taken_by_other(self, slug: str, current_id: int) -> bool:
+        found = await self.country_service.get_by_slug(slug, flush=False)
+        return bool(found and found.id != current_id)
         
 
 class UpdateStatusCountryUseCase:

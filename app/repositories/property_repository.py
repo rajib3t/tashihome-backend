@@ -185,8 +185,11 @@ class PropertyRepository(BaseRepository[Property]):
         self,
         region: Optional[str] = None,
         city_name: Optional[str] = None,
+        city_slug: Optional[str] = None,
         location_name: Optional[str] = None,
+        location_slug: Optional[str] = None,
         country_name: Optional[str] = None,
+        country_slug: Optional[str] = None,
         city_id: Optional[int | str] = None,
         location_id: Optional[int | str] = None,
         country_id: Optional[int | str] = None,
@@ -238,41 +241,53 @@ class PropertyRepository(BaseRepository[Property]):
                     Property.address.ilike(term),
                     Property.description.ilike(term),
                     City.name.ilike(term),
+                    City.slug.ilike(term),
                     Location.name.ilike(term),
+                    Location.slug.ilike(term),
                     Country.name.ilike(term),
+                    Country.slug.ilike(term),
                 )
             )
 
-        # 2. City name filter
-        if city_name and city_name.strip():
-            query = query.where(City.name.ilike(f"%{city_name.strip()}%"))
+        # 2. City filter (slug or name)
+        if city_slug and city_slug.strip():
+            query = query.where(func.lower(City.slug) == city_slug.strip().lower())
+        elif city_name and city_name.strip():
+            c_term = city_name.strip().lower()
+            query = query.where(or_(func.lower(City.slug) == c_term, City.name.ilike(f"%{city_name.strip()}%")))
 
-        # 3. Location name filter
-        if location_name and location_name.strip():
-            query = query.where(Location.name.ilike(f"%{location_name.strip()}%"))
+        # 3. Location filter (slug or name)
+        if location_slug and location_slug.strip():
+            query = query.where(func.lower(Location.slug) == location_slug.strip().lower())
+        elif location_name and location_name.strip():
+            l_term = location_name.strip().lower()
+            query = query.where(or_(func.lower(Location.slug) == l_term, Location.name.ilike(f"%{location_name.strip()}%")))
 
-        # 4. Country name filter
-        if country_name and country_name.strip():
-            query = query.where(Country.name.ilike(f"%{country_name.strip()}%"))
+        # 4. Country filter (slug or name)
+        if country_slug and country_slug.strip():
+            query = query.where(func.lower(Country.slug) == country_slug.strip().lower())
+        elif country_name and country_name.strip():
+            co_term = country_name.strip().lower()
+            query = query.where(or_(func.lower(Country.slug) == co_term, Country.name.ilike(f"%{country_name.strip()}%")))
 
-        # 5. ID filters (city_id, location_id, country_id)
+        # 5. ID filters (city_id, location_id, country_id - supports integer ID, public UUID, or slug)
         if city_id is not None:
             if isinstance(city_id, int) or (isinstance(city_id, str) and city_id.isdigit()):
                 query = query.where(Property.city_id == int(city_id))
             else:
-                query = query.where(City.public_id == city_id)
+                query = query.where(or_(City.public_id == city_id, func.lower(City.slug) == str(city_id).strip().lower()))
 
         if location_id is not None:
             if isinstance(location_id, int) or (isinstance(location_id, str) and location_id.isdigit()):
                 query = query.where(Property.location_id == int(location_id))
             else:
-                query = query.where(Location.public_id == location_id)
+                query = query.where(or_(Location.public_id == location_id, func.lower(Location.slug) == str(location_id).strip().lower()))
 
         if country_id is not None:
             if isinstance(country_id, int) or (isinstance(country_id, str) and country_id.isdigit()):
                 query = query.where(City.country_id == int(country_id))
             else:
-                query = query.where(Country.public_id == country_id)
+                query = query.where(or_(Country.public_id == country_id, func.lower(Country.slug) == str(country_id).strip().lower()))
 
         # 6. Featured filter
         if is_featured is not None:
@@ -406,19 +421,26 @@ class PropertyRepository(BaseRepository[Property]):
 
             query = query.where(avail_units >= rooms)
 
-        # 13. Sorting
-        sort_by_lower = sort_by.lower()
+        # 13. Sorting: Featured properties always show first in the list
+        order_clauses = [
+            case((Property.is_featured == True, 0), else_=1)
+        ]
+
+        sort_by_lower = (sort_by or "created_at").lower()
         if sort_by_lower in ["price_asc", "price_low_to_high"]:
-            query = query.order_by(effective_price.asc())
+            order_clauses.append(effective_price.asc())
         elif sort_by_lower in ["price_desc", "price_high_to_low"]:
-            query = query.order_by(effective_price.desc())
+            order_clauses.append(effective_price.desc())
         elif sort_by_lower == "price":
-            query = query.order_by(effective_price.asc() if sort_order.lower() == "asc" else effective_price.desc())
+            order_clauses.append(effective_price.asc() if sort_order.lower() == "asc" else effective_price.desc())
         elif sort_by_lower == "name":
-            query = query.order_by(Property.name.asc() if sort_order.lower() == "asc" else Property.name.desc())
+            order_clauses.append(func.lower(Property.name).asc() if sort_order.lower() == "asc" else func.lower(Property.name).desc())
+        elif sort_by_lower == "created_at":
+            order_clauses.append(Property.created_at.desc() if sort_order.lower() == "desc" else Property.created_at.asc())
         else:
-            # Default: created_at
-            query = query.order_by(Property.created_at.desc() if sort_order.lower() == "desc" else Property.created_at.asc())
+            order_clauses.append(Property.created_at.desc() if sort_order.lower() == "desc" else Property.created_at.asc())
+
+        query = query.order_by(*order_clauses)
 
         # 14. Eager-load relations and paginate
         query = self._apply_relations(query, with_relations, self._relation_map)

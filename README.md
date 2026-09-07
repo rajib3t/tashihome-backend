@@ -237,3 +237,5 @@ pytest tests/test_public_stats_scheduler.py -v
 - [database.md](database.md) — Comprehensive database schema, table catalogs, and enum references
 - [security.md](security.md) — Authentication, rate limiting, and security policies
 - [phases.md](phases.md) — Implementation roadmap and milestones
+- [docs/frontend_public_properties_guide.md](docs/frontend_public_properties_guide.md) — Frontend integration guide for public properties, slug filters, pricing, and sorting
+

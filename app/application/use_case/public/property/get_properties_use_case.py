@@ -28,11 +28,10 @@ class PublicPropertiesUseCase(BaseUseCase, PropertySerializerMixin):
         self.review_service = review_service
 
 
-    async def execute(self, params : PublicPropertyQueryDTO) -> Page:
-        filters = list(params.filters or [])
-        filters.append({"name": "status", "value": PropertyStatus.ACTIVE})  # Only fetch active properties
+    async def execute(self, params: PublicPropertyQueryDTO) -> Page:
+        # Validate UUIDs if provided and ensure entities exist when querying by ID
         if params.city_id:
-            city = await self.city_service.get_by_public_id(params.city_id)
+            city = await self.city_service.get_by_public_id(params.city_id, flush=True)
             if not city:
                 raise AppException(
                     status_code=404,
@@ -40,9 +39,9 @@ class PublicPropertiesUseCase(BaseUseCase, PropertySerializerMixin):
                     field="city_id",
                     error_code="CITY_NOT_FOUND",
                 )
-            filters.append({"name": "city_id", "value": city.id})
+
         if params.location_id:
-            location = await self.location_service.get_by_public_id(params.location_id)
+            location = await self.location_service.get_by_public_id(params.location_id, flush=True)
             if not location:
                 raise AppException(
                     status_code=404,
@@ -50,35 +49,49 @@ class PublicPropertiesUseCase(BaseUseCase, PropertySerializerMixin):
                     field="location_id",
                     error_code="LOCATION_NOT_FOUND",
                 )
-            filters.append({"name": "location_id", "value": location.id})
-        if params.is_featured:
-            if params.is_featured not in [True, False]:
-                raise AppException(
-                    status_code=422,
-                    message="Invalid is_featured filter. Must be 'true' or 'false'.",
-                    field="is_featured",
-                    error_code="IS_FEATURED_INVALID",
-                )
-            if params.is_featured:
-                filters.append({"name": "is_featured", "value": True})
-            else:
-                filters.append({"name": "is_featured", "value": False})
-        
-          # Debugging line to check filters
-        properties_page = await self.property_service.list(
-                page=params.page,
-                page_size=params.size,
-                filters=filters,
-                with_relations={
-                    "city": True,
-                    "location": True,
-        
-                    "property_assets": True,
-                },
-                flush=True,
-            )
 
-        
+        if params.city_slug:
+            city = await self.city_service.get_by_slug(params.city_slug, flush=True)
+            if not city:
+                raise AppException(
+                    status_code=404,
+                    message="City with given slug not found.",
+                    field="city_slug",
+                    error_code="CITY_NOT_FOUND",
+                )
+
+        if params.location_slug:
+            location = await self.location_service.get_by_slug(params.location_slug, flush=True)
+            if not location:
+                raise AppException(
+                    status_code=404,
+                    message="Location with given slug not found.",
+                    field="location_slug",
+                    error_code="LOCATION_NOT_FOUND",
+                )
+
+        properties_page = await self.property_service.search_stays(
+            city_slug=params.city_slug,
+            location_slug=params.location_slug,
+            country_slug=params.country_slug,
+            city_id=params.city_id,
+            location_id=params.location_id,
+            country_id=params.country_id,
+            min_price=params.min_price,
+            max_price=params.max_price,
+            is_featured=params.is_featured,
+            sort_by=params.sort_by,
+            sort_order=params.sort_order,
+            page=params.page,
+            page_size=params.size,
+            with_relations={
+                "city": True,
+                "location": True,
+                "property_assets": True,
+            },
+            flush=True,
+        )
+
         # Fetch rating summaries for properties if review_service is available
         rating_summaries = {}
         if self.review_service and properties_page.items:

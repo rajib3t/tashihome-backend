@@ -12,13 +12,16 @@ class PublicSearchStaysQueryDTO:
     search: Optional[str] = None
     q: Optional[str] = None
     
-    # Location by name (preferred) or ID
+    # Location by name (preferred) or ID or slug
     city_name: Optional[str] = None
     city: Optional[str] = None
+    city_slug: Optional[str] = None
     location_name: Optional[str] = None
     location: Optional[str] = None
+    location_slug: Optional[str] = None
     country_name: Optional[str] = None
     country: Optional[str] = None
+    country_slug: Optional[str] = None
     
     city_id: Optional[str] = None
     location_id: Optional[str] = None

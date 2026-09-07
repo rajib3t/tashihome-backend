@@ -7,6 +7,7 @@ from app.schemas.response import PaginationResponse
 
 class CityBase(BaseModel):
     name: str
+    slug: str | None = None
     country: CountrySchema | None = None
     image_url: str | None = None
     tag_line: str | None = None

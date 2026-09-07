@@ -42,6 +42,18 @@ class CityService:
             with_relations=with_relations,
             flush=flush
         )
+
+    async def get_by_slug(
+        self,
+        slug: str,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[City]:
+        return await self.city_repository.get_by_slug(
+            slug,
+            with_relations=with_relations,
+            flush=flush
+        )
     async def get_by_id(
         self,
         city_id: int,

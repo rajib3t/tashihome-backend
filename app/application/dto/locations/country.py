@@ -20,6 +20,7 @@ class CountryQueryDTO:
     sort_order: str = "desc"
     name: Optional[str] = None
     code: Optional[str] = None
+    slug: Optional[str] = None
     status: Optional[str] = None
     filters: Optional[list[CountryFilterDTO]] = None
 
@@ -51,6 +52,7 @@ class CountryQueryDTO:
 class CountryDTO:
     name: str
     code: str
+    slug: Optional[str] = None
     
 
     @field_validator("name")

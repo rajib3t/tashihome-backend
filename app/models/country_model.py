@@ -23,6 +23,7 @@ class Country(Base):
     )
 
     name = Column(String(255), unique=True, nullable=False, index=True)
+    slug = Column(String(255), unique=True, nullable=False, index=True)
 
     code = Column(String(10), unique=True, nullable=False, index=True)
 

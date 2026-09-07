@@ -7,6 +7,7 @@ from app.services.city_service import CityService
 from app.services.country_service import CountryService
 from app.services.storage_service import StorageService
 from app.application.dto.locations.city import CityDTO
+from app.utils.slug import generate_slug, generate_unique_slug
 import copy
 
 
@@ -80,6 +81,25 @@ class UpdateCityUseCase(BaseUseCase):
                 field="country_id",
             )
 
+        target_slug_source = data.slug or (data.name if data.name != existing_city.name or not getattr(existing_city, "slug", None) else None)
+        if target_slug_source:
+            base_slug = await generate_slug(target_slug_source)
+            if base_slug:
+                duplicate_slug = await self.service.get_by_slug(base_slug, flush=False)
+                if duplicate_slug and duplicate_slug.id != existing_city.id:
+                    if data.slug:
+                        raise AppException(
+                            status_code=409,
+                            message="City slug already exists",
+                            error_code="CITY_SLUG_EXIST",
+                            field="slug",
+                        )
+                    base_slug = await generate_unique_slug(
+                        base_slug,
+                        lambda s: self._is_slug_taken_by_other(s, existing_city.id),
+                    )
+                existing_city.slug = base_slug
+
         image_url = data.image_url
         if self._is_upload_file(image_url):
             old_image_url = existing_city.image_url
@@ -128,6 +148,10 @@ class UpdateCityUseCase(BaseUseCase):
             return display_city
         
         return city
+
+    async def _is_slug_taken_by_other(self, slug: str, current_id: int) -> bool:
+        found = await self.service.get_by_slug(slug, flush=False)
+        return bool(found and found.id != current_id)
 
 
 class UpdateStatusCityUseCase(BaseUseCase):

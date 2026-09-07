@@ -15,6 +15,7 @@ INVALID_CITY_NAME_PATTERN = re.compile(r"[<>\"`]")
 class CityDTO:
     name: str
     country_id: str
+    slug: Optional[str] = None
     short_description : Optional[str]=None
     tag_line : Optional[str]=None
     is_featured: Optional[bool] = False
@@ -144,5 +145,6 @@ class CityQueryDTO:
     sort_order: str = "desc"
     name: Optional[str] = None
     country_id: Optional[str] = None
+    slug: Optional[str] = None
     status: Optional[str] = None
     filters: Optional[list[CityFilterDTO]] = None

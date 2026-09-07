@@ -3,6 +3,7 @@ from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.country_model import Country
 from app.services.country_service import CountryService
+from app.utils.slug import generate_slug, generate_unique_slug
 
 
 class CreateCountryUseCase:
@@ -35,11 +36,24 @@ class CreateCountryUseCase:
                 field="code",
             )
 
-        
+        base_slug = await generate_slug(country_data.slug or country_data.name)
+        if not base_slug:
+            raise AppException(
+                status_code=422,
+                message="Slug generation failed.",
+                field="slug",
+                error_code="SLUG_GENERATION_FAILED",
+            )
+
+        slug = await generate_unique_slug(
+            base_slug,
+            lambda s: self.country_service.get_by_slug(s, flush=True),
+        )
 
         new_country = Country(
             name=country_data.name, 
             code=country_data.code,
+            slug=slug,
             created_by=self.current_user.id,
             updated_by=self.current_user.id
         )

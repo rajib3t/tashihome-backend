@@ -16,6 +16,7 @@ class LocationRepository(BaseRepository[Location]):
     }
     _filter_map = {
         "name": Location.name,
+        "slug": Location.slug,
         "status": Location.status,
         "city_id": Location.city_id,
         "public_id": Location.public_id,
@@ -55,6 +56,40 @@ class LocationRepository(BaseRepository[Location]):
             with_relations,
             self._relation_map,
         )
+        return await self._fetch_one(query, flush=flush)
+
+    async def get_by_slug_and_city_id(
+        self,
+        slug: str,
+        city_id: int,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Location]:
+        query = self._apply_relations(
+            select(Location).where(
+                Location.city_id == city_id,
+                Location.slug == slug.strip().lower(),
+            ),
+            with_relations,
+            self._relation_map,
+        )
+        return await self._fetch_one(query, flush=flush)
+
+    async def get_by_slug(
+        self,
+        slug: str,
+        with_relations: Optional[WithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Location]:
+        query = self._apply_relations(
+            select(Location).where(
+                Location.slug == slug.strip().lower(),
+            ),
+            with_relations,
+            self._relation_map,
+        )
+        if with_relations and with_relations.get("city"):
+            query = self._with_city_country(query)
         return await self._fetch_one(query, flush=flush)
 
     async def get_by_public_id(
@@ -121,7 +156,7 @@ class LocationRepository(BaseRepository[Location]):
         flush: bool = False,
         ) -> Page[Location]:
             query = select(Location).order_by(Location.created_at.desc())
-            query = self._apply_search(query, search, search_fields=[Location.name, Location.city_id])
+            query = self._apply_search(query, search, search_fields=[Location.name, Location.slug, Location.city_id])
             query = self._apply_dynamic_filters(query, filters, self._filter_map)
             query = self._apply_relations(query, with_relations, self._relation_map)
             if with_relations and with_relations.get("city"):

@@ -5,6 +5,7 @@ from app.models.location_model import Location
 from app.services.location_service import LocationService
 from app.services.city_service import CityService
 from app.deps.auth import CurrentUser
+from app.utils.slug import generate_slug, generate_unique_slug
 
 class CreateLocationUseCase(BaseUseCase):
     def __init__(
@@ -44,8 +45,23 @@ class CreateLocationUseCase(BaseUseCase):
                 field="name",
             )
 
+        base_slug = await generate_slug(location_data.slug or location_data.name)
+        if not base_slug:
+            raise AppException(
+                status_code=422,
+                message="Slug generation failed.",
+                field="slug",
+                error_code="SLUG_GENERATION_FAILED",
+            )
+
+        slug = await generate_unique_slug(
+            base_slug,
+            lambda s: self.service.get_by_slug_and_city_id(s, city.id, flush=True),
+        )
+
         location = Location(
             name=location_data.name,
+            slug=slug,
             city_id=city.id,
             created_by=self.current_user.id,
             updated_by=self.current_user.id,

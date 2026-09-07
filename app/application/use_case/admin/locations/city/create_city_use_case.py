@@ -7,6 +7,7 @@ from app.application.dto.locations.city import CityDTO
 from app.deps.auth import CurrentUser
 from app.services.storage_service import StorageService
 from app.services.city_service import CityService
+from app.utils.slug import generate_slug, generate_unique_slug
 import copy
 class CreateCityUseCase(BaseUseCase):
     FILE_UPLOAD_RULES = {
@@ -33,6 +34,7 @@ class CreateCityUseCase(BaseUseCase):
         payload = {
             "name": city_data.name,
             "country_id": city_data.country_id,
+            "slug": city_data.slug,
             "image_url": city_data.image_url,
             "short_description": city_data.short_description,
             "tag_line": city_data.tag_line,
@@ -57,6 +59,21 @@ class CreateCityUseCase(BaseUseCase):
                 error_code="CITY_NAME_TOO_SIMILAR",
                 field="name",
             )
+
+        base_slug = await generate_slug(payload["slug"] or payload["name"])
+        if not base_slug:
+            raise AppException(
+                status_code=422,
+                message="Slug generation failed.",
+                field="slug",
+                error_code="SLUG_GENERATION_FAILED",
+            )
+
+        slug = await generate_unique_slug(
+            base_slug,
+            lambda s: self.city_service.get_by_slug(s, flush=True),
+        )
+
         if self._is_upload_file(payload.get("image_url")):
             payload["image_url"] = await self._upload_file(
                 payload["image_url"], folder="cities", field_name="image_url", webp=True
@@ -88,6 +105,7 @@ class CreateCityUseCase(BaseUseCase):
                 )
         city_obj = City(
             name=payload["name"],
+            slug=slug,
             image_url=payload["image_url"],
             country_id=country.id,
             short_description=payload["short_description"],

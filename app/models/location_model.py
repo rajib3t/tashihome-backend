@@ -21,6 +21,7 @@ class Location(Base):
 
     # remove unique=True here, keep index for lookup speed
     name = Column(String(255), nullable=False, index=True)
+    slug = Column(String(255), nullable=False, index=True)
 
     image_url = Column(String(500), nullable=True)
     city_id = Column(
@@ -43,6 +44,7 @@ class Location(Base):
 
     __table_args__ = (
         UniqueConstraint("city_id", "name", name="uq_location_city_name"),
+        UniqueConstraint("city_id", "slug", name="uq_location_city_slug"),
     )
 
     properties = relationship(
