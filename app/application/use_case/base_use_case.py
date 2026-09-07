@@ -15,14 +15,17 @@ mimetypes.add_type("image/x-ico", ".ico")
 
 class BaseUseCase:
     @staticmethod
-    def _normalize_payload_value(key: str, value: Any) -> Any:
+    def _normalize_payload_value(key: str, value: Any) -> str:
         if isinstance(value, (datetime, date)):
             return value.isoformat()
 
         if isinstance(value, bool):
             return str(value).lower()
 
-        return value
+        if value is None:
+            return ""
+
+        return str(value)
 
     @staticmethod
     def _is_upload_file(value) -> bool:

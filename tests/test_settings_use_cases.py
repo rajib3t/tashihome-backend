@@ -68,7 +68,10 @@ async def test_update_platform_settings(mock_setting_service, mock_storage_servi
     assert saved_settings["default_currency"] == "INR"
     assert saved_settings["contact_email"] == "support@tashihomes.in"
     assert saved_settings["contact_whatsapp"] == "+919876543210"
-    assert saved_settings["default_commission_percentage"] == 10.0
+    assert saved_settings["default_commission_percentage"] == "10.0"
+    assert saved_settings["service_fee_percentage"] == "2.5"
+    assert saved_settings["min_booking_days"] == "1"
+    assert saved_settings["max_booking_days"] == "30"
     assert saved_settings["is_enabled_coming_soon"] == "false"
     assert len(response) > 0
 

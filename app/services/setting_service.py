@@ -51,28 +51,29 @@ class SettingService:
         setting = await self.setting_repository.get_by_key(key)
         return setting.value if setting else default
 
-    async def create(self, key: str, value: str, commit: bool = True) -> Setting:
+    async def create(self, key: str, value: Any, commit: bool = True) -> Setting:
         """
         Create a new setting.
 
         Args:
             key (str): The key of the setting.
-            value (str): The value of the setting.
+            value (Any): The value of the setting.
             commit (bool): Whether to commit the transaction immediately.
 
         Returns:
             Setting: The created setting object.
         """
-        setting = Setting(key=key, value=value)
+        str_value = str(value) if value is not None else ""
+        setting = Setting(key=key, value=str_value)
         return await self.setting_repository.save(setting, commit=commit)
 
-    async def update_value(self, key: str, value: str, commit: bool = True) -> Setting:
+    async def update_value(self, key: str, value: Any, commit: bool = True) -> Setting:
         """
         Update the value of an existing setting.
 
         Args:
             key (str): The key of the setting to update.
-            value (str): The new value for the setting.
+            value (Any): The new value for the setting.
             commit (bool): Whether to commit the transaction immediately.
 
         Returns:
@@ -82,26 +83,28 @@ class SettingService:
             SettingNotFoundError: If no setting exists with the given key.
         """
         setting = await self.get_by_key(key)
-        setting.value = value
+        str_value = str(value) if value is not None else ""
+        setting.value = str_value
         return await self.setting_repository.save(setting, commit=commit)
 
-    async def upsert(self, key: str, value: str, commit: bool = True) -> Setting:
+    async def upsert(self, key: str, value: Any, commit: bool = True) -> Setting:
         """
         Create a setting if it doesn't exist, otherwise update its value.
 
         Args:
             key (str): The key of the setting.
-            value (str): The value to set.
+            value (Any): The value to set.
             commit (bool): Whether to commit the transaction immediately.
 
         Returns:
             Setting: The created or updated setting object.
         """
         setting = await self.setting_repository.get_by_key(key)
+        str_value = str(value) if value is not None else ""
         if setting is None:
-            setting = Setting(key=key, value=value)
+            setting = Setting(key=key, value=str_value)
         else:
-            setting.value = value
+            setting.value = str_value
         return await self.setting_repository.save(setting, commit=commit)
 
 
