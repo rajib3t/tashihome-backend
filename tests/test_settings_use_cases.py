@@ -50,6 +50,7 @@ async def test_update_platform_settings(mock_setting_service, mock_storage_servi
         currency_symbol="₹",
         contact_email="support@tashihomes.in",
         contact_phone="+919876543210",
+        contact_whatsapp="+919876543210",
         default_commission_percentage=10.0,
         service_fee_percentage=2.5,
         check_in_time="14:00",
@@ -66,6 +67,7 @@ async def test_update_platform_settings(mock_setting_service, mock_storage_servi
     assert saved_settings["app_name"] == "Tashi Homestays"
     assert saved_settings["default_currency"] == "INR"
     assert saved_settings["contact_email"] == "support@tashihomes.in"
+    assert saved_settings["contact_whatsapp"] == "+919876543210"
     assert saved_settings["default_commission_percentage"] == 10.0
     assert saved_settings["is_enabled_coming_soon"] == "false"
     assert len(response) > 0

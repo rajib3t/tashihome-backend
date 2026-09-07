@@ -312,6 +312,7 @@ export interface SystemSettingsMap {
   contact_email?: string;
   contact_phone?: string;
   contact_address?: string;
+  contact_whatsapp?: string;
 
   // Homestay & Booking Financials
   default_commission_percentage?: string | number;
@@ -333,6 +334,7 @@ export interface SystemSettingsMap {
   meta_title?: string;
   meta_description?: string;
   meta_keywords?: string;
+  meta_image?: string;
   terms_and_conditions_url?: string;
   privacy_policy_url?: string;
   refund_policy_url?: string;
@@ -553,7 +555,7 @@ import { TaxItem, TaxQueryFilters } from '@/types/tax';
 
 // Convert SettingItem[] array to key-value object map
 export function toSettingsMap(settingsList: SettingItem[]): SystemSettingsMap {
-  return settingsList.reduce((acc, item) => {
+  return (settingsList || []).reduce((acc, item) => {
     acc[item.name as keyof SystemSettingsMap] = item.value as any;
     return acc;
   }, {} as SystemSettingsMap);
@@ -582,4 +584,352 @@ export function useAdminTaxes(filters?: TaxQueryFilters) {
   });
 }
 ```
+
+---
+
+## 9. Setting-Driven UI Components & Implementation Guide
+
+Below are complete, production-ready React / Next.js implementation patterns showing how to dynamically render settings across the application.
+
+### 9.1 Global Settings Context / Provider
+
+```tsx
+// src/context/SettingsContext.tsx
+import React, { createContext, useContext, ReactNode } from 'react';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
+import { SystemSettingsMap } from '@/types/settings';
+
+const defaultSettings: SystemSettingsMap = {
+  app_name: 'Tashi Homestay',
+  default_currency: 'INR',
+  currency_symbol: '₹',
+  contact_email: 'support@tashihome.in',
+  contact_phone: '+91 9876543210',
+  contact_whatsapp: '+91 9876543210',
+  contact_address: 'MG Marg, Gangtok, Sikkim - 737101, India',
+  check_in_time: '14:00',
+  check_out_time: '11:00',
+  is_enabled_coming_soon: 'false',
+};
+
+interface SettingsContextType {
+  settings: SystemSettingsMap;
+  isLoading: boolean;
+  formatPrice: (amount: number) => string;
+}
+
+const SettingsContext = createContext<SettingsContextType>({
+  settings: defaultSettings,
+  isLoading: false,
+  formatPrice: (amt) => `₹${amt.toLocaleString('en-IN')}`,
+});
+
+export const SettingsProvider = ({ children }: { children: ReactNode }) => {
+  const { data: fetchedSettings, isLoading } = usePublicSettings();
+  const settings: SystemSettingsMap = { ...defaultSettings, ...(fetchedSettings || {}) };
+
+  const formatPrice = (amount: number): string => {
+    const symbol = settings.currency_symbol || '₹';
+    return `${symbol} ${Number(amount).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  return (
+    <SettingsContext.Provider value={{ settings, isLoading, formatPrice }}>
+      {children}
+    </SettingsContext.Provider>
+  );
+};
+
+export const useSettings = () => useContext(SettingsContext);
+```
+
+---
+
+### 9.2 Dynamic Header / Navbar
+
+```tsx
+// src/components/layout/Navbar.tsx
+import React from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { useSettings } from '@/context/SettingsContext';
+import { Phone, MessageCircle } from 'lucide-react';
+
+export const Navbar = () => {
+  const { settings } = useSettings();
+
+  return (
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm border-b border-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        {/* Brand Logo & Name */}
+        <Link href="/" className="flex items-center gap-3">
+          {settings.app_logo ? (
+            <img
+              src={settings.app_logo}
+              alt={settings.app_name || 'Logo'}
+              className="h-10 w-auto object-contain"
+            />
+          ) : (
+            <span className="text-xl font-bold text-emerald-800">
+              {settings.app_name || 'Tashi Homestay'}
+            </span>
+          )}
+        </Link>
+
+        {/* Quick Contact & Action Buttons */}
+        <div className="flex items-center gap-4">
+          {settings.contact_phone && (
+            <a
+              href={`tel:${settings.contact_phone}`}
+              className="hidden md:flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-emerald-700"
+            >
+              <Phone className="w-4 h-4 text-emerald-600" />
+              <span>{settings.contact_phone}</span>
+            </a>
+          )}
+
+          {settings.contact_whatsapp && (
+            <a
+              href={`https://wa.me/${settings.contact_whatsapp.replace(/[^0-9]/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 transition"
+            >
+              <MessageCircle className="w-4 h-4 text-emerald-600" />
+              <span className="hidden sm:inline">WhatsApp Help</span>
+            </a>
+          )}
+
+          <Link
+            href="/homestays"
+            className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 shadow-sm"
+          >
+            Explore Stays
+          </Link>
+        </div>
+      </div>
+    </header>
+  );
+};
+```
+
+---
+
+### 9.3 Dynamic Footer with Contact, Social & Policies
+
+```tsx
+// src/components/layout/Footer.tsx
+import React from 'react';
+import Link from 'next/link';
+import { useSettings } from '@/context/SettingsContext';
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Facebook,
+  Instagram,
+  Twitter,
+  Linkedin,
+  Youtube,
+} from 'lucide-react';
+
+export const Footer = () => {
+  const { settings } = useSettings();
+
+  const socialLinks = [
+    { icon: Facebook, url: settings.facebook_url, label: 'Facebook' },
+    { icon: Instagram, url: settings.instagram_url, label: 'Instagram' },
+    { icon: Twitter, url: settings.twitter_url, label: 'Twitter' },
+    { icon: Linkedin, url: settings.linkedin_url, label: 'LinkedIn' },
+    { icon: Youtube, url: settings.youtube_url, label: 'YouTube' },
+  ].filter((item) => Boolean(item.url));
+
+  return (
+    <footer className="bg-gray-900 text-gray-300 pt-12 pb-8 border-t border-gray-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+        {/* Brand Info */}
+        <div className="md:col-span-1">
+          {settings.white_logo || settings.app_logo ? (
+            <img
+              src={settings.white_logo || settings.app_logo}
+              alt={settings.app_name || 'Logo'}
+              className="h-10 w-auto mb-4 object-contain brightness-0 invert"
+            />
+          ) : (
+            <h3 className="text-xl font-bold text-white mb-4">{settings.app_name}</h3>
+          )}
+          <p className="text-sm text-gray-400">
+            {settings.meta_description ||
+              'Authentic mountain homestays and authentic Himalayan hospitality.'}
+          </p>
+        </div>
+
+        {/* Contact Info */}
+        <div>
+          <h4 className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Contact & Support</h4>
+          <ul className="space-y-2.5 text-sm">
+            {settings.contact_address && (
+              <li className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                <span>{settings.contact_address}</span>
+              </li>
+            )}
+            {settings.contact_phone && (
+              <li className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
+                <a href={`tel:${settings.contact_phone}`} className="hover:text-white">
+                  {settings.contact_phone}
+                </a>
+              </li>
+            )}
+            {settings.contact_email && (
+              <li className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
+                <a href={`mailto:${settings.contact_email}`} className="hover:text-white">
+                  {settings.contact_email}
+                </a>
+              </li>
+            )}
+          </ul>
+        </div>
+
+        {/* Legal & Policies */}
+        <div>
+          <h4 className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Policies</h4>
+          <ul className="space-y-2 text-sm">
+            {settings.terms_and_conditions_url && (
+              <li>
+                <a href={settings.terms_and_conditions_url} className="hover:text-white">
+                  Terms & Conditions
+                </a>
+              </li>
+            )}
+            {settings.privacy_policy_url && (
+              <li>
+                <a href={settings.privacy_policy_url} className="hover:text-white">
+                  Privacy Policy
+                </a>
+              </li>
+            )}
+            {settings.refund_policy_url && (
+              <li>
+                <a href={settings.refund_policy_url} className="hover:text-white">
+                  Cancellation & Refund Policy
+                </a>
+              </li>
+            )}
+          </ul>
+        </div>
+
+        {/* Social Media Links */}
+        <div>
+          <h4 className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Follow Us</h4>
+          <div className="flex gap-3">
+            {socialLinks.map(({ icon: Icon, url, label }) => (
+              <a
+                key={label}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={label}
+                className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white hover:bg-emerald-600 transition"
+              >
+                <Icon className="w-4 h-4" />
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 border-t border-gray-800 pt-6 text-center text-xs text-gray-500">
+        © {new Date().getFullYear()} {settings.app_name || 'Tashi Homestay'}. All rights reserved.
+      </div>
+    </footer>
+  );
+};
+```
+
+---
+
+### 9.4 Next.js App Router SEO & Metadata Integration
+
+In Next.js 13+ / 14+ (`app/layout.tsx` or `app/page.tsx`):
+
+```tsx
+// src/app/layout.tsx
+import { Metadata } from 'next';
+import axios from 'axios';
+
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/public/settings`);
+    const settingsList = res.data?.data || [];
+    const settings = settingsList.reduce((acc: any, item: any) => {
+      acc[item.name] = item.value;
+      return acc;
+    }, {});
+
+    return {
+      title: {
+        default: settings.meta_title || 'Tashi Homestay & Hospitality',
+        template: `%s | ${settings.app_name || 'Tashi Homestay'}`,
+      },
+      description: settings.meta_description || 'Authentic homestays in Northeast India',
+      keywords: settings.meta_keywords?.split(',').map((k: string) => k.trim()) || [],
+      icons: {
+        icon: settings.app_favicon || '/favicon.ico',
+      },
+      openGraph: {
+        title: settings.meta_title,
+        description: settings.meta_description,
+        images: settings.meta_image ? [{ url: settings.meta_image }] : [],
+      },
+    };
+  } catch (error) {
+    return {
+      title: 'Tashi Homestay',
+      description: 'Authentic mountain homestays',
+    };
+  }
+}
+```
+
+---
+
+### 9.5 Property Stay Policy Summary Helper
+
+```tsx
+// src/components/homestay/StayPolicyCard.tsx
+import React from 'react';
+import { useSettings } from '@/context/SettingsContext';
+import { Clock, ShieldCheck, Calendar } from 'lucide-react';
+
+export const StayPolicyCard = () => {
+  const { settings } = useSettings();
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-emerald-50/50 p-5 space-y-4">
+      <h4 className="font-semibold text-gray-900 text-sm">Booking & House Policies</h4>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-gray-700">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>Check-in: <strong>{settings.check_in_time || '14:00'}</strong></span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>Check-out: <strong>{settings.check_out_time || '11:00'}</strong></span>
+        </div>
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>Cancellation Grace: <strong>{settings.cancellation_grace_period_hours || '24'} hrs</strong></span>
+        </div>
+      </div>
+    </div>
+  );
+};
+```
+
 

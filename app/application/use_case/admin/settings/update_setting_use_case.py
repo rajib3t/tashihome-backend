@@ -44,6 +44,10 @@ class UpdateSettingUseCase(BaseUseCase):
             ),
             "max_size_bytes": 1 * 1024 * 1024,
         },
+        "meta_image": {
+            "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg", "image/webp"),
+            "max_size_bytes": 3 * 1024 * 1024,
+        },
         "coming_background_image": {
             "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg", "image/webp"),
             "max_size_bytes": 4 * 1024 * 1024,
@@ -100,6 +104,17 @@ class UpdateSettingUseCase(BaseUseCase):
             await self._delete_replaced_file(old_setting, new_file_key)
             payload["app_favicon"] = new_file_key
 
+        if self._is_upload_file(payload.get("meta_image")):
+            try:
+                old_setting = await self.setting_service.get_by_key("meta_image")
+            except SettingNotFoundError:
+                old_setting = None
+            new_file_key = await self._upload_file(
+                payload["meta_image"], folder="settings", field_name="meta_image", webp=True
+            )
+            await self._delete_replaced_file(old_setting, new_file_key)
+            payload["meta_image"] = new_file_key
+
         if self._is_upload_file(payload.get("coming_background_image")):
             try:
                 old_setting = await self.setting_service.get_by_key("coming_background_image")
@@ -150,6 +165,7 @@ class UpdateSettingUseCase(BaseUseCase):
                 "app_logo",
                 "white_logo",
                 "app_favicon",
+                "meta_image",
                 "coming_background_image",
                 "coming_soon_video",
             }:

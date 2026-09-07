@@ -16,6 +16,7 @@ class GetSettingUseCase:
         "app_logo",
         "white_logo",
         "app_favicon",
+        "meta_image",
         "coming_background_image",
         "coming_soon_video",
     }

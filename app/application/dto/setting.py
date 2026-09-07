@@ -22,6 +22,7 @@ class SettingUpdateDTO(BaseModel):
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_address: Optional[str] = None
+    contact_whatsapp: Optional[str] = None
 
     # Homestay & Booking / Financial Settings
     default_commission_percentage: Optional[Union[float, str]] = None
@@ -43,6 +44,7 @@ class SettingUpdateDTO(BaseModel):
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     meta_keywords: Optional[str] = None
+    meta_image: Optional[Union[str, UploadFile]] = None
     terms_and_conditions_url: Optional[str] = None
     privacy_policy_url: Optional[str] = None
     refund_policy_url: Optional[str] = None
