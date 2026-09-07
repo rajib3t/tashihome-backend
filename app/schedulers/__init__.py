@@ -19,12 +19,18 @@ def stop_scheduler(wait: bool = False) -> None:
     scheduler_manager.shutdown(wait=wait)
 
 
+async def trigger_job(name: str):
+    """Trigger immediate execution of a registered job."""
+    return await scheduler_manager.trigger_job(name)
+
+
 __all__ = [
     "BaseJob",
     "register_job",
     "get_job",
     "get_all_jobs",
     "run_job_by_name",
+    "trigger_job",
     "scheduler_manager",
     "start_scheduler",
     "stop_scheduler",

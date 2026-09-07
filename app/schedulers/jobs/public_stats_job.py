@@ -16,19 +16,27 @@ except ImportError:
     IntervalTrigger = None
 
 
+from datetime import timezone
+
 @register_job
 class PublicStatsJob(BaseJob):
     name = "update_public_stats"
     description = "Refresh public statistics cache in database for fast API responses"
     lock_ttl_seconds = 180  # 3 minutes
+    run_on_startup = True
+
+    @property
+    def interval_seconds(self) -> int:
+        interval_minutes = getattr(settings, "PUBLIC_STATS_UPDATE_INTERVAL_MINUTES", 15)
+        return max(1, interval_minutes) * 60
 
     @property
     def trigger(self) -> Any:
         interval_minutes = getattr(settings, "PUBLIC_STATS_UPDATE_INTERVAL_MINUTES", 15)
         if IntervalTrigger is not None:
-            return IntervalTrigger(minutes=interval_minutes)
+            return IntervalTrigger(minutes=max(1, interval_minutes), timezone=timezone.utc)
         # Fallback trigger specification representation if APScheduler not installed
-        return {"trigger": "interval", "minutes": interval_minutes}
+        return {"trigger": "interval", "minutes": max(1, interval_minutes)}
 
     async def run(self, session: AsyncSession) -> Dict[str, Any]:
         repository = DashboardRepository(session)

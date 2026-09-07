@@ -188,7 +188,7 @@ def test_run_job_by_name():
         with patch.object(PublicStatsJob, "run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = {"refreshed": True}
             with patch("app.schedulers.base.db") as mock_db:
-                mock_db._engine = "connected"
+                mock_db.engine = "connected"
                 mock_session = AsyncMock()
                 mock_db.async_session.return_value.__aenter__.return_value = mock_session
 

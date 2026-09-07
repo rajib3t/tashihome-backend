@@ -26,6 +26,12 @@ class BaseJob(ABC):
     name: str = "base_job"
     description: str = "Base scheduled job"
     lock_ttl_seconds: int = 300  # 5 minutes default lock
+    run_on_startup: bool = True  # Run immediately on service start before next interval
+
+    @property
+    def interval_seconds(self) -> int:
+        """Interval duration in seconds for native asyncio scheduler runner."""
+        return 900
 
     @property
     @abstractmethod
@@ -64,7 +70,7 @@ class BaseJob(ABC):
 
         try:
             # Ensure database is connected if called from standalone runner
-            if db._engine is None:
+            if db.engine is None:
                 db.connect()
 
             async with db.async_session() as session:
