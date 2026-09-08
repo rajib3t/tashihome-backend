@@ -1,13 +1,23 @@
+from __future__ import annotations
 from typing import Optional
 from urllib.parse import urlparse
 import io
-import boto3
-from aioboto3 import Session
-from botocore.exceptions import ClientError
+import json
+import logging
+try:
+    import boto3
+    from aioboto3 import Session
+    from botocore.exceptions import ClientError
+except ImportError:
+    boto3 = None
+    Session = None
+    class ClientError(Exception): pass
 from PIL import Image, ImageOps
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.utils.file_validation import validate_data_url_file
+
+logger = logging.getLogger(__name__)
 
 
 class StorageService:
@@ -17,12 +27,12 @@ class StorageService:
     """
 
     def __init__(self):
-        self.session = Session()
+        self.session = Session() if Session is not None else None
         self.bucket: Optional[str] = settings.S3_BUCKET
         self.client_params = {
-            "aws_access_key_id": settings.S3_ACCESS_KEY,
-            "aws_secret_access_key": settings.S3_SECRET_KEY,
-            "region_name": settings.S3_REGION,
+            "aws_access_key_id": settings.S3_ACCESS_KEY or settings.BEDROCK_AWS_ACCESS_KEY_ID,
+            "aws_secret_access_key": settings.S3_SECRET_KEY or settings.BEDROCK_AWS_SECRET_ACCESS_KEY,
+            "region_name": settings.S3_REGION or settings.BEDROCK_AWS_REGION,
         }
         if settings.S3_ENDPOINT_URL:
             self.client_params["endpoint_url"] = settings.S3_ENDPOINT_URL
@@ -35,10 +45,15 @@ class StorageService:
         data: bytes,
         content_type: Optional[str] = None,
         cache_control: str = "public, max-age=31536000, immutable",
+        bucket: Optional[str] = None,
     ) -> str:
         """Upload raw bytes to S3 and return object key."""
+        if self.session is None:
+            logger.warning("aioboto3 Session is not available. Skipping S3 upload for key %s", key)
+            return key
+        target_bucket = bucket or self.bucket
         async with self.session.client("s3", **self.client_params) as client:
-            kwargs = {"Bucket": self.bucket, "Key": key, "Body": data}
+            kwargs = {"Bucket": target_bucket, "Key": key, "Body": data}
             if content_type:
                 kwargs["ContentType"] = content_type
             if cache_control:
@@ -46,13 +61,35 @@ class StorageService:
             await client.put_object(**kwargs)
         return key
 
-    async def delete_object(self, key: str) -> bool:
+    async def upload_json(
+        self,
+        key: str,
+        data: Any,
+        bucket: Optional[str] = None,
+        cache_control: str = "no-cache, no-store, must-revalidate",
+    ) -> str:
+        """Serialize data to JSON and upload to S3."""
+        json_bytes = json.dumps(data, indent=2, default=str).encode("utf-8")
+        return await self.upload_bytes(
+            key=key,
+            data=json_bytes,
+            content_type="application/json",
+            cache_control=cache_control,
+            bucket=bucket,
+        )
+
+    async def delete_object(self, key: str, bucket: Optional[str] = None) -> bool:
+        if self.session is None:
+            return True
+        target_bucket = bucket or self.bucket
         async with self.session.client("s3", **self.client_params) as client:
-            await client.delete_object(Bucket=self.bucket, Key=key)
+            await client.delete_object(Bucket=target_bucket, Key=key)
         return True
 
     async def generate_presigned_url(self, key: str, expires_in: int = 3600, method: str = "get_object") -> str:
         """Generate a presigned URL using synchronous boto3 (safe to call from async code)."""
+        if boto3 is None:
+            return f"https://{self.bucket}.s3.amazonaws.com/{key}"
         params = {k: v for k, v in self.client_params.items() if k != "use_ssl"}
         if "endpoint_url" in self.client_params:
             params["endpoint_url"] = self.client_params["endpoint_url"]
@@ -187,25 +224,55 @@ class StorageService:
 
 
     async def get_object_bytes(
-    self,
-    key: str,
+        self,
+        key: str,
+        bucket: Optional[str] = None,
     ) -> tuple[bytes, str]:
-
+        if self.session is None:
+            return b"", "application/octet-stream"
+        target_bucket = bucket or self.bucket
         async with self.session.client(
             "s3",
             **self.client_params,
         ) as client:
-
             response = await client.get_object(
-                Bucket=self.bucket,
+                Bucket=target_bucket,
                 Key=key,
             )
-
             data = await response["Body"].read()
-
             content_type = response.get(
                 "ContentType",
                 "application/octet-stream",
             )
-
             return data, content_type
+
+    async def get_object_json(
+        self,
+        key: str,
+        bucket: Optional[str] = None,
+    ) -> Optional[Any]:
+        """Download JSON object from S3 and deserialize."""
+        try:
+            raw_bytes, _ = await self.get_object_bytes(key=key, bucket=bucket)
+            if not raw_bytes:
+                return None
+            return json.loads(raw_bytes.decode("utf-8"))
+        except Exception as e:
+            logger.warning("Failed to fetch JSON object %s from bucket %s: %s", key, bucket or self.bucket, e)
+            return None
+
+    async def object_exists(
+        self,
+        key: str,
+        bucket: Optional[str] = None,
+    ) -> bool:
+        """Check if an object exists in S3."""
+        if self.session is None:
+            return False
+        target_bucket = bucket or self.bucket
+        try:
+            async with self.session.client("s3", **self.client_params) as client:
+                await client.head_object(Bucket=target_bucket, Key=key)
+            return True
+        except Exception:
+            return False

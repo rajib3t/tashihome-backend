@@ -15,7 +15,10 @@ from app.schedulers import start_scheduler, stop_scheduler
 import asyncio
 import logging
 from app.api.router import api_router
-import uvicorn
+try:
+    import uvicorn
+except ImportError:
+    uvicorn = None
 
 
 async def run_leader_tasks():

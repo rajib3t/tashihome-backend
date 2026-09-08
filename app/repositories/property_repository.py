@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional, TypedDict
 
 from sqlalchemy import select
@@ -184,6 +185,7 @@ class PropertyRepository(BaseRepository[Property]):
     async def search_stays(
         self,
         region: Optional[str] = None,
+        address: Optional[str] = None,
         city_name: Optional[str] = None,
         city_slug: Optional[str] = None,
         location_name: Optional[str] = None,
@@ -224,7 +226,13 @@ class PropertyRepository(BaseRepository[Property]):
         from app.models.facility_model import Facility
         from sqlalchemy import and_, or_, func, case, distinct
 
-        query = select(Property).where(Property.status == PropertyStatus.ACTIVE)
+        query = select(Property).where(
+            or_(
+                Property.status == PropertyStatus.ACTIVE,
+                Property.status == "ACTIVE",
+                Property.status == "active",
+            )
+        )
 
         # Outer join City, Location, Country for text and location filtering
         query = query.outerjoin(City, Property.city_id == City.id)
@@ -248,6 +256,10 @@ class PropertyRepository(BaseRepository[Property]):
                     Country.slug.ilike(term),
                 )
             )
+
+        # 1b. Specific Address filter
+        if address and address.strip():
+            query = query.where(Property.address.ilike(f"%{address.strip()}%"))
 
         # 2. City filter (slug or name)
         if city_slug and city_slug.strip():
@@ -363,7 +375,7 @@ class PropertyRepository(BaseRepository[Property]):
                     .having(func.sum(RoomType.capacity * PropertyRoomType.total_units) >= guests)
                 ),
                 # If property has no room types registered, allow default
-                Property.id.not_in(select(PropertyRoomType.property_id))
+                Property.id.not_in(select(PropertyRoomType.property_id).where(PropertyRoomType.property_id.isnot(None)))
             )
             query = query.where(capacity_condition)
 

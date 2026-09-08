@@ -16,6 +16,9 @@ class AppException(HTTPException):
         errors: Optional[List[Dict[str, str]]] = None,
     ):
         self.message = message
+        self.error_code = error_code
+        self.field = field
+        self.errors = errors
         logger.warning("%s - %s", status_code, message)
 
         detail = {

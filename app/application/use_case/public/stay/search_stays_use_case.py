@@ -72,9 +72,14 @@ class PublicSearchStaysUseCase(BaseUseCase, PropertySerializerMixin):
         if guests_count is None and (params.adults is not None or params.children is not None):
             guests_count = (params.adults or 0) + (params.children or 0)
 
+        # Resolve address and page size
+        address = params.address.strip() if params.address else None
+        effective_page_size = params.page_size or params.limit or params.per_page or params.size or 10
+
         # Execute search query
         properties_page = await self.property_service.search_stays(
             region=region_query,
+            address=address,
             city_name=city_name,
             city_slug=params.city_slug,
             location_name=location_name,
@@ -97,7 +102,7 @@ class PublicSearchStaysUseCase(BaseUseCase, PropertySerializerMixin):
             sort_by=params.sort_by,
             sort_order=params.sort_order,
             page=params.page,
-            page_size=params.size,
+            page_size=effective_page_size,
             with_relations={
                 "city": True,
                 "location": True,

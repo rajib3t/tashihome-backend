@@ -5,12 +5,13 @@ from pydantic.dataclasses import dataclass
 from app.core.exceptions import AppException
 
 
-@dataclass(config=ConfigDict(extra="forbid"))
+@dataclass(config=ConfigDict(extra="ignore"))
 class PublicSearchStaysQueryDTO:
     # Text / Region / Location search
     region: Optional[str] = None
     search: Optional[str] = None
     q: Optional[str] = None
+    address: Optional[str] = None
     
     # Location by name (preferred) or ID or slug
     city_name: Optional[str] = None
@@ -52,11 +53,14 @@ class PublicSearchStaysQueryDTO:
     sort_order: str = "desc"
     page: int = 1
     size: int = 10
+    page_size: Optional[int] = None
+    limit: Optional[int] = None
+    per_page: Optional[int] = None
 
-    @field_validator("page", "size")
+    @field_validator("page", "size", "page_size", "limit", "per_page")
     @classmethod
-    def validate_positive_pagination(cls, value: int) -> int:
-        if value < 1:
+    def validate_positive_pagination(cls, value: Optional[int]) -> Optional[int]:
+        if value is not None and value < 1:
             raise AppException(
                 status_code=422,
                 message="Page and size must be greater than 0.",

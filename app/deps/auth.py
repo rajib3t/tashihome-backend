@@ -1,3 +1,4 @@
+from __future__ import annotations
 from app.application.use_case.auth.forgot_password_use_case import ForgotPasswordUseCase
 from app.application.use_case.auth.reset_password_use_case import CheckResetPasswordTokenUseCase, ResetPasswordUseCase
 from app.application.use_case.auth.active_account_use_case import ActiveAccountUseCase, GetActiveAccountUseCase
@@ -131,6 +132,43 @@ async def get_current_user(
         raise AppException(401, "User not found", error_code="TOKEN_INVALID_USER")
 
     return CurrentUser(id=user.id, role=role)
+
+
+async def get_optional_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    user_service: UserService = Depends(get_user_service),
+) -> CurrentUser | None:
+    """Dependency that returns the current user if authenticated, or None if guest/unauthenticated."""
+    token = await extract_token(credentials, request)
+    if not token:
+        return None
+
+    try:
+        token_manager = TokenManager()
+        payload = await token_manager.decode_token(token)
+        if payload.get("type") != TokenType.ACCESS.value:
+            return None
+
+        sub = payload.get("sub")
+        role = payload.get("role")
+        if not sub or not role:
+            return None
+
+        role_str = role.value if hasattr(role, "value") else str(role)
+        public_id = str(sub)
+        try:
+            uuid.UUID(public_id)
+        except (ValueError, AttributeError):
+            return None
+
+        user = await user_service.get_user_by_public_id(public_id)
+        if not user:
+            return None
+
+        return CurrentUser(id=user.id, role=role_str)
+    except Exception:
+        return None
 
 
 async def require_role(current_user: CurrentUser, required_roles: list[UserRole]) -> CurrentUser:

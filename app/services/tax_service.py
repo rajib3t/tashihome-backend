@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional, List
 from uuid import UUID
 from app.models.tax_model import Tax, TaxStatus, TaxType

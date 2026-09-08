@@ -1,3 +1,4 @@
+from __future__ import annotations
 from sqlalchemy import select
 from typing import Optional
 from app.repositories.base_repository import BaseRepository, Page

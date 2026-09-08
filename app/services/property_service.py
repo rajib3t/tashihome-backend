@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional
 
 from app.models.property_model import Property
@@ -134,6 +135,7 @@ class PropertyService:
     async def search_stays(
         self,
         region: Optional[str] = None,
+        address: Optional[str] = None,
         city_name: Optional[str] = None,
         city_slug: Optional[str] = None,
         location_name: Optional[str] = None,
@@ -162,6 +164,7 @@ class PropertyService:
     ) -> Page[Property]:
         return await self.property_repository.search_stays(
             region=region,
+            address=address,
             city_name=city_name,
             city_slug=city_slug,
             location_name=location_name,

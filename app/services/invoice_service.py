@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Invoice PDF generation service using reportlab."""
 import io
 import logging

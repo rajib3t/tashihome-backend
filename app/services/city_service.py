@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional
 from app.models.city_model import City
 from app.repositories.base_repository import Page

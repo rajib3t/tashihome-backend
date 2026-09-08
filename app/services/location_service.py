@@ -1,3 +1,4 @@
+from __future__ import annotations
 from app.repositories.location_repository import LocationRepository, WithRelations
 from app.models.location_model import Location
 from app.repositories.base_repository import Page

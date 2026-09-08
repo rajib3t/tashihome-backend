@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import date, datetime, time, timezone
 import math
 import secrets
@@ -259,11 +260,13 @@ class BookingService:
 
         return {
             "nights": nights,
+            "num_nights": nights,
             "num_rooms": num_rooms,
             "num_guests": num_guests,
             "guests_per_room": guests_per_room,
             "price_per_night": price_per_night,
             "base_amount": base_amount,
+            "subtotal": base_amount,
             "discount_amount": round(discount_amount, 2),
             "tax_amount": tax_amount,
             "tax_rate": tax_rate,
@@ -350,6 +353,30 @@ class BookingService:
     ) -> Optional[Booking]:
         return await self.booking_repository.get_by_public_id(
             public_id=public_id,
+            with_relations=with_relations,
+            flush=flush,
+        )
+
+    async def get_by_reference(
+        self,
+        reference: str,
+        with_relations: Optional[BookingWithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Booking]:
+        return await self.booking_repository.get_by_identifier(
+            identifier=reference,
+            with_relations=with_relations,
+            flush=flush,
+        )
+
+    async def get_booking_by_identifier(
+        self,
+        identifier: str,
+        with_relations: Optional[BookingWithRelations] = None,
+        flush: bool = False,
+    ) -> Optional[Booking]:
+        return await self.booking_repository.get_by_identifier(
+            identifier=identifier,
             with_relations=with_relations,
             flush=flush,
         )

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional
 
 from app.models.vendor_razorpay_contact_model import VendorRazorpayContact

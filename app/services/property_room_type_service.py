@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 from app.repositories.property_room_type_repository import PropertyRoomTypeRepository
 from app.models.property_room_type_model import PropertyRoomType

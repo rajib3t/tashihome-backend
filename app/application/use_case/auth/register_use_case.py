@@ -1,4 +1,4 @@
-from uvicorn import logging
+import logging
 
 from app.core.exceptions import AppException
 from app.core.security import PasswordHasher

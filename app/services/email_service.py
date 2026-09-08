@@ -1,14 +1,22 @@
+from __future__ import annotations
 import logging
 import smtplib
 from email.message import EmailMessage
 import asyncio
-from brevo import AsyncBrevo, Brevo
+try:
+    from brevo import AsyncBrevo, Brevo
+    from brevo.transactional_emails import (
+        SendTransacEmailRequestSender,
+        SendTransacEmailRequestToItem,
+    )
+except ImportError:
+    AsyncBrevo = Brevo = None
+    SendTransacEmailRequestSender = SendTransacEmailRequestToItem = None
 
-from brevo.transactional_emails import (
-    SendTransacEmailRequestSender,
-    SendTransacEmailRequestToItem,
-)
-from mailgun.client import Client
+try:
+    from mailgun.client import Client
+except ImportError:
+    Client = None
 from typing import Optional, List, Sequence, Union
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from app.core.config import settings
 import httpx
 from app.schemas.ip_detail_schema import IpDetailResponse

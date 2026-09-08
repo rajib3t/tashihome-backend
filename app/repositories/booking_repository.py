@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import date
 from datetime import datetime
 from datetime import timezone
@@ -271,17 +272,24 @@ class BookingRepository(BaseRepository[Booking]):
         with_relations: Optional[BookingWithRelations] = None,
         flush: bool = False,
     ) -> Optional[Booking]:
-        """Fetch a booking by public_id (UUID) or booking_reference — no guest restriction."""
+        """Fetch a booking by public_id (UUID) or booking_reference — case-insensitive."""
+        ident_str = str(identifier).strip()
         try:
-            uuid_obj = UUID(str(identifier))
+            uuid_obj = UUID(ident_str)
             query = select(Booking).where(
                 or_(
                     Booking.public_id == uuid_obj,
-                    Booking.booking_reference == str(identifier),
+                    Booking.booking_reference == ident_str,
+                    Booking.booking_reference.ilike(ident_str),
                 )
             )
         except (ValueError, AttributeError):
-            query = select(Booking).where(Booking.booking_reference == str(identifier))
+            query = select(Booking).where(
+                or_(
+                    Booking.booking_reference == ident_str,
+                    Booking.booking_reference.ilike(ident_str),
+                )
+            )
 
         query = self._apply_relations(query, with_relations, self._relation_map)
         return await self._fetch_one(query, flush=flush)

@@ -151,6 +151,39 @@ class Settings(BaseSettings):
     ENABLE_SCHEDULER: bool = True
     PUBLIC_STATS_UPDATE_INTERVAL_MINUTES: int = 15
 
+    # AI Assistant & MCP Configuration
+    AI_ENABLED: bool = True
+    AI_PROVIDER: str = "gemini"  # "bedrock", "gemini", "openai", "mock"
+    GEMINI_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
+    AI_MODEL: str = "gemini-1.5-flash"
+    AI_TEMPERATURE: float = 0.2
+    AI_MAX_TOKENS: int = 2048
+    AI_SYSTEM_INSTRUCTION: Optional[str] = None
+    MCP_SERVER_NAME: str = "tashihome-mcp-server"
+    MCP_SERVER_VERSION: str = "1.0.0"
+
+    # Amazon Bedrock Configuration (Nova Lite & Titan/Cohere Embeddings)
+    BEDROCK_AWS_REGION: Optional[str] = "us-east-1"
+    BEDROCK_AWS_ACCESS_KEY_ID: Optional[str] = None
+    BEDROCK_AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    BEDROCK_AWS_SESSION_TOKEN: Optional[str] = None
+    BEDROCK_NOVA_MODEL_ID: str = "amazon.nova-lite-v1:0"
+    BEDROCK_EMBEDDING_MODEL_ID: str = "amazon.titan-embed-text-v2:0"
+
+    # Vector & Semantic Search Configuration
+    VECTOR_SEARCH_ENABLED: bool = True
+    EMBEDDING_PROVIDER: str = "gemini"  # "bedrock", "gemini", "openai", "local"
+    EMBEDDING_MODEL: str = "text-embedding-004"  # or "amazon.titan-embed-text-v2:0", "text-embedding-3-small"
+    VECTOR_SIMILARITY_THRESHOLD: float = 0.25
+    VECTOR_TOP_K: int = 8
+
+    # S3 Vector Storage Configuration (tashihome-vector bucket)
+    VECTOR_S3_BUCKET: Optional[str] = "tashihome-vector"
+    S3_VECTOR_BUCKET: Optional[str] = None  # Alias for VECTOR_S3_BUCKET
+    VECTOR_S3_KEY: str = "vectors/homestays_vector_index.json"
+    VECTOR_PERSIST_S3: bool = True
+
 
     @property
     def allowed_hosts(self) -> List[str]:

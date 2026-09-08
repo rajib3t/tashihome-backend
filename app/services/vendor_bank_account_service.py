@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional
 
 from app.models.vendor_bank_account_model import VendorBankAccount
