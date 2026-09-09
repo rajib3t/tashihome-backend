@@ -16,6 +16,7 @@ class CityRepository(BaseRepository[City]):
         "name": City.name,
         "slug": City.slug,
         "country_id": City.country_id,
+        "is_featured": City.is_featured,
         "status": City.status,
         "public_id": City.public_id,
     }
