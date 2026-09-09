@@ -11,6 +11,7 @@ from app.repositories.setting_repository import SettingRepository
 DEFAULT_SETTINGS: Dict[str, str] = {
     # General / Branding
     "app_name": "Tashi Homestay & Hospitality",
+    "assistant_name": "Jitu",
     "default_currency": "INR",
     "currency_symbol": "₹",
     "app_timezone": "Asia/Kolkata",

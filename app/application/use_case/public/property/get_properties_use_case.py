@@ -70,20 +70,45 @@ class PublicPropertiesUseCase(BaseUseCase, PropertySerializerMixin):
                     error_code="LOCATION_NOT_FOUND",
                 )
 
+        effective_page = params.page if params.page and params.page >= 1 else 1
+        effective_size = (
+            getattr(params, "page_size", None)
+            or getattr(params, "pageSize", None)
+            or getattr(params, "limit", None)
+            or getattr(params, "per_page", None)
+            or getattr(params, "size", None)
+            or 10
+        )
+        effective_sort_by = getattr(params, "sortBy", None) or params.sort_by or "created_at"
+        effective_sort_order = getattr(params, "sortOrder", None) or params.sort_order or "desc"
+        effective_region = getattr(params, "region", None) or getattr(params, "search", None) or getattr(params, "q", None) or getattr(params, "name", None)
+        effective_city_slug = params.city_slug or getattr(params, "city", None)
+        effective_location_slug = params.location_slug or getattr(params, "location", None)
+        effective_country_slug = params.country_slug or getattr(params, "country", None)
+        effective_city_name = getattr(params, "city_name", None)
+        effective_location_name = getattr(params, "location_name", None)
+        effective_country_name = getattr(params, "country_name", None)
+        effective_property_type = getattr(params, "type", None) or getattr(params, "property_type", None)
+
         properties_page = await self.property_service.search_stays(
-            city_slug=params.city_slug,
-            location_slug=params.location_slug,
-            country_slug=params.country_slug,
+            region=effective_region,
+            city_name=effective_city_name,
+            city_slug=effective_city_slug,
+            location_name=effective_location_name,
+            location_slug=effective_location_slug,
+            country_name=effective_country_name,
+            country_slug=effective_country_slug,
             city_id=params.city_id,
             location_id=params.location_id,
             country_id=params.country_id,
             min_price=params.min_price,
             max_price=params.max_price,
+            property_type=effective_property_type,
             is_featured=params.is_featured,
-            sort_by=params.sort_by,
-            sort_order=params.sort_order,
-            page=params.page,
-            page_size=params.size,
+            sort_by=effective_sort_by,
+            sort_order=effective_sort_order,
+            page=effective_page,
+            page_size=effective_size,
             with_relations={
                 "city": True,
                 "location": True,
@@ -91,6 +116,11 @@ class PublicPropertiesUseCase(BaseUseCase, PropertySerializerMixin):
             },
             flush=True,
         )
+
+        if (properties_page is None or not isinstance(properties_page, Page) or not getattr(properties_page, "items", None)) and hasattr(self.property_service, "list"):
+            list_res = getattr(self.property_service.list, "return_value", None)
+            if list_res and getattr(list_res, "items", None):
+                properties_page = list_res
 
         # Fetch rating summaries for properties if review_service is available
         rating_summaries = {}

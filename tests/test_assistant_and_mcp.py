@@ -2328,6 +2328,144 @@ def test_assistant_chat_and_dto_validations(mock_domain_services):
     asyncio.run(test_service_chat_empty())
 
 
+def test_assistant_name_jitu_and_greeting(mock_domain_services):
+    """Test that the assistant name defaults to Jitu (and supports setting-driven overrides) in context, system instructions, and greetings."""
+    async def run_test():
+        svc = mock_domain_services
+        assistant = AssistantService(tool_executor=svc["executor"], provider="fallback")
+
+        # 1. Dynamic context returns Jitu
+        ctx = await assistant._resolve_dynamic_context()
+        assert ctx["assistant_name"] == "Jitu"
+
+        # 2. Dynamic system instruction begins with Jitu
+        sys_inst = await assistant._build_dynamic_system_instruction()
+        assert "You are Jitu, the AI Travel Concierge" in sys_inst
+
+        # 3. Greeting intent introduces as Jitu
+        greeting_res = await assistant.chat(
+            message="Hi, who are you?",
+            session_id="test-jitu-greeting",
+        )
+        assert "Hello!" in greeting_res.reply
+        assert "Jitu" in greeting_res.reply
+        assert greeting_res.intent == "greeting"
+
+        kuzu_res = await assistant.chat(
+            message="Kuzu zangpo, who are you?",
+            session_id="test-jitu-kuzu",
+        )
+        assert "Kuzu Zangpo La!" in kuzu_res.reply
+        assert "Jitu" in kuzu_res.reply
+
+        # 4. MCP prompt handler uses Jitu
+        prompt_handler = MCPPromptHandler()
+        p1 = await prompt_handler.get_prompt("homestay_trip_planner", {"destination": "Paro"})
+        assert "You are Jitu" in p1.messages[0].content.text
+        p2 = await prompt_handler.get_prompt("booking_concierge", {"homestay_name_or_slug": "test-stay"})
+        assert "You are Jitu" in p2.messages[0].content.text
+
+    asyncio.run(run_test())
+
+
+def test_assistant_chat_property_list_pagination(mock_domain_services):
+    """Test AI assistant chat property list pagination with conversational context retention."""
+    async def run_test():
+        svc = mock_domain_services
+        prop1 = Property(id=1, public_id=uuid4(), name="Darjeeling Heights", slug="darjeeling-heights", price_per_night=3000.0, status=PropertyStatus.ACTIVE)
+        prop2 = Property(id=2, public_id=uuid4(), name="Darjeeling Valley Villa", slug="darjeeling-valley-villa", price_per_night=2500.0, status=PropertyStatus.ACTIVE)
+        prop3 = Property(id=3, public_id=uuid4(), name="Darjeeling Tea Garden Stay", slug="darjeeling-tea-garden-stay", price_per_night=3500.0, status=PropertyStatus.ACTIVE)
+        prop1.city = MagicMock(name="Darjeeling")
+        prop2.city = MagicMock(name="Darjeeling")
+        prop3.city = MagicMock(name="Darjeeling")
+        prop1.location = MagicMock(name="Darjeeling Center")
+        prop2.location = MagicMock(name="Darjeeling Center")
+        prop3.location = MagicMock(name="Darjeeling Center")
+
+        async def mock_search_stays(**kwargs):
+            p = kwargs.get("page", 1)
+            ps = kwargs.get("page_size", 2)
+            all_props = [prop1, prop2, prop3]
+            # filter by city if passed
+            city = kwargs.get("city_name") or kwargs.get("region")
+            items = all_props[(p - 1) * ps : p * ps]
+            return Page(items=items, total=3, page=p, page_size=ps)
+
+        svc["prop_service"].search_stays.side_effect = mock_search_stays
+
+        assistant = AssistantService(tool_executor=svc["executor"])
+        assistant.gemini_key = None
+        assistant.openai_key = None
+
+        # Turn 1: Search for homestays in Darjeeling
+        res1 = await assistant.chat(
+            message="Show homestays in Darjeeling",
+            session_id="session-pagination-1",
+            guest_details={"page_size": 2},
+        )
+        assert res1.intent == "search_homestays"
+        assert res1.pagination is not None
+        assert res1.pagination["page"] == 1
+        assert res1.pagination["page_size"] == 2
+        assert res1.pagination["total"] == 3
+        assert res1.pagination["total_pages"] == 2
+        assert res1.pagination["has_next"] is True
+        assert res1.pagination["has_prev"] is False
+        assert "Page 1 of 2" in res1.reply
+        assert any("Page 2" in s for s in (res1.suggested_actions or []))
+
+        # Turn 2: User asks for "page 2" with conversation history
+        history = [
+            {"role": "user", "content": "Show homestays in Darjeeling"},
+            {"role": "assistant", "content": res1.reply},
+        ]
+        res2 = await assistant.chat(
+            message="page 2",
+            conversation_history=history,
+            session_id="session-pagination-1",
+            guest_details={"page_size": 2},
+        )
+        assert res2.intent == "search_homestays"
+        assert res2.pagination is not None
+        assert res2.pagination["page"] == 2
+        assert res2.pagination["total_pages"] == 2
+        assert res2.pagination["has_next"] is False
+        assert res2.pagination["has_prev"] is True
+        assert "Page 2 of 2" in res2.reply
+        assert len(res2.search_results) == 1
+        assert res2.search_results[0]["name"] == "Darjeeling Tea Garden Stay"
+
+        # Turn 3: User asks for "next page" from page 1 history
+        res3 = await assistant.chat(
+            message="next page",
+            conversation_history=history,
+            session_id="session-pagination-1",
+            guest_details={"page_size": 2},
+        )
+        assert res3.intent == "search_homestays"
+        assert res3.pagination["page"] == 2
+
+        # Turn 4: User asks for "prev page" from page 2 history
+        history_p2 = [
+            {"role": "user", "content": "Show homestays in Darjeeling"},
+            {"role": "assistant", "content": res1.reply},
+            {"role": "user", "content": "page 2"},
+            {"role": "assistant", "content": res2.reply},
+        ]
+        res4 = await assistant.chat(
+            message="previous page",
+            conversation_history=history_p2,
+            session_id="session-pagination-1",
+            guest_details={"page_size": 2},
+        )
+        assert res4.intent == "search_homestays"
+        assert res4.pagination["page"] == 1
+        assert "Page 1 of 2" in res4.reply
+
+    asyncio.run(run_test())
+
+
+
 
 
 

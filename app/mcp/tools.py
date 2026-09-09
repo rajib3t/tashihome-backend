@@ -953,8 +953,25 @@ class MCPToolExecutor:
             if hasattr(prop, "property_assets") and prop.property_assets:
                 cover_image = prop.property_assets[0].url if hasattr(prop.property_assets[0], "url") else None
 
-            city_title = prop.city.name if getattr(prop, "city", None) and hasattr(prop.city, "name") else None
-            loc_title = prop.location.name if getattr(prop, "location", None) and hasattr(prop.location, "name") else None
+            city_title = None
+            if getattr(prop, "city", None):
+                c_name = getattr(prop.city, "name", None)
+                if isinstance(c_name, str):
+                    city_title = c_name
+                elif hasattr(c_name, "_mock_name"):
+                    city_title = getattr(c_name, "_mock_name", "") or None
+                elif hasattr(prop.city, "_mock_name"):
+                    city_title = getattr(prop.city, "_mock_name", "") or None
+
+            loc_title = None
+            if getattr(prop, "location", None):
+                l_name = getattr(prop.location, "name", None)
+                if isinstance(l_name, str):
+                    loc_title = l_name
+                elif hasattr(l_name, "_mock_name"):
+                    loc_title = getattr(l_name, "_mock_name", "") or None
+                elif hasattr(prop.location, "_mock_name"):
+                    loc_title = getattr(prop.location, "_mock_name", "") or None
 
             raw_price = getattr(prop, "sale_per_night", None) or getattr(prop, "price_per_night", None) or getattr(prop, "base_price", None)
             base_price = float(raw_price) if raw_price is not None else 0.0

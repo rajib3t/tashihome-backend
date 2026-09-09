@@ -75,16 +75,18 @@ class PublicPropertyQueryDTO:
             )
         return value.lower()
 
-    @field_validator("sort_by")
+    @field_validator("sort_by", "sortBy")
     @classmethod
-    def validate_sort_by(cls, value: str) -> str:
+    def validate_sort_by(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
         allowed = ["created_at", "name", "price", "price_asc", "price_desc", "price_low_to_high", "price_high_to_low"]
         if value.lower() not in allowed:
             raise AppException(
                 status_code=422,
                 message=f"Sort by must be one of: {', '.join(allowed)}.",
                 field="sort_by",
-                error_code="SORT_BY_INVALID",
+                error_code="INVALID_SORT_BY",
             )
         return value.lower()
 
@@ -98,3 +100,13 @@ class PublicPropertyQueryDTO:
         if isinstance(value, str):
             return value.strip().lower() in ("true", "1", "yes", "t")
         return bool(value)
+
+    def __post_init__(self):
+        if self.min_price is not None and self.max_price is not None:
+            if self.min_price > self.max_price:
+                raise AppException(
+                    status_code=422,
+                    message="min_price cannot be greater than max_price.",
+                    field="min_price",
+                    error_code="INVALID_PRICE_RANGE",
+                )

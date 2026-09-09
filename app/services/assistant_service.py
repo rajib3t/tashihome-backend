@@ -19,7 +19,7 @@ from app.schemas.assistant_schema import AssistantChatDataSchema, AssistantToolC
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SYSTEM_INSTRUCTION = """You are Tashi, the AI Travel Concierge for TashiHome (the premier homestay booking platform).
+DEFAULT_SYSTEM_INSTRUCTION = """You are Jitu, the AI Travel Concierge for TashiHome (the premier homestay booking platform).
 
 CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
 1. ALWAYS use the `search_homestays` or `semantic_search_homestays` tool whenever a user asks to search, find, or explore homestays, accommodations, rooms, or destinations.
@@ -611,6 +611,17 @@ class AssistantService:
                 if exec_result.data:
                     if fn_name in {"search_homestays", "semantic_search_homestays"}:
                         accumulated_data["search_results"] = exec_result.data.get("properties")
+                        if "page" in exec_result.data or "total_pages" in exec_result.data or "total" in exec_result.data:
+                            p = int(exec_result.data.get("page", 1))
+                            tp = int(exec_result.data.get("total_pages", 1))
+                            accumulated_data["pagination"] = {
+                                "page": p,
+                                "page_size": int(exec_result.data.get("page_size", 5)),
+                                "total": int(exec_result.data.get("total", len(exec_result.data.get("properties", [])))),
+                                "total_pages": tp,
+                                "has_next": p < tp,
+                                "has_prev": p > 1,
+                            }
                     elif fn_name == "check_stay_availability":
                         accumulated_data["availability"] = exec_result.data
                     elif fn_name == "checkout_and_book":
@@ -641,7 +652,7 @@ class AssistantService:
 
         if not tool_calls_executed:
             msg_l = message.lower()
-            is_actionable = any(w in msg_l for w in ["find", "search", "stay", "homestay", "room", "book", "reserve", "availability", "price", "quote", "status", "cancel", "where", "destination"])
+            is_actionable = any(w in msg_l for w in ["find", "search", "stay", "homestay", "room", "book", "reserve", "availability", "price", "quote", "status", "cancel", "where", "destination", "page", "next", "more", "prev", "previous"])
             is_pure_greeting = any(g in msg_l for g in ["hi", "hello", "hey", "who are you"]) and not is_actionable
             if is_actionable and not is_pure_greeting:
                 return await self._chat_with_intent_fallback(message, history, session_id, current_user_id, guest_details)
@@ -656,6 +667,7 @@ class AssistantService:
             action_taken=f"Executed {len(tool_calls_executed)} tool(s)" if tool_calls_executed else None,
             tool_calls=tool_calls_executed,
             search_results=accumulated_data.get("search_results"),
+            pagination=accumulated_data.get("pagination"),
             availability=accumulated_data.get("availability"),
             booking=accumulated_data.get("booking"),
             user=accumulated_data.get("user"),
@@ -665,12 +677,20 @@ class AssistantService:
     async def _resolve_dynamic_context(self) -> Dict[str, Any]:
         """Resolve platform name, active country, and active cities/locations from settings & DB."""
         app_name = "TashiHome"
+        assistant_name = "Jitu"
         country_name = ""
         if hasattr(self.tool_executor, "setting_service") and self.tool_executor.setting_service:
             try:
                 name_val = await self.tool_executor.setting_service.get_value("app_name") or await self.tool_executor.setting_service.get_value("site_name")
                 if name_val:
                     app_name = str(name_val).strip()
+                bot_val = (
+                    await self.tool_executor.setting_service.get_value("assistant_name")
+                    or await self.tool_executor.setting_service.get_value("bot_name")
+                    or await self.tool_executor.setting_service.get_value("ai_assistant_name")
+                )
+                if bot_val and str(bot_val).strip():
+                    assistant_name = str(bot_val).strip()
             except Exception:
                 pass
 
@@ -723,6 +743,7 @@ class AssistantService:
 
         return {
             "app_name": app_name,
+            "assistant_name": assistant_name,
             "country_name": country_name,
             "default_currency": default_currency,
             "currency_symbol": currency_symbol,
@@ -741,6 +762,7 @@ class AssistantService:
 
         ctx = await self._resolve_dynamic_context()
         app_name = ctx["app_name"] or "TashiHome"
+        assistant_name = ctx.get("assistant_name") or "Jitu"
         country_name = ctx["country_name"] or ""
         country_ref = f" in {country_name}" if country_name else ""
         date_fmt = ctx["date_format_pattern"] or "YYYY-MM-DD"
@@ -749,7 +771,7 @@ class AssistantService:
         curr_sym = ctx.get("currency_symbol") or "₹"
         curr_code = ctx.get("default_currency") or "INR"
 
-        return f"""You are the AI Travel Concierge for {app_name} (the premier homestay booking platform{country_ref}).
+        return f"""You are {assistant_name}, the AI Travel Concierge for {app_name} (the premier homestay booking platform{country_ref}).
 
 CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
 1. ALWAYS use the `search_homestays` or `semantic_search_homestays` tool whenever a user asks to search, find, or explore homestays, accommodations, rooms, or destinations.
@@ -813,7 +835,7 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
             if props:
                 if len(reply_clean) > 60 and reply_clean.lower() not in terse_replies:
                     return reply_clean
-                formatted = f"Kuzu Zangpo La! 🙏 I found **{len(props)} homestay(s)** in {dest_label}:\n\n"
+                formatted = f"I found **{len(props)} homestay(s)** in {dest_label}:\n\n"
                 for i, p in enumerate(props[:4], 1):
                     name = p.get("name") or "Homestay"
                     city = p.get("city") or p.get("city_name") or dest_label
@@ -835,7 +857,7 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
                 cities_display = ", ".join([f"**{c}**" for c in ctx["city_names"][:3]]) if ctx["city_names"] else "our featured destinations"
                 country_ref = f" in {country_name}" if country_name else ""
                 return (
-                    f"Kuzu Zangpo La! 🙏 I searched for homestays in **{dest_label}**, but we currently do not have matching listings in that location.\n\n"
+                    f"I searched for homestays in **{dest_label}**, but we currently do not have matching listings in that location.\n\n"
                     f"{app_name} specializes in authentic homestays{country_ref} across destinations like {cities_display}.\n\n"
                     f"Would you like to explore homestays in one of these regions?"
                 )
@@ -867,6 +889,91 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
             else:
                 rt_lines.append(f"• **{name}**: {curr_sym} {base_p}/night (Up to {cap} guests)")
         return "\n".join(rt_lines)
+
+    def _extract_conversation_search_context(
+        self,
+        history: List[Any],
+        cities_map: Dict[str, str],
+        locations_map: Dict[str, str],
+    ) -> Dict[str, Any]:
+        """Extract previous search destination, location, query, and pagination state from conversation turns."""
+        context: Dict[str, Any] = {
+            "dest": None,
+            "extracted_loc": None,
+            "extracted_addr": None,
+            "search_query": None,
+            "page": 1,
+            "total_pages": 1,
+            "page_size": 5,
+            "cin": None,
+            "cout": None,
+            "num_guests": None,
+            "num_rooms": None,
+        }
+
+        if not history:
+            return context
+
+        for item in reversed(history):
+            if isinstance(item, dict):
+                role = item.get("role", "")
+                content = str(item.get("content", ""))
+            else:
+                role = getattr(item, "role", "")
+                content = str(getattr(item, "content", ""))
+
+            if not content:
+                continue
+
+            content_lower = content.lower()
+
+            # 1. Look for pagination markers in assistant reply, e.g. "(Page 1 of 3)" or "page 1 of 3"
+            if role == "assistant":
+                p_match = re.search(r"\(Page\s*(\d+)\s*of\s*(\d+)\)", content, flags=re.IGNORECASE) or re.search(r"\bpage\s*(\d+)\s*of\s*(\d+)\b", content, flags=re.IGNORECASE)
+                if p_match and context["page"] == 1:
+                    context["page"] = int(p_match.group(1))
+                    context["total_pages"] = int(p_match.group(2))
+
+                # Look for homestays in **Destination** or in Destination
+                loc_label_match = re.search(r"homestays?\s+in\s+\*\*([^*]+)\*\*", content, flags=re.IGNORECASE) or re.search(r"homestays?\s+in\s+([A-Za-z\s-]+)", content, flags=re.IGNORECASE)
+                if loc_label_match and not context["dest"]:
+                    candidate = loc_label_match.group(1).strip()
+                    if candidate.lower() in cities_map:
+                        context["dest"] = cities_map[candidate.lower()]
+                    elif candidate.lower() in locations_map:
+                        context["extracted_loc"] = locations_map[candidate.lower()]
+                    else:
+                        context["search_query"] = candidate
+
+            # 2. Look for city matches in user or assistant messages
+            if not context["dest"]:
+                for key, val in cities_map.items():
+                    if key in content_lower:
+                        context["dest"] = val
+                        break
+
+            # 3. Look for location matches
+            if not context["extracted_loc"]:
+                for key, val in locations_map.items():
+                    if key in content_lower:
+                        context["extracted_loc"] = val
+                        break
+
+            # 4. Look for dates
+            if not context["cin"]:
+                dates = re.findall(r"\b(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b", content)
+                if len(dates) >= 1:
+                    context["cin"] = dates[0]
+                if len(dates) >= 2:
+                    context["cout"] = dates[1]
+
+            # 5. Look for guest count
+            if context["num_guests"] is None:
+                gm = re.search(r"(\d+)\s*(?:guest|people|person|adult)", content_lower)
+                if gm:
+                    context["num_guests"] = int(gm.group(1))
+
+        return context
 
     # --------------------------------------------------------------------------
     # Deterministic NLP / Intent Engine Fallback
@@ -1349,9 +1456,11 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
         ):
             cities_str = ", ".join(city_names[:5]) if city_names else "our featured destinations"
             country_str = f" in {country_name}" if country_name else ""
+            assistant_name = ctx.get("assistant_name") or "Jitu"
+            greeting_word = "Kuzu Zangpo La!" if any(k in msg_lower for k in ["kuzu", "zangpo"]) else "Hello!"
             reply = (
-                f"Kuzu Zangpo La! 🙏 Welcome to **{app_name} AI Concierge**.\n\n"
-                f"I am your personal travel assistant. Here is how I can help you:\n"
+                f"{greeting_word} 🙏 I am **{assistant_name}**, your personal AI Travel Concierge for **{app_name}**.\n\n"
+                f"Here is how I can help you with your journey:\n"
                 f"• **Discover Homestays**: Search authentic stays across {cities_str} (by city, neighborhood, or address).\n"
                 f"• **Check Availability & Quotes**: Get instant room availability, nightly rates, and tax calculations.\n"
                 f"• **Instant Checkout & Online Payment**: Book homestays seamlessly and pay online via secure payment gateway.\n"
@@ -1375,18 +1484,34 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
 
         # 7. Search & Discovery Intent (Standard & Semantic Vector Search)
         else:
+            prev_context = self._extract_conversation_search_context(history, cities_map, locations_map)
+
             dest = None
             for key, val in cities_map.items():
                 if key in msg_lower:
                     dest = val
                     break
+
+            # Check if this message is a pagination intent
+            is_next_page = bool(re.search(r"\b(?:next\s*page|next|more\s*(?:homestays?|stays?|options?|properties)?|show\s*more|load\s*more|see\s*more)\b", msg_lower)) or msg_lower in ["next", "more", "see more", "load more"]
+            is_prev_page = bool(re.search(r"\b(?:previous\s*page|prev\s*page|prev|previous|back|go\s*back)\b", msg_lower)) or msg_lower in ["prev", "previous", "back"]
             
-            # Extract page and page_size for pagination
-            page_match = re.search(r"\bpage\s*(\d+)\b", msg_lower)
-            search_page = int(page_match.group(1)) if page_match else int(guest_details.get("page", 1) or 1)
+            page_match = re.search(r"\b(?:page|p)\s*(\d+)\b", msg_lower)
+            explicit_page = int(page_match.group(1)) if page_match else None
+            if explicit_page is None and msg_lower.strip().isdigit() and int(msg_lower.strip()) <= 100 and (prev_context["dest"] or prev_context["search_query"] or prev_context["page"] > 1):
+                explicit_page = int(msg_lower.strip())
+
+            if explicit_page is not None:
+                search_page = max(1, explicit_page)
+            elif is_next_page:
+                search_page = max(1, prev_context["page"] + 1)
+            elif is_prev_page:
+                search_page = max(1, prev_context["page"] - 1)
+            else:
+                search_page = int(guest_details.get("page", 1) or 1)
 
             size_match = re.search(r"\b(?:limit|size|page_size|count)\s*(\d+)\b", msg_lower)
-            search_size = int(size_match.group(1)) if size_match else int(guest_details.get("page_size", 5) or 5)
+            search_size = int(size_match.group(1)) if size_match else int(guest_details.get("page_size", prev_context.get("page_size", 5)) or 5)
 
             # Extract location / neighborhood (e.g. near Motithang, in Motithang)
             loc_match = re.search(r"(?:near|location|area|neighborhood)\s+([\w\s-]+?)(?:\s+at|\s+address|\s+from|\s+in|\s+for|\s+with|\s+page|$)", message, flags=re.IGNORECASE)
@@ -1404,13 +1529,22 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
                     extracted_addr = street_match.group(1).strip()
 
             # Extract destination/location/property name keyword by stripping common query words
-            clean_search = re.sub(r"\b(find|search|show|get|look\s+for|explore|compare|comparison|other|another|different|various|options?|alternatives?|similar|view|browse|list|all|available|homestays?|homstays?|homestay|homstay|propert(?:y|ies)|stays?|rooms?|hotels?|accommodations?|place|places|in|at|near|around|for|please|me|best|top|good|check)\b", "", msg_lower, flags=re.IGNORECASE)
+            clean_search = re.sub(r"\b(find|search|show|get|look\s+for|explore|compare|comparison|other|another|different|various|options?|alternatives?|similar|view|browse|list|all|available|homestays?|homstays?|homestay|homstay|propert(?:y|ies)|stays?|rooms?|hotels?|accommodations?|place|places|in|at|near|around|for|please|me|best|top|good|check|next|previous|prev|more|page)\b", "", msg_lower, flags=re.IGNORECASE)
             if extracted_loc:
                 clean_search = re.sub(re.escape(extracted_loc.lower()), "", clean_search, flags=re.IGNORECASE)
             if extracted_addr:
                 clean_search = re.sub(re.escape(extracted_addr.lower()), "", clean_search, flags=re.IGNORECASE)
-            clean_search = re.sub(r"\bpage\s*\d+\b", "", clean_search, flags=re.IGNORECASE)
+            clean_search = re.sub(r"\b(?:page|p)\s*\d+\b", "", clean_search, flags=re.IGNORECASE)
             clean_search = re.sub(r"\s+", " ", clean_search).strip()
+
+            # Preserve previous destination/location/query/dates if not specified in current message and this is pagination
+            is_pagination_request = (explicit_page is not None) or is_next_page or is_prev_page
+            if is_pagination_request:
+                dest = dest or prev_context["dest"]
+                extracted_loc = extracted_loc or prev_context["extracted_loc"]
+                extracted_addr = extracted_addr or prev_context["extracted_addr"]
+                if not clean_search and prev_context["search_query"]:
+                    clean_search = prev_context["search_query"]
 
             is_comparison = any(w in msg_lower for w in ["compare", "comparison", "other homestays", "other stays", "more options", "view other", "explore other", "alternative stays", "different homestays"])
 
@@ -1420,7 +1554,7 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
                 "bath", "stone", "nature", "vibe", "himalaya", "river", "balcony"
             ])
 
-            if is_semantic:
+            if is_semantic and not is_pagination_request:
                 res = await self.tool_executor.execute_tool("semantic_search_homestays", {
                     "query": message,
                     "city_name": dest,
@@ -1432,7 +1566,7 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
                 intent_name = "semantic_search_homestays"
 
                 if props:
-                    reply = f"Kuzu Zangpo La! Based on your preference for *'{clean_search or message}'*, here are top matching homestays:\n\n"
+                    reply = f"Based on your preference for *'{clean_search or message}'*, here are top matching homestays:\n\n"
                     for i, p in enumerate(props, 1):
                         match_pct = p.get('match_percentage')
                         match_label = f" ({match_pct}% match)" if match_pct else ""
@@ -1463,10 +1597,11 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
 
                 location_label = ", ".join(location_parts) if location_parts else (country_name or "our destinations")
 
-                # Only pass dates to search if user explicitly specified date pattern
-                cin_search = date_matches[0] if len(date_matches) >= 1 else None
-                cout_search = date_matches[1] if len(date_matches) >= 2 else None
-                has_guest_filter = any(w in msg_lower for w in ["guest", "people", "person", "adult"])
+                # Only pass dates to search if user explicitly specified date pattern or from previous context
+                cin_search = date_matches[0] if len(date_matches) >= 1 else (prev_context["cin"] if is_pagination_request else None)
+                cout_search = date_matches[1] if len(date_matches) >= 2 else (prev_context["cout"] if is_pagination_request else None)
+                has_guest_filter = any(w in msg_lower for w in ["guest", "people", "person", "adult"]) or (is_pagination_request and prev_context["num_guests"])
+                active_guests = num_guests if any(w in msg_lower for w in ["guest", "people", "person", "adult"]) else (prev_context["num_guests"] if is_pagination_request else (num_guests if has_guest_filter else None))
 
                 res = await self.tool_executor.execute_tool("search_homestays", {
                     "query": search_query or "",
@@ -1475,7 +1610,7 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
                     "address": extracted_addr,
                     "check_in_date": cin_search,
                     "check_out_date": cout_search,
-                    "guests": num_guests if has_guest_filter else None,
+                    "guests": active_guests,
                     "rooms": num_rooms if "room" in msg_lower else 1,
                     "page": search_page,
                     "page_size": search_size,
@@ -1506,20 +1641,25 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
                         pages_val = (total_count + search_size - 1) // search_size if total_count > 0 else 1
                 total_pages = max(1, pages_val)
 
+                has_next = search_page < total_pages
+                has_prev = search_page > 1
+
                 accumulated_data["search_results"] = props
                 accumulated_data["pagination"] = {
                     "page": search_page,
                     "page_size": search_size,
                     "total": total_count,
                     "total_pages": total_pages,
+                    "has_next": has_next,
+                    "has_prev": has_prev,
                 }
 
                 if props:
                     page_label = f" (Page {search_page} of {total_pages})" if total_pages > 1 else ""
                     if is_comparison:
-                        reply = f"Kuzu Zangpo La! Here is a comparison of available homestays in **{location_label}**{page_label}:\n\n"
+                        reply = f"Here is a comparison of available homestays in **{location_label}**{page_label}:\n\n"
                     else:
-                        reply = f"Kuzu Zangpo La! I found **{total_count} homestay(s)** in {location_label}{page_label}:\n\n"
+                        reply = f"I found **{total_count} homestay(s)** in {location_label}{page_label}:\n\n"
                     for i, p in enumerate(props, 1):
                         loc_part = p.get('location') or p.get('city') or (country_name or 'Homestay')
                         addr_info = f"\n   • 📍 Address: {p['address']}" if p.get('address') else ""
@@ -1531,8 +1671,8 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
                         reply += f"   • Price: {curr_sym} {p['base_price']}/night | Rating: {rating_str}{addr_info}\n"
                         reply += f"   • Max Guests: {p['max_guests']} | Type: {p['property_type']}\n\n"
                     
-                    if search_page < total_pages:
-                        reply += f"👉 *Type 'page {search_page + 1}' to see more homestays.*"
+                    if has_next:
+                        reply += f"👉 *Type 'page {search_page + 1}' or 'next page' to see more homestays.*"
                     elif is_comparison:
                         reply += "Tell me which one you'd like to check dates for, or ask for a detailed price breakdown!"
                     else:
@@ -1541,7 +1681,7 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
                     cities_display = ", ".join([f"**{c}**" for c in city_names[:3]]) if city_names else "our featured destinations"
                     country_ref = f" in {country_name}" if country_name else ""
                     reply = (
-                        f"Kuzu Zangpo La! I searched for homestays in **{location_label}**, but found 0 matching properties in our listings. "
+                        f"I searched for homestays in **{location_label}**, but found 0 matching properties in our listings. "
                         f"{app_name} specializes in authentic homestays{country_ref} across destinations like {cities_display}. "
                         f"Would you like to explore those?"
                     )
@@ -1557,6 +1697,7 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
             action_taken=f"Executed {tool_calls[0].tool}" if tool_calls else None,
             tool_calls=tool_calls,
             search_results=accumulated_data.get("search_results"),
+            pagination=accumulated_data.get("pagination"),
             availability=accumulated_data.get("availability"),
             booking=accumulated_data.get("booking"),
             user=accumulated_data.get("user"),
@@ -1593,9 +1734,25 @@ CRITICAL INSTRUCTIONS FOR TOOL EXECUTION & RESPONSE FORMATTING:
                 return ["Check different dates", "Compare other homestays", "Explore nearby destinations"]
         elif data.get("search_results"):
             props = data.get("search_results") or []
+            pagination = data.get("pagination") or {}
+            cur_page = pagination.get("page", 1)
+            total_pages = pagination.get("total_pages", 1)
+            has_next = pagination.get("has_next", cur_page < total_pages)
+            has_prev = pagination.get("has_prev", cur_page > 1)
+
+            suggestions = []
+            if has_next:
+                suggestions.append(f"Page {cur_page + 1}")
+            if has_prev:
+                suggestions.append(f"Page {cur_page - 1}")
+
             first_city = props[0].get("city") if props and props[0].get("city") else None
             c_tag = f" in {first_city}" if first_city else ""
-            return [f"Check availability for top homestay", f"Filter by price under 3000", f"Explore homestays{c_tag}"]
+            suggestions.append("Check availability for top homestay")
+            suggestions.append("Filter by price under 3000")
+            if len(suggestions) < 4:
+                suggestions.append(f"Explore homestays{c_tag}")
+            return suggestions[:4]
         
         city_names = ctx.get("city_names", []) if ctx else []
         country_name = ctx.get("country_name", "") if ctx else ""

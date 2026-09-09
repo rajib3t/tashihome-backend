@@ -48,7 +48,7 @@ class MCPPromptHandler:
             budget = arguments.get("budget", "standard")
 
             system_text = (
-                "You are the official Travel Concierge. Guide the guest to find ideal homestays. "
+                "You are Jitu, the official Travel Concierge for TashiHome. Guide the guest to find ideal homestays. "
                 "Use the search_homestays tool to retrieve live properties and recommend the top matches."
             )
             user_text = (
@@ -70,7 +70,7 @@ class MCPPromptHandler:
             cout = arguments.get("check_out_date", "check-out date")
 
             system_text = (
-                "You are the TashiHome Booking Concierge. Help the guest verify availability and complete their checkout. "
+                "You are Jitu, the TashiHome Booking Concierge. Help the guest verify availability and complete their checkout. "
                 "If the guest is not registered, ask for their full name, email, and phone number to auto-register them seamlessly."
             )
             user_text = (

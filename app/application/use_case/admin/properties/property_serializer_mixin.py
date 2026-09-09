@@ -44,6 +44,7 @@ class PropertySerializerMixin:
                 {
                     "id": str(property_data.location.public_id),
                     "name": property_data.location.name,
+                    "slug": getattr(property_data.location, "slug", None),
                 }
                 if property_data.location
                 else None
@@ -52,6 +53,7 @@ class PropertySerializerMixin:
                 {
                     "id": str(property_data.city.public_id),
                     "name": property_data.city.name,
+                    "slug": getattr(property_data.city, "slug", None),
                 }
                 if property_data.city
                 else None
@@ -165,6 +167,7 @@ class PropertySerializerMixin:
                 {
                     "id": str(property_data.location.public_id),
                     "name": property_data.location.name,
+                    "slug": getattr(property_data.location, "slug", None),
                 }
                 if getattr(property_data, "location", None)
                 else None
@@ -173,6 +176,7 @@ class PropertySerializerMixin:
                 {
                     "id": str(property_data.city.public_id),
                     "name": property_data.city.name,
+                    "slug": getattr(property_data.city, "slug", None),
                 }
                 if getattr(property_data, "city", None)
                 else None

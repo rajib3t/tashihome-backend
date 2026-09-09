@@ -17,6 +17,7 @@ class AssistantChatDataSchema(BaseModel):
     action_taken: Optional[str] = Field(default=None, description="Summary of action performed.")
     tool_calls: List[AssistantToolCallSchema] = Field(default_factory=list, description="List of MCP tools executed.")
     search_results: Optional[List[Dict[str, Any]]] = Field(default=None, description="Homestays list if search performed.")
+    pagination: Optional[Dict[str, Any]] = Field(default=None, description="Pagination metadata for search results (page, page_size, total, total_pages, has_next, has_prev).")
     availability: Optional[Dict[str, Any]] = Field(default=None, description="Availability quote details if checked.")
     booking: Optional[Dict[str, Any]] = Field(default=None, description="Booking confirmation details if checkout completed.")
     user: Optional[Dict[str, Any]] = Field(default=None, description="Guest / user info if registered.")
