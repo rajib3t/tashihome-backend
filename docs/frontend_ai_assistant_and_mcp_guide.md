@@ -11,6 +11,7 @@ All assistant and MCP endpoints are served under `/api/v1/public/assistant` and 
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/public/assistant/chat` | Main conversational assistant endpoint with multi-tool calling | Optional (Guest or Logged In) |
+| `POST` | `/api/v1/public/assistant/chat/stream` | **Streaming** chat endpoint — same as `/chat` but returns Server-Sent Events (SSE) for progressive, token-by-token reply rendering | Optional (Guest or Logged In) |
 | `POST` | `/api/v1/public/assistant/search` | Direct homestay search via assistant engine | No |
 | `POST` | `/api/v1/public/assistant/semantic-search` | Natural language / vibe-based vector semantic search | No |
 | `POST` | `/api/v1/public/assistant/checkout` | Direct AI checkout with auto-registration for unregistered guests | Optional (Auto-registers if guest) |
@@ -111,7 +112,76 @@ Processes conversational inquiries, detects intent, and executes relevant MCP to
 
 ---
 
+### A.2. Streaming Conversational Chat (`POST /api/v1/public/assistant/chat/stream`)
+
+Identical request body to `/chat`, but responds with a **`text/event-stream`** (SSE) stream instead of a single JSON payload. Use this endpoint to render the AI reply progressively — token-by-token — for a real-time typing experience.
+
+> [!IMPORTANT]
+> **Do NOT set `response_model` or parse this as JSON directly.** Read it as an SSE stream using `EventSource`, `fetch` with a `ReadableStream`, or the Angular SSE helper shown in Section 5.
+
+#### Request Body
+Same as `/chat` — see above.
+
+#### Response Headers
+```
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+X-Accel-Buffering: no
+```
+
+#### SSE Event Format
+
+Each line is:
+```
+data: <JSON object>\n\n
+```
+
+| `type` | Description | Key fields |
+| :--- | :--- | :--- |
+| `start` | Stream opened; emitted immediately before AI processing | `session_id` |
+| `token` | A chunk of the reply text (4 words per event by default) | `text` |
+| `metadata` | Full structured payload once reply is complete | `intent`, `search_results`, `pagination`, `availability`, `booking`, `tool_calls`, `suggested_actions` |
+| `done` | Stream ended successfully | — |
+| `error` | An error occurred mid-stream | `message` |
+
+#### Full Event Sequence Example
+
+```
+data: {"type":"start","session_id":"c62b5d4a-39b1-4f93-b6d8-11f26792348a"}
+
+data: {"type":"token","text":"Hello! 🙏 I found "}
+data: {"type":"token","text":"**3 homestays** in Thimphu "}
+data: {"type":"token","text":"for your dates:\n\n1. "}
+data: {"type":"token","text":"**Bhutan Heritage Homestay** "}
+data: {"type":"token","text":"(Motithang) — ₹3,500/night\n"}
+
+data: {"type":"metadata","intent":"search_homestays","action_taken":"Executed search_homestays","search_results":[{"id":"f5a892b1...","name":"Bhutan Heritage Homestay","city":"Thimphu","base_price":3500.0}],"pagination":{"page":1,"page_size":5,"total":3,"total_pages":1,"has_next":false,"has_prev":false},"suggested_actions":["Check availability","Show next page","Filter by price"]}
+
+data: {"type":"done"}
+```
+
+#### Error Event Example
+
+```
+data: {"type":"error","message":"Chat message cannot be empty."}
+```
+
+#### Quick Test with `curl`
+
+```bash
+curl -N -X POST http://localhost:8020/api/v1/public/assistant/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Show homestays in Darjeeling","session_id":"test-001"}'
+```
+
+> [!NOTE]
+> If the connection is interrupted (network loss, server restart), reconnect by re-sending the same request with the same `session_id`. The session context is preserved in-memory by the server during the session lifetime.
+
+---
+
 ### B. Vector Semantic Search (`POST /api/v1/public/assistant/semantic-search`)
+
 
 Enables natural language, atmosphere, and vibe-based search queries (e.g. *"peaceful wooden cottage with traditional bukhari fireplace and mountain view"*).
 
@@ -597,6 +667,7 @@ export interface AssistantChatData {
     is_error?: boolean;
   }>;
   search_results?: HomestayCardData[];
+  pagination?: PaginationMeta;
   availability?: AvailabilityQuoteData;
   booking?: BookingConfirmationData;
   payment?: {
@@ -613,6 +684,53 @@ export interface AssistantChatData {
   };
   user?: any;
   suggested_actions?: string[];
+}
+
+/**
+ * Pagination metadata returned in search results.
+ * Present in both the regular `/chat` response (data.pagination) and the `/chat/stream` metadata event.
+ */
+export interface PaginationMeta {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+/**
+ * A single Server-Sent Event emitted by `POST /api/v1/public/assistant/chat/stream`.
+ *
+ * Listen to events in order: start → token(s) → metadata → done
+ */
+export interface AssistantStreamEvent {
+  /** Event type discriminator */
+  type: 'start' | 'token' | 'metadata' | 'done' | 'error';
+  /** Session ID — present only on `start` events */
+  session_id?: string;
+  /** Reply text chunk — present only on `token` events */
+  text?: string;
+  /** Detected intent — present only on `metadata` events */
+  intent?: string;
+  /** Action summary — present only on `metadata` events */
+  action_taken?: string;
+  /** MCP tool call list — present only on `metadata` events */
+  tool_calls?: Array<{ tool: string; arguments: any; result?: any; is_error?: boolean }>;
+  /** Homestay list from search — present only on `metadata` events */
+  search_results?: HomestayCardData[];
+  /** Pagination details — present only on `metadata` events */
+  pagination?: PaginationMeta;
+  /** Availability quote — present only on `metadata` events */
+  availability?: AvailabilityQuoteData;
+  /** Booking confirmation — present only on `metadata` events */
+  booking?: BookingConfirmationData;
+  /** Registered guest/user info — present only on `metadata` events */
+  user?: any;
+  /** Next-action chip labels — present only on `metadata` events */
+  suggested_actions?: string[];
+  /** Error message — present only on `error` events */
+  message?: string;
 }
 
 export interface AssistantApiResponse<T> {
@@ -641,6 +759,7 @@ import {
   AssistantApiResponse,
   AssistantChatData,
   AssistantMessage,
+  AssistantStreamEvent,
   SuggestionItem,
   SemanticSearchResult
 } from "../models/assistant.model";
@@ -657,6 +776,7 @@ export class AiAssistantService {
     text: string;
     timestamp: Date;
     data?: AssistantChatData;
+    isStreaming?: boolean;
   }>>([]);
 
   public isLoading = signal<boolean>(false);
@@ -698,6 +818,7 @@ export class AiAssistantService {
       tap({
         next: (res) => {
           this.isLoading.set(false);
+
           if (res.data) {
             this.messages.update(prev => [
               ...prev,
@@ -716,13 +837,166 @@ export class AiAssistantService {
             ...prev,
             {
               sender: "assistant",
-              text: "Kuzu Zangpo La. I encountered a temporary network issue. Please try again.",
+              text: "I encountered a temporary network issue. Please try again.",
               timestamp: new Date()
             }
           ]);
         }
       })
     );
+  }
+
+  /**
+   * Stream the assistant reply via Server-Sent Events.
+   *
+   * Tokens arrive progressively and update the last message in-place.
+   * Structured metadata (search_results, booking, etc.) is applied once the
+   * `metadata` event is received.
+   *
+   * @example
+   * await this.assistantService.sendMessageStream("Show homestays in Thimphu");
+   */
+  async sendMessageStream(
+    text: string,
+    guestInfo?: { name?: string; email?: string; phone?: string; password?: string }
+  ): Promise<void> {
+    this.isLoading.set(true);
+
+    // Add user message to history
+    this.messages.update(prev => [
+      ...prev,
+      { sender: "user", text, timestamp: new Date() }
+    ]);
+
+    const history: AssistantMessage[] = this.messages().map(m => ({
+      role: m.sender === "user" ? "user" : "assistant",
+      content: m.text
+    }));
+
+    const payload: AssistantChatRequest = {
+      message: text,
+      conversation_history: history,
+      session_id: this.sessionId(),
+      guest_name: guestInfo?.name,
+      guest_email: guestInfo?.email,
+      guest_phone: guestInfo?.phone,
+      guest_password: guestInfo?.password
+    };
+
+    // Reserve a streaming placeholder in the message list
+    this.messages.update(prev => [
+      ...prev,
+      { sender: "assistant", text: "", timestamp: new Date(), isStreaming: true }
+    ]);
+
+    try {
+      const response = await fetch(`${this.baseUrl}/chat/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let streamedData: Partial<AssistantChatData> = {};
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? ""; // keep incomplete line for next chunk
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+
+          let event: AssistantStreamEvent;
+          try {
+            event = JSON.parse(raw);
+          } catch {
+            continue;
+          }
+
+          if (event.type === "token" && event.text) {
+            // Append token text to the last (streaming) message
+            this.messages.update(prev => {
+              const msgs = [...prev];
+              const last = msgs[msgs.length - 1];
+              if (last?.isStreaming) {
+                msgs[msgs.length - 1] = { ...last, text: last.text + event.text };
+              }
+              return msgs;
+            });
+          } else if (event.type === "metadata") {
+            // Collect all structured fields for final update
+            streamedData = {
+              intent: event.intent,
+              action_taken: event.action_taken,
+              tool_calls: event.tool_calls as any,
+              search_results: event.search_results,
+              pagination: event.pagination,
+              availability: event.availability,
+              booking: event.booking,
+              user: event.user,
+              suggested_actions: event.suggested_actions
+            };
+          } else if (event.type === "start" && event.session_id) {
+            this.sessionId.set(event.session_id);
+          } else if (event.type === "done") {
+            // Finalise the streaming message with full structured data
+            this.messages.update(prev => {
+              const msgs = [...prev];
+              const last = msgs[msgs.length - 1];
+              if (last?.isStreaming) {
+                msgs[msgs.length - 1] = {
+                  ...last,
+                  isStreaming: false,
+                  data: { reply: last.text, ...streamedData } as AssistantChatData
+                };
+              }
+              return msgs;
+            });
+          } else if (event.type === "error") {
+            this.messages.update(prev => {
+              const msgs = [...prev];
+              const last = msgs[msgs.length - 1];
+              if (last?.isStreaming) {
+                msgs[msgs.length - 1] = {
+                  ...last,
+                  isStreaming: false,
+                  text: event.message ?? "An error occurred. Please try again."
+                };
+              }
+              return msgs;
+            });
+          }
+        }
+      }
+    } catch (err) {
+      this.messages.update(prev => {
+        const msgs = [...prev];
+        const last = msgs[msgs.length - 1];
+        if (last?.isStreaming) {
+          msgs[msgs.length - 1] = {
+            ...last,
+            isStreaming: false,
+            text: "I encountered a network issue. Please try again."
+          };
+        }
+        return msgs;
+      });
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 
   semanticSearch(
@@ -788,6 +1062,9 @@ export class AiAssistantService {
         <div class="message-bubble" [class.user-bubble]="msg.sender === 'user'">
           <div class="message-text" [innerHTML]="msg.text"></div>
 
+          <!-- Typing cursor for active SSE stream -->
+          <span class="typing-cursor" *ngIf="msg.isStreaming">▋</span>
+
           <!-- Rich Homestay Search Cards -->
           <div class="rich-cards" *ngIf="msg.data?.search_results?.length">
             <div class="homestay-card" *ngFor="let stay of msg.data?.search_results">
@@ -827,8 +1104,8 @@ export class AiAssistantService {
         </div>
       </div>
 
-      <!-- Loading Indicator -->
-      <div class="typing-indicator" *ngIf="assistantService.isLoading()">
+      <!-- Typing dots — only shown when not streaming (waiting for first token) -->
+      <div class="typing-indicator" *ngIf="assistantService.isLoading() && !hasStreamingMessage()">
         <span></span><span></span><span></span>
       </div>
     </div>
@@ -854,6 +1131,27 @@ export class AiAssistantService {
     </div>
   </div>
 </div>
+```
+
+#### Component Class (key methods)
+
+```typescript
+// ai-assistant.component.ts
+
+async sendMessage(): Promise<void> {
+  const text = this.userInput.trim();
+  if (!text) return;
+  this.userInput = "";
+
+  // Use streaming endpoint by default for a typing-effect UX
+  await this.assistantService.sendMessageStream(text);
+}
+
+/** Returns true when the last assistant message is still streaming. */
+hasStreamingMessage(): boolean {
+  const msgs = this.assistantService.messages();
+  return msgs.length > 0 && !!msgs[msgs.length - 1].isStreaming;
+}
 ```
 
 ---

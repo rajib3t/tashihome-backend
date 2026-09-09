@@ -3,7 +3,7 @@ import json
 import logging
 import re
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 from uuid import uuid4
 
 try:
@@ -15,7 +15,7 @@ import httpx
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.mcp.tools import ALL_MCP_TOOLS, MCPToolExecutor
-from app.schemas.assistant_schema import AssistantChatDataSchema, AssistantToolCallSchema
+from app.schemas.assistant_schema import AssistantChatDataSchema, AssistantStreamEventSchema, AssistantToolCallSchema
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +191,81 @@ class AssistantService:
             current_user_id=current_user_id,
             guest_details=guest_details,
         )
+
+    async def chat_stream(
+        self,
+        message: str,
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        session_id: Optional[str] = None,
+        current_user_id: Optional[int] = None,
+        guest_details: Optional[Dict[str, Any]] = None,
+        chunk_size: int = 4,
+    ) -> AsyncGenerator[AssistantStreamEventSchema, None]:
+        """Stream chat response as a sequence of SSE-compatible events.
+
+        Yields:
+            ``start``    – session started
+            ``token``    – reply text chunked word-by-word (chunk_size words per event)
+            ``metadata`` – structured payload (tool_calls, search_results, pagination, etc.)
+            ``done``     – stream complete
+            ``error``    – on failure
+        """
+        session_id = session_id or str(uuid4())
+
+        # Emit start event immediately
+        yield AssistantStreamEventSchema(type="start", session_id=session_id)
+
+        try:
+            result: AssistantChatDataSchema = await self.chat(
+                message=message,
+                conversation_history=conversation_history,
+                session_id=session_id,
+                current_user_id=current_user_id,
+                guest_details=guest_details,
+            )
+        except AppException as exc:
+            yield AssistantStreamEventSchema(type="error", message=exc.message or "An error occurred.")
+            return
+        except Exception as exc:
+            logger.error("chat_stream: unexpected error: %s", exc, exc_info=True)
+            yield AssistantStreamEventSchema(type="error", message="An unexpected error occurred. Please try again.")
+            return
+
+        # Stream reply text in word-chunks for a typing effect
+        words = result.reply.split(" ") if result.reply else []
+        for i in range(0, max(len(words), 1), chunk_size):
+            chunk = " ".join(words[i : i + chunk_size])
+            # Re-add the trailing space that was lost during split (except last chunk)
+            if i + chunk_size < len(words):
+                chunk += " "
+            yield AssistantStreamEventSchema(type="token", text=chunk)
+            # Small async yield to allow event loop to flush
+            await asyncio.sleep(0)
+
+        # Emit metadata payload (tool_calls serialized to dict)
+        tool_calls_data = None
+        if result.tool_calls:
+            try:
+                tool_calls_data = [tc.model_dump() for tc in result.tool_calls]
+            except Exception:
+                tool_calls_data = None
+
+        yield AssistantStreamEventSchema(
+            type="metadata",
+            intent=result.intent,
+            action_taken=result.action_taken,
+            tool_calls=tool_calls_data,
+            search_results=result.search_results,
+            pagination=result.pagination,
+            availability=result.availability,
+            booking=result.booking,
+            user=result.user,
+            suggested_actions=result.suggested_actions,
+        )
+
+        yield AssistantStreamEventSchema(type="done")
+
+
 
     @classmethod
     def _clean_schema_for_gemini(cls, schema: Any) -> Any:

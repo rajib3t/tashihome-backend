@@ -1,5 +1,7 @@
+import json
 from typing import Optional
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
 from app.api.base_controller import BaseController
 from app.application.dto.assistant.assistant import (
@@ -58,6 +60,7 @@ class PublicAssistantController(BaseController):
     def _register_routes(self):
         routes = [
             ("post", "/chat", self._chat, {"response_model": AssistantChatResponseSchema}),
+            ("post", "/chat/stream", self._chat_stream, {}),
             ("post", "/search", self._search, {"response_model": AssistantChatResponseSchema}),
             ("post", "/semantic-search", self._semantic_search, {"response_model": SemanticSearchResponseSchema}),
             ("post", "/sync-embeddings", self._sync_embeddings, {"response_model": VectorSyncResponseSchema}),
@@ -80,6 +83,65 @@ class PublicAssistantController(BaseController):
         return self.build_response(
             message="Assistant response generated successfully.",
             data=result,
+        )
+
+    async def _chat_stream(
+        self,
+        data: AssistantChatRequestDTO,
+        current_user: Optional[CurrentUser] = Depends(get_optional_current_user),
+        use_case: ChatAssistantUseCase = Depends(get_chat_assistant_use_case),
+    ) -> StreamingResponse:
+        """Stream the AI assistant reply as Server-Sent Events (SSE).
+
+        Each event is a JSON line in the format::
+
+            data: {"type": "token", "text": "I found "}\n\n
+
+        Event types:
+            - ``start``    — stream begins; carries session_id
+            - ``token``    — a chunk of the reply text
+            - ``metadata`` — structured payload (tool_calls, search_results, pagination, etc.)
+            - ``done``     — stream ended successfully
+            - ``error``    — error during processing
+        """
+        history = [h.model_dump() for h in (data.conversation_history or [])]
+
+        guest_details: dict = {}
+        if data.guest_name:
+            guest_details["guest_name"] = data.guest_name
+        if data.guest_email:
+            guest_details["guest_email"] = str(data.guest_email)
+        if data.guest_phone:
+            guest_details["guest_phone"] = data.guest_phone
+        if data.guest_password:
+            guest_details["guest_password"] = data.guest_password
+
+        current_user_id = current_user.id if current_user else None
+        assistant_service = use_case.assistant_service
+
+        async def event_generator():
+            try:
+                async for event in assistant_service.chat_stream(
+                    message=data.message,
+                    conversation_history=history,
+                    session_id=data.session_id,
+                    current_user_id=current_user_id,
+                    guest_details=guest_details,
+                ):
+                    payload = event.model_dump(exclude_none=True)
+                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+            except Exception as exc:
+                error_payload = json.dumps({"type": "error", "message": str(exc)}, ensure_ascii=False)
+                yield f"data: {error_payload}\n\n"
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
         )
 
     @handle_api_exceptions

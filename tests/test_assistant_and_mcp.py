@@ -2465,6 +2465,95 @@ def test_assistant_chat_property_list_pagination(mock_domain_services):
     asyncio.run(run_test())
 
 
+def test_assistant_chat_stream(mock_domain_services):
+    """Test AI assistant chat_stream() yields correct SSE event sequence."""
+    async def run_test():
+        svc = mock_domain_services
+        assistant = AssistantService(tool_executor=svc["executor"])
+        assistant.gemini_key = None
+        assistant.openai_key = None
+
+        events = []
+        async for event in assistant.chat_stream(
+            message="Hi, who are you?",
+            session_id="stream-test-session",
+        ):
+            events.append(event)
+
+        # Verify event sequence: start → token(s) → metadata → done
+        event_types = [e.type for e in events]
+
+        assert event_types[0] == "start", f"First event should be 'start', got {event_types[0]}"
+        assert event_types[-1] == "done", f"Last event should be 'done', got {event_types[-1]}"
+        assert "metadata" in event_types, "A 'metadata' event must be emitted"
+        assert "token" in event_types, "At least one 'token' event must be emitted"
+
+        # Verify start event carries session_id
+        start_event = events[0]
+        assert start_event.session_id == "stream-test-session"
+
+        # Verify token events have text
+        token_events = [e for e in events if e.type == "token"]
+        for te in token_events:
+            assert te.text is not None and len(te.text) > 0, "Token event text must not be empty"
+
+        # Reassemble full reply from tokens
+        full_reply = "".join(e.text for e in token_events if e.text)
+        assert len(full_reply) > 0, "Reassembled reply should not be empty"
+
+        # Verify metadata event carries intent
+        meta_event = next(e for e in events if e.type == "metadata")
+        assert meta_event.intent is not None
+
+        # No 'error' events expected
+        error_events = [e for e in events if e.type == "error"]
+        assert len(error_events) == 0, f"Unexpected error events: {[e.message for e in error_events]}"
+
+    asyncio.run(run_test())
+
+
+def test_assistant_chat_stream_search(mock_domain_services):
+    """Test chat_stream() with a search query returns token + metadata with search_results."""
+    async def run_test():
+        svc = mock_domain_services
+        from app.models.property_model import Property, PropertyStatus
+
+        prop = Property(
+            id=1, public_id=uuid4(), name="Valley View", slug="valley-view",
+            price_per_night=1500.0, status=PropertyStatus.ACTIVE,
+        )
+        prop.city = MagicMock()
+        prop.city.name = "Darjeeling"
+        prop.location = MagicMock()
+        prop.location.name = "Mall Road"
+
+        async def mock_search(**kwargs):
+            return Page(items=[prop], total=1, page=1, page_size=5)
+
+        svc["prop_service"].search_stays.side_effect = mock_search
+
+        assistant = AssistantService(tool_executor=svc["executor"])
+        assistant.gemini_key = None
+        assistant.openai_key = None
+
+        events = []
+        async for event in assistant.chat_stream(
+            message="Show homestays in Darjeeling",
+            session_id="stream-search-session",
+        ):
+            events.append(event)
+
+        event_types = [e.type for e in events]
+        assert event_types[0] == "start"
+        assert event_types[-1] == "done"
+        assert "token" in event_types
+        assert "metadata" in event_types
+
+        meta = next(e for e in events if e.type == "metadata")
+        assert meta.intent == "search_homestays"
+
+    asyncio.run(run_test())
+
 
 
 

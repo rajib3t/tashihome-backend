@@ -102,4 +102,31 @@ class VectorS3LoadResponseSchema(BaseResponse):
     data: Optional[VectorS3LoadDataSchema] = None
 
 
+# -----------------------------------------------------------------------
+# SSE Streaming Event Schemas
+# -----------------------------------------------------------------------
 
+class AssistantStreamEventSchema(BaseModel):
+    """Single Server-Sent Event emitted during a streaming chat response.
+
+    Event types:
+        - ``start``    – stream begins; carries session_id
+        - ``token``    – a chunk of the reply text
+        - ``metadata`` – full structured payload (tool_calls, search_results, pagination, etc.)
+        - ``done``     – stream ended successfully
+        - ``error``    – error occurred during processing
+    """
+
+    type: str = Field(..., description="Event type: start | token | metadata | done | error")
+    text: Optional[str] = Field(default=None, description="Text chunk (only for 'token' events).")
+    session_id: Optional[str] = Field(default=None, description="Session ID (only for 'start' event).")
+    intent: Optional[str] = Field(default=None, description="Detected intent (only for 'metadata' event).")
+    action_taken: Optional[str] = Field(default=None, description="Action summary (only for 'metadata' event).")
+    tool_calls: Optional[List[Any]] = Field(default=None, description="Tool call results (only for 'metadata' event).")
+    search_results: Optional[List[Dict[str, Any]]] = Field(default=None, description="Search results (only for 'metadata' event).")
+    pagination: Optional[Dict[str, Any]] = Field(default=None, description="Pagination metadata (only for 'metadata' event).")
+    availability: Optional[Dict[str, Any]] = Field(default=None, description="Availability data (only for 'metadata' event).")
+    booking: Optional[Dict[str, Any]] = Field(default=None, description="Booking data (only for 'metadata' event).")
+    user: Optional[Dict[str, Any]] = Field(default=None, description="User/guest data (only for 'metadata' event).")
+    suggested_actions: Optional[List[str]] = Field(default=None, description="Suggested next actions (only for 'metadata' event).")
+    message: Optional[str] = Field(default=None, description="Error message (only for 'error' event).")
