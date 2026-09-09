@@ -128,6 +128,32 @@ class RoomBlockRepository(BaseRepository[RoomBlock]):
         if commit:
             await self.db.commit()
 
+    async def check_duplicate_block(
+        self,
+        property_id: int,
+        room_type_id: int,
+        block_start_date: date,
+        block_end_date: date,
+        exclude_block_id: Optional[int] = None,
+    ) -> bool:
+        """
+        Returns True if there is already an existing block for the same
+        property + room_type with the **exact same** start and end dates.
+        Used to prevent creating identical duplicate blocks.
+        """
+        query = select(RoomBlock.id).where(
+            and_(
+                RoomBlock.property_id == property_id,
+                RoomBlock.room_type_id == room_type_id,
+                RoomBlock.block_start_date == block_start_date,
+                RoomBlock.block_end_date == block_end_date,
+            )
+        )
+        if exclude_block_id is not None:
+            query = query.where(RoomBlock.id != exclude_block_id)
+        result = await self.db.execute(query.limit(1))
+        return result.scalar_one_or_none() is not None
+
     async def count_blocked_units(
         self,
         property_id: int,

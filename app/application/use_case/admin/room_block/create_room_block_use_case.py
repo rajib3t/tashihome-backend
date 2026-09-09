@@ -108,7 +108,15 @@ class AdminCreateRoomBlockUseCase(BaseUseCase):
                 field="room_type_id",
             )
 
-        # 4. Check capacity and existing bookings
+        # 4. Check for duplicate blocks
+        await self.room_block_service.validate_no_duplicate(
+            property_id=property_.id,
+            room_type_id=room_type.id,
+            block_start_date=data.block_start_date,
+            block_end_date=data.block_end_date,
+        )
+
+        # 5. Check capacity and existing bookings
         await self.room_block_service.validate_and_check_capacity(
             property_id=property_.id,
             room_type_id=room_type.id,
@@ -117,7 +125,7 @@ class AdminCreateRoomBlockUseCase(BaseUseCase):
             units_to_block=data.units_blocked,
         )
 
-        # 5. Create Room Block
+        # 6. Create Room Block
         room_block = RoomBlock(
             property_id=property_.id,
             room_type_id=room_type.id,

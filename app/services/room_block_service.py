@@ -49,7 +49,7 @@ class RoomBlockService:
 
         if units_to_block > total_units:
             raise AppException(
-                status_code=400,
+                status_code=409,
                 message=f"Cannot block {units_to_block} unit(s). This property room type only has {total_units} total unit(s).",
                 error_code="UNITS_EXCEED_TOTAL",
                 field="units_blocked",
@@ -74,7 +74,7 @@ class RoomBlockService:
 
         if units_to_block > available_to_block:
             raise AppException(
-                status_code=400,
+                status_code=409,
                 message=(
                     f"Cannot block {units_to_block} unit(s) for the selected dates. "
                     f"Total units: {total_units}, booked: {booked_units}, already blocked: {other_blocked_units}. "
@@ -82,6 +82,36 @@ class RoomBlockService:
                 ),
                 error_code="INSUFFICIENT_UNITS_AVAILABLE",
                 field="units_blocked",
+            )
+
+    async def validate_no_duplicate(
+        self,
+        property_id: int,
+        room_type_id: int,
+        block_start_date: date,
+        block_end_date: date,
+        exclude_block_id: Optional[int] = None,
+    ) -> None:
+        """
+        Raises AppException if a block with the exact same property, room_type,
+        start date and end date already exists (excluding the block being updated).
+        """
+        is_duplicate = await self.room_block_repository.check_duplicate_block(
+            property_id=property_id,
+            room_type_id=room_type_id,
+            block_start_date=block_start_date,
+            block_end_date=block_end_date,
+            exclude_block_id=exclude_block_id,
+        )
+        if is_duplicate:
+            raise AppException(
+                status_code=409,
+                message=(
+                    "A room block with the same property, room type, and date range already exists. "
+                    "Please use different dates or update the existing block."
+                ),
+                error_code="DUPLICATE_ROOM_BLOCK",
+                field="block_start_date",
             )
 
     async def create(

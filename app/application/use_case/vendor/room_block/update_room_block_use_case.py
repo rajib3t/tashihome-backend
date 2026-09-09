@@ -59,6 +59,14 @@ class VendorUpdateRoomBlockUseCase(BaseUseCase):
             or new_end != room_block.block_end_date
             or new_units != room_block.units_blocked
         ):
+            # Check for duplicate blocks (exclude self)
+            await self.room_block_service.validate_no_duplicate(
+                property_id=room_block.property_id,
+                room_type_id=room_block.room_type_id,
+                block_start_date=new_start,
+                block_end_date=new_end,
+                exclude_block_id=room_block.id,
+            )
             await self.room_block_service.validate_and_check_capacity(
                 property_id=room_block.property_id,
                 room_type_id=room_block.room_type_id,
