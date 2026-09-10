@@ -12,6 +12,11 @@ from app.models.payment_model import Payment, PaymentMethod, TransactionStatus
 from app.services.booking_service import BookingService
 from app.services.payment_service import PaymentService
 from app.services.razorpay_service import RazorpayService
+from app.services.notification_service import NotificationService
+from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class VerifyRazorpayPaymentUseCase(BaseUseCase):
@@ -22,12 +27,14 @@ class VerifyRazorpayPaymentUseCase(BaseUseCase):
         razorpay_service: RazorpayService,
         current_user: CurrentUser,
         event_bus: EventBus | None = None,
+        notification_service: Optional[NotificationService] = None,
     ):
         self.booking_service = booking_service
         self.payment_service = payment_service
         self.razorpay_service = razorpay_service
         self.current_user = current_user
         self.event_bus = event_bus or RedisEventBus()
+        self.notification_service = notification_service
 
     async def execute(self, booking_identifier: str, data: RazorpayVerifyPaymentDTO) -> Payment:
         if not settings.PAYMENT_ENABLED:
@@ -131,5 +138,17 @@ class VerifyRazorpayPaymentUseCase(BaseUseCase):
             event = BookingCompletedEvent(updated_booking)
             await self.event_bus.publish(event)
 
+            if self.notification_service:
+                try:
+                    await self.notification_service.notify_booking_status_updated(
+                        booking=updated_booking,
+                        old_status=BookingStatus.PENDING,
+                        new_status=BookingStatus.CONFIRMED,
+                        actor_role="system",
+                    )
+                except Exception as exc:
+                    logger.warning("Failed to dispatch booking confirmation notification: %s", exc)
+
         return created_payment
+
 

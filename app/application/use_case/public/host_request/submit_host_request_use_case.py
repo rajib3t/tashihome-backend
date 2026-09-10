@@ -10,6 +10,7 @@ from app.models.user_model import UserRole
 from app.schemas.host_request_schema import HostRequestResponseData
 from app.services.host_request_service import HostRequestService
 from app.services.user_service import UserService
+from app.services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +20,11 @@ class SubmitHostRequestUseCase(BaseUseCase):
         self,
         host_request_service: HostRequestService,
         user_service: UserService,
+        notification_service: Optional[NotificationService] = None,
     ):
         self.host_request_service = host_request_service
         self.user_service = user_service
+        self.notification_service = notification_service
 
     async def execute(self, data: CreateHostRequestDTO) -> HostRequestResponseData:
         normalized_email = data.email.strip().lower()
@@ -92,5 +95,12 @@ class SubmitHostRequestUseCase(BaseUseCase):
 
         # Reload with messages
         reloaded = await self.host_request_service.get_by_id(created_request.id, with_messages=True, flush=True)
+
+        if self.notification_service:
+            try:
+                await self.notification_service.notify_host_request_submitted(reloaded or created_request)
+            except Exception as exc:
+                logger.warning("Failed to dispatch host request submission notification: %s", exc)
+
         return self.host_request_service.build_host_request_response(reloaded or created_request)
 

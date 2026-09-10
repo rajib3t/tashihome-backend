@@ -9,6 +9,11 @@ from app.models.host_request_model import HostRequestStatus
 from app.schemas.host_request_schema import HostRequestResponseData
 from app.services.host_request_service import HostRequestService
 from app.services.user_service import UserService
+from app.services.notification_service import NotificationService
+from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class UpdateHostRequestStatusUseCase(BaseUseCase):
@@ -17,10 +22,12 @@ class UpdateHostRequestStatusUseCase(BaseUseCase):
         host_request_service: HostRequestService,
         user_service: UserService,
         current_user: CurrentUser,
+        notification_service: Optional[NotificationService] = None,
     ):
         self.host_request_service = host_request_service
         self.user_service = user_service
         self.current_user = current_user
+        self.notification_service = notification_service
 
     async def execute(
         self,
@@ -67,6 +74,8 @@ class UpdateHostRequestStatusUseCase(BaseUseCase):
         admin_user = await self.user_service.get_user_by_id(self.current_user.id)
         admin_name = admin_user.full_name if admin_user and admin_user.full_name else "Administrator"
 
+        old_status = host_request.status.value if hasattr(host_request.status, "value") else str(host_request.status)
+
         session = self.host_request_service.host_request_repository.db
         tx = session.begin_nested() if session.in_transaction() else session.begin()
 
@@ -91,8 +100,21 @@ class UpdateHostRequestStatusUseCase(BaseUseCase):
             await session.flush()
 
         reloaded = await self.host_request_service.get_by_id(host_request.id, with_messages=True, flush=True)
+
+        if self.notification_service:
+            try:
+                await self.notification_service.notify_host_request_status_updated(
+                    host_request=reloaded or host_request,
+                    old_status=old_status,
+                    new_status=normalized_status,
+                    notes=data.notes,
+                )
+            except Exception as exc:
+                logger.warning("Failed to dispatch host request status update notification: %s", exc)
+
         return self.host_request_service.build_host_request_response(
             reloaded or host_request,
             include_internal_messages=True,
         )
+
 

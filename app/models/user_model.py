@@ -74,3 +74,9 @@ class User(Base):
         cascade="all, delete-orphan",
         foreign_keys="Booking.guest_id",
     )
+    notifications = relationship(
+        "Notification",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+

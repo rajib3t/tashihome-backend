@@ -6,6 +6,11 @@ from app.models.host_request_message_model import HostRequestMessage
 from app.schemas.host_request_schema import HostRequestResponseData
 from app.services.host_request_service import HostRequestService
 from app.services.user_service import UserService
+from app.services.notification_service import NotificationService
+from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AddHostRequestMessageUseCase(BaseUseCase):
@@ -14,10 +19,12 @@ class AddHostRequestMessageUseCase(BaseUseCase):
         host_request_service: HostRequestService,
         user_service: UserService,
         current_user: CurrentUser,
+        notification_service: Optional[NotificationService] = None,
     ):
         self.host_request_service = host_request_service
         self.user_service = user_service
         self.current_user = current_user
+        self.notification_service = notification_service
 
     async def execute(
         self,
@@ -64,8 +71,21 @@ class AddHostRequestMessageUseCase(BaseUseCase):
             await session.flush()
 
         reloaded = await self.host_request_service.get_by_id(host_request.id, with_messages=True, flush=True)
+
+        if self.notification_service and not data.is_internal:
+            try:
+                await self.notification_service.notify_host_request_message(
+                    host_request=reloaded or host_request,
+                    sender_role="admin",
+                    sender_name=admin_name,
+                    message_snippet=data.message.strip(),
+                )
+            except Exception as exc:
+                logger.warning("Failed to dispatch host request message notification: %s", exc)
+
         return self.host_request_service.build_host_request_response(
             reloaded or host_request,
             include_internal_messages=True,
         )
+
 

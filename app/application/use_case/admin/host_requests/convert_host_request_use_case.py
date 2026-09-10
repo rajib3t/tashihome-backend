@@ -18,6 +18,8 @@ from app.services.address_service import AddressService
 from app.services.company_service import CompanyService
 from app.services.host_request_service import HostRequestService
 from app.services.user_service import UserService
+from app.services.notification_service import NotificationService
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,7 @@ class ConvertHostRequestUseCase(BaseUseCase):
         address_service: AddressService,
         event_bus: EventBus,
         current_user: CurrentUser,
+        notification_service: Optional[NotificationService] = None,
     ):
         self.host_request_service = host_request_service
         self.user_service = user_service
@@ -38,6 +41,7 @@ class ConvertHostRequestUseCase(BaseUseCase):
         self.address_service = address_service
         self.event_bus = event_bus
         self.current_user = current_user
+        self.notification_service = notification_service
         self.password_hasher = PasswordHasher()
 
     async def execute(
@@ -102,8 +106,9 @@ class ConvertHostRequestUseCase(BaseUseCase):
                 role=UserRole.VENDOR,
                 status=UserStatus.ACTIVE,
             )
-            session.add(user)
+            user = await self.user_service.create_user(user, commit=False)
             await session.flush()
+
 
         # ── 2. Resolve or create Company ─────────────────────────────────────
         company_name = (
@@ -212,4 +217,15 @@ class ConvertHostRequestUseCase(BaseUseCase):
             with_relations={"company": True},
             flush=True,
         )
+
+        if self.notification_service:
+            try:
+                await self.notification_service.notify_host_request_converted(
+                    host_request=host_request,
+                    converted_user=refreshed_user or user,
+                )
+            except Exception as exc:
+                logger.warning("Failed to dispatch host request conversion notification: %s", exc)
+
         return await self.user_service.build_vendor_response(refreshed_user or user)
+

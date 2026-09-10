@@ -207,10 +207,16 @@ class Application:
         return self.app 
 
 
+import socketio
+from app.core.socket import sio
+
 configure_logging()
 
 application = Application()
-app = application.get_app() 
+fastapi_app = application.get_app()
+app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app, socketio_path="socket.io")
+app.fastapi_app = fastapi_app
+app.sio = sio
 
 
 if __name__ == "__main__":

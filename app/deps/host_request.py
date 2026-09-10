@@ -33,6 +33,8 @@ from app.services.address_service import AddressService
 from app.services.company_service import CompanyService
 from app.services.host_request_service import HostRequestService
 from app.services.user_service import UserService
+from app.deps.notification import get_notification_service
+from app.services.notification_service import NotificationService
 
 
 async def get_host_request_repository(
@@ -50,10 +52,12 @@ async def get_host_request_service(
 async def get_submit_host_request_use_case(
     host_request_service: HostRequestService = Depends(get_host_request_service),
     user_service: UserService = Depends(get_user_service),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> SubmitHostRequestUseCase:
     return SubmitHostRequestUseCase(
         host_request_service=host_request_service,
         user_service=user_service,
+        notification_service=notification_service,
     )
 
 
@@ -81,11 +85,13 @@ async def get_update_host_request_status_use_case(
     host_request_service: HostRequestService = Depends(get_host_request_service),
     user_service: UserService = Depends(get_user_service),
     current_user: CurrentUser = Depends(require_admin_or_staff),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> UpdateHostRequestStatusUseCase:
     return UpdateHostRequestStatusUseCase(
         host_request_service=host_request_service,
         user_service=user_service,
         current_user=current_user,
+        notification_service=notification_service,
     )
 
 
@@ -93,11 +99,13 @@ async def get_add_host_request_message_use_case(
     host_request_service: HostRequestService = Depends(get_host_request_service),
     user_service: UserService = Depends(get_user_service),
     current_user: CurrentUser = Depends(require_admin_or_staff),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> AddHostRequestMessageUseCase:
     return AddHostRequestMessageUseCase(
         host_request_service=host_request_service,
         user_service=user_service,
         current_user=current_user,
+        notification_service=notification_service,
     )
 
 
@@ -108,6 +116,7 @@ async def get_convert_host_request_use_case(
     address_service: AddressService = Depends(get_address_service),
     event_bus: EventBus = Depends(get_event_bus),
     current_user: CurrentUser = Depends(require_admin_or_staff),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> ConvertHostRequestUseCase:
     return ConvertHostRequestUseCase(
         host_request_service=host_request_service,
@@ -116,5 +125,7 @@ async def get_convert_host_request_use_case(
         address_service=address_service,
         event_bus=event_bus,
         current_user=current_user,
+        notification_service=notification_service,
     )
+
 

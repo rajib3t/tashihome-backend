@@ -33,6 +33,8 @@ from app.services.refund_request_service import RefundRequestService
 from app.services.room_type_service import RoomTypeService
 from app.services.setting_service import SettingService
 from app.services.tax_service import TaxService
+from app.deps.notification import get_notification_service
+from app.services.notification_service import NotificationService
 
 
 async def get_create_booking_use_case(
@@ -43,6 +45,7 @@ async def get_create_booking_use_case(
     current_user: CurrentUser = Depends(get_current_user),
     tax_service: TaxService = Depends(get_tax_service),
     setting_service: SettingService = Depends(get_setting_service),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> CreateBookingUseCase:
     return CreateBookingUseCase(
         booking_service=booking_service,
@@ -52,6 +55,7 @@ async def get_create_booking_use_case(
         current_user=current_user,
         tax_service=tax_service,
         setting_service=setting_service,
+        notification_service=notification_service,
     )
 
 
@@ -79,11 +83,13 @@ async def get_cancel_booking_use_case(
     booking_service: BookingService = Depends(get_booking_service),
     refund_request_service: RefundRequestService = Depends(get_refund_request_service),
     current_user: CurrentUser = Depends(get_current_user),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> CancelBookingUseCase:
     return CancelBookingUseCase(
         booking_service=booking_service,
         refund_request_service=refund_request_service,
         current_user=current_user,
+        notification_service=notification_service,
     )
 
 
@@ -145,6 +151,7 @@ async def get_verify_razorpay_payment_use_case(
     payment_service: PaymentService = Depends(get_payment_service),
     razorpay_service: RazorpayService = Depends(get_razorpay_service),
     current_user: CurrentUser = Depends(get_current_user),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> VerifyRazorpayPaymentUseCase:
     return VerifyRazorpayPaymentUseCase(
         booking_service=booking_service,
@@ -152,7 +159,9 @@ async def get_verify_razorpay_payment_use_case(
         razorpay_service=razorpay_service,
         current_user=current_user,
         event_bus=RedisEventBus(),
+        notification_service=notification_service,
     )
+
 
 
 # ─────────────────────────────────────────────
@@ -182,10 +191,12 @@ async def get_admin_booking_detail_use_case(
 async def get_admin_update_booking_status_use_case(
     booking_service: BookingService = Depends(get_booking_service),
     current_user: CurrentUser = Depends(require_admin_or_staff),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> AdminUpdateBookingStatusUseCase:
     return AdminUpdateBookingStatusUseCase(
         booking_service=booking_service,
         current_user=current_user,
+        notification_service=notification_service,
     )
 
 
@@ -222,10 +233,12 @@ async def get_vendor_booking_detail_use_case(
 async def get_vendor_update_booking_status_use_case(
     booking_service: BookingService = Depends(get_booking_service),
     current_user: CurrentUser = Depends(require_vendor),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> VendorUpdateBookingStatusUseCase:
     return VendorUpdateBookingStatusUseCase(
         booking_service=booking_service,
         current_user=current_user,
+        notification_service=notification_service,
     )
 
 

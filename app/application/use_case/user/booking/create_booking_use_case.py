@@ -15,6 +15,10 @@ from app.services.property_service import PropertyService
 from app.services.room_type_service import RoomTypeService
 from app.services.setting_service import SettingService
 from app.services.tax_service import TaxService
+from app.services.notification_service import NotificationService
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CreateBookingUseCase(BaseUseCase):
@@ -27,6 +31,7 @@ class CreateBookingUseCase(BaseUseCase):
         property_room_type_service: Optional[PropertyRoomTypeService] = None,
         tax_service: Optional[TaxService] = None,
         setting_service: Optional[SettingService] = None,
+        notification_service: Optional[NotificationService] = None,
     ):
         self.booking_service = booking_service
         self.property_service = property_service
@@ -35,6 +40,7 @@ class CreateBookingUseCase(BaseUseCase):
         self.property_room_type_service = property_room_type_service
         self.tax_service = tax_service
         self.setting_service = setting_service
+        self.notification_service = notification_service
 
     async def _resolve_tax_settings(self) -> Tuple[float, bool, Optional[str], Optional[str]]:
         """Resolve default active tax settings for pricing calculation."""
@@ -221,5 +227,10 @@ class CreateBookingUseCase(BaseUseCase):
                 "review": True,
             },
         )
+        if self.notification_service:
+            try:
+                await self.notification_service.notify_booking_request_created(created_booking)
+            except Exception as exc:
+                logger.warning("Failed to dispatch booking request notification: %s", exc)
 
         return created_booking

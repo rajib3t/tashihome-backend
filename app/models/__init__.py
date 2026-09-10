@@ -46,6 +46,7 @@ from .address_model import Address
 from .host_request_model import HostRequest, HostRequestStatus
 from .host_request_message_model import HostRequestMessage
 from .public_stat_model import PublicStat
+from .notification_model import Notification, NotificationType
 
 
 __all__ = [
@@ -113,4 +114,6 @@ __all__ = [
     "HostRequestStatus",
     "HostRequestMessage",
     "PublicStat",
+    "Notification",
+    "NotificationType",
 ]

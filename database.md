@@ -52,7 +52,9 @@ The backend uses **PostgreSQL** with **SQLAlchemy (Async)** ORM models and **Ale
   bookings --1:N--> refund_requests <--N:1-- payments
   users (vendor) --1:N--> payouts
   users (user/vendor) --1:N--> testimonials
+  users --1:N--> notifications
 ```
+
 
 ---
 
@@ -806,6 +808,27 @@ Tax and GST configurations for booking calculation, invoicing, and tax complianc
 
 ---
 
+#### `notifications`
+Persistent in-app notifications for Admins, Vendors (Hosts), and Users (Guests) for booking requests, host requests, and system events, synchronized in real time via Socket.IO.
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
+| `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
+| `user_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> users.id (CASCADE)` | Recipient user ID |
+| `role` | `Enum(UserRole)` | `NOT NULL`, `INDEX` | Recipient role context (`admin`, `vendor`, `user`, `staff`, `agent`) |
+| `type` | `VARCHAR(60)` | `NOT NULL`, `INDEX` | Event category (`booking.request_created`, `booking.confirmed`, `booking.cancelled`, `host_request.submitted`, etc.) |
+| `title` | `VARCHAR(255)` | `NOT NULL` | Short notification title |
+| `message` | `TEXT` | `NOT NULL` | Full notification message body |
+| `data` | `JSON` | `NULLABLE` | Structured event metadata (e.g. `booking_reference`, `property_id`, `host_request_id`) |
+| `is_read` | `BOOLEAN` | `NOT NULL`, `INDEX`, `default=False` | Whether notification has been read by user |
+| `read_at` | `TIMESTAMPTZ` | `NULLABLE` | Timestamp when user marked notification as read |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `INDEX`, `server_default=now()` | Creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+
+---
+
 ## Enumerations Reference
 
 | Enum Name | Python Class | Allowed Values |
@@ -876,6 +899,8 @@ alembic history
    - `payouts.vendor_id`, `refund_requests.payment_id`, and `refund_requests.booking_id` use `ondelete="RESTRICT"` for the same reason — financial audit trails must not silently disappear.
    - `reviews.booking_id` uses `ondelete="CASCADE"` (deleting a booking removes its review), while `reviews.guest_id`/`property_id` also cascade for consistency with existing entity-cleanup patterns.
    - `testimonials.user_id` uses `ondelete="CASCADE"` (deleting a user account removes their testimonials).
+   - `notifications.user_id` uses `ondelete="CASCADE"` — user-specific notifications are deleted if the user account is purged.
+
 3. **Overbooking Prevention**:
    - Room inventory is enforced by a `BEFORE INSERT OR UPDATE` trigger on `bookings` (`check_booking_availability()`), not a database exclusion constraint — this correctly accounts for properties with multiple units of the same room type, and also subtracts any overlapping `room_blocks`. See the note under [`bookings`](#bookings) for details.
 4. **Cancellation & Refund Flow**:

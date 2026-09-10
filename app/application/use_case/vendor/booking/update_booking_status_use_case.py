@@ -6,6 +6,11 @@ from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
 from app.models.booking_model import Booking, BookingStatus
 from app.services.booking_service import BookingService
+from app.services.notification_service import NotificationService
+from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Allowed vendor status transitions: {current_status: [allowed_next_statuses]}
 _VENDOR_TRANSITIONS: dict[BookingStatus, list[BookingStatus]] = {
@@ -32,9 +37,15 @@ _RELATIONS = {
 class VendorUpdateBookingStatusUseCase(BaseUseCase):
     """Vendor can change booking status within permitted transitions."""
 
-    def __init__(self, booking_service: BookingService, current_user: CurrentUser):
+    def __init__(
+        self,
+        booking_service: BookingService,
+        current_user: CurrentUser,
+        notification_service: Optional[NotificationService] = None,
+    ):
         self.booking_service = booking_service
         self.current_user = current_user
+        self.notification_service = notification_service
 
     async def execute(self, booking_identifier: str, data: BookingStatusUpdateDTO) -> Booking:
         booking = await self.booking_service.get_booking_by_identifier(
@@ -78,7 +89,21 @@ class VendorUpdateBookingStatusUseCase(BaseUseCase):
             booking.cancellation_reason = data.reason
             booking.cancelled_at = datetime.now(timezone.utc)
 
-        return await self.booking_service.update_booking(
+        updated = await self.booking_service.update_booking(
             booking=booking,
             with_relations=_RELATIONS,
         )
+
+        if self.notification_service:
+            try:
+                await self.notification_service.notify_booking_status_updated(
+                    booking=updated,
+                    old_status=current_status,
+                    new_status=new_status,
+                    actor_role="vendor",
+                )
+            except Exception as exc:
+                logger.warning("Failed to dispatch booking status update notification: %s", exc)
+
+        return updated
+

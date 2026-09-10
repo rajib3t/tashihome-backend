@@ -79,8 +79,17 @@ class Settings(BaseSettings):
     @property
     def cors_allowed_origins(self) -> List[str]:
         if not self.CORS_ALLOWED_ORIGINS:
-            return ["http://localhost:3000", "http://localhost:5173"]
-        return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
+            return ["http://localhost:3000", "http://localhost:5173", "http://localhost:4200"]
+        origins = []
+        for origin in self.CORS_ALLOWED_ORIGINS.split(","):
+            clean = origin.strip()
+            if not clean:
+                continue
+            origins.append(clean)
+            if not clean.startswith("http://") and not clean.startswith("https://") and clean != "*":
+                origins.append(f"http://{clean}")
+                origins.append(f"https://{clean}")
+        return origins
 
     @property
     def cookie_samesite(self) -> str:

@@ -10,6 +10,11 @@ from app.models.payment_model import TransactionStatus
 from app.models.refund_request_model import RefundRequest, RefundRequestStatus
 from app.services.booking_service import BookingService
 from app.services.refund_request_service import RefundRequestService
+from app.services.notification_service import NotificationService
+from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CancelBookingUseCase(BaseUseCase):
@@ -18,10 +23,12 @@ class CancelBookingUseCase(BaseUseCase):
         booking_service: BookingService,
         refund_request_service: RefundRequestService,
         current_user: CurrentUser,
+        notification_service: Optional[NotificationService] = None,
     ):
         self.booking_service = booking_service
         self.refund_request_service = refund_request_service
         self.current_user = current_user
+        self.notification_service = notification_service
 
     async def execute(self, booking_identifier: str, data: BookingCancelDTO) -> Dict[str, Any]:
         booking = await self.booking_service.get_user_booking_by_identifier(
@@ -102,6 +109,17 @@ class CancelBookingUseCase(BaseUseCase):
                 "review": True,
             },
         )
+
+        if self.notification_service:
+            try:
+                await self.notification_service.notify_booking_status_updated(
+                    booking=updated_booking,
+                    old_status=booking.status,
+                    new_status=BookingStatus.CANCELLED,
+                    actor_role="user",
+                )
+            except Exception as exc:
+                logger.warning("Failed to dispatch cancellation notification: %s", exc)
 
         return {
             "booking": updated_booking,
