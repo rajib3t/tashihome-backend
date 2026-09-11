@@ -21,10 +21,22 @@ if not cors_origins and getattr(settings, "DEBUG", False):
 elif not cors_origins:
     cors_origins = "*"
 
+# Multi-worker Redis Manager for production clustering
+client_manager = None
+if getattr(settings, "SOCKETIO_REDIS_ENABLED", False) and settings.REDIS_HOST:
+    try:
+        auth_part = f":{settings.REDIS_PASSWORD}@" if settings.REDIS_PASSWORD else ""
+        redis_url = f"redis://{auth_part}{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB or 0}"
+        client_manager = socketio.AsyncRedisManager(redis_url)
+        logger.info("Socket.IO initialized with AsyncRedisManager for multi-worker support")
+    except Exception as e:
+        logger.warning(f"Could not initialize Socket.IO Redis manager: {e}")
+
 # Initialize Socket.IO AsyncServer
 # Note: Using async_mode="asgi"
 sio = socketio.AsyncServer(
     async_mode="asgi",
+    client_manager=client_manager,
     cors_allowed_origins=cors_origins,
     ping_timeout=30,
     ping_interval=20,

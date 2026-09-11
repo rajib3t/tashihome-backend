@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: Optional[str] = None
     REDIS_DB: str = "0"  # Redis database index (default: 0)
+    SOCKETIO_REDIS_ENABLED: bool = False  # Enable Redis pub/sub manager for Socket.IO multi-worker deployments
 
     # Rate Limiting configuration (setting-driven)
     RATE_LIMIT_ENABLED: bool = True
