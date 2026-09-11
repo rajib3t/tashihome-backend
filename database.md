@@ -41,18 +41,26 @@ The backend uses **PostgreSQL** with **SQLAlchemy (Async)** ORM models and **Ale
                                     | 1:N                                                  |
                                     +---------> property_assets                            |
                                     +---------> property_room_types <--> room_types --1:N---+
-                                    +---------> property_facilities <--> facilities
-                                    +---------> property_amenities  <--> amenities
-                                    +---------> property_food_options
-                                    +---------> room_blocks
-                                    +---------> bookings --1:N--> payments
-                                                          --1:N--> reviews
-                                    +---------> cancellation_policies (referenced by properties & bookings)
+                                    |                |                                     |
+                                    |                +--> property_room_type_prices        |
+                                    |                +--> property_room_units              |
+                                    +---------> property_facilities <--> facilities        |
+                                    +---------> property_amenities  <--> amenities         |
+                                    +---------> property_food_options                      |
+                                    +---------> room_blocks                                |
+                                    +---------> bookings --1:N--> payments                 |
+                                                          --1:1--> reviews                 |
+                                    +---------> cancellation_policies                      |
 
   bookings --1:N--> refund_requests <--N:1-- payments
-  users (vendor) --1:N--> payouts
+
+  users (vendor) --1:N--> vendor_bank_accounts --1:1--> vendor_razorpay_fund_accounts
+  users (vendor) --1:1--> vendor_razorpay_contacts --1:N--> vendor_razorpay_fund_accounts
+  users (vendor) --1:N--> payouts <--N:1-- vendor_bank_accounts
+
   users (user/vendor) --1:N--> testimonials
   users --1:N--> notifications
+  users (applicant) --1:N--> host_requests --1:N--> host_request_messages
 ```
 
 
@@ -637,23 +645,33 @@ Payment/transaction history for a booking. Kept separate from `bookings` so a si
 
 ---
 
-### 7. Payouts & Refunds
+### 7. Payouts, Banking & Refunds
 
 #### `payouts`
-Money paid out to vendors for a settlement period. Separate from `payments`, which tracks money coming in from guests.
+Money disbursed to homestay hosts for completed settlement periods. Separate from `payments`, which tracks money coming in from guests.
 
 | Column | Type | Constraints / Defaults | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
 | `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
-| `vendor_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> users.id (RESTRICT)` | Vendor being paid out |
-| `amount` | `NUMERIC(12, 2)` | `NOT NULL`, `CHECK(> 0)` | Payout amount |
+| `vendor_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> users.id (RESTRICT)` | Receiving host account |
+| `bank_account_id` | `BigInteger` | `NULLABLE`, `INDEX`, `FK -> vendor_bank_accounts.id (SET NULL)` | Target bank account |
+| `gross_amount` | `NUMERIC(12, 2)` | `NULLABLE` | Total booking revenue in period |
+| `commission_amount`| `NUMERIC(12, 2)` | `NULLABLE`, `default=0.00` | Retained platform commission |
+| `amount` | `NUMERIC(12, 2)` | `NOT NULL`, `CHECK(> 0)` | Net disbursement amount |
 | `currency` | `VARCHAR(10)` | `default='INR'` | Currency code |
 | `period_start` | `DATE` | `NOT NULL` | Settlement period start |
 | `period_end` | `DATE` | `NOT NULL` | Settlement period end |
-| `status` | `Enum(PayoutStatus)` | `NOT NULL`, `INDEX`, `default='pending'` | Payout lifecycle status |
-| `transaction_id` | `VARCHAR(255)` | `UNIQUE`, `NULLABLE` | Bank/gateway transfer reference |
+| `status` | `Enum(PayoutStatus)` | `NOT NULL`, `INDEX`, `default='pending'` | State (`pending`, `processing`, `paid`, `failed`, `reversed`, `rejected`, `cancelled`) |
+| `mode` | `VARCHAR(20)` | `default='NEFT'` | Disbursement mode (`NEFT`, `RTGS`, `IMPS`, `UPI`) |
+| `transaction_id` | `VARCHAR(255)` | `UNIQUE`, `NULLABLE` | Bank transfer reference |
+| `razorpay_payout_id` | `VARCHAR(255)` | `UNIQUE`, `NULLABLE`, `INDEX` | RazorpayX payout transaction ID |
+| `razorpay_fund_account_id`| `VARCHAR(255)`| `NULLABLE` | RazorpayX fund account identifier |
+| `utr` | `VARCHAR(100)` | `NULLABLE` | Unique Transaction Reference |
+| `failure_reason` | `TEXT` | `NULLABLE` | Error text if disbursement failed |
+| `notes` | `TEXT` | `NULLABLE` | Administrative settlement notes |
 | `paid_at` | `TIMESTAMPTZ` | `NULLABLE` | When the payout was completed |
+| `created_by` | `BigInteger` | `NULLABLE`, `FK -> users.id (SET NULL)` | Disbursing admin user ID |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
 
@@ -662,8 +680,86 @@ Money paid out to vendors for a settlement period. Separate from `payments`, whi
   - `chk_payouts_period` (`CHECK(period_end >= period_start)`)
 - **Relationships**:
   - `vendor` -> N:1 [`User`](#users)
+  - `bank_account` -> N:1 [`VendorBankAccount`](#vendor_bank_accounts)
+  - `creator` -> N:1 [`User`](#users)
 
 > **Note**: `vendor_id` uses `ON DELETE RESTRICT` to protect payout history.
+
+---
+
+#### `vendor_bank_accounts`
+Bank account and UPI details registered by hosts for receiving payouts.
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
+| `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
+| `vendor_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> users.id (CASCADE)` | Owning host account |
+| `account_type` | `Enum(BankAccountType)`| `NOT NULL`, `INDEX`, `default='bank_account'` | Type (`bank_account`, `vpa`) |
+| `account_holder_name` | `VARCHAR(255)` | `NOT NULL` | Legal beneficiary name |
+| `account_number` | `VARCHAR(50)` | `NULLABLE`, `INDEX` | Bank account number |
+| `ifsc_code` | `VARCHAR(20)` | `NULLABLE`, `INDEX` | Bank IFSC branch routing code |
+| `bank_name` | `VARCHAR(255)` | `NULLABLE` | Commercial bank name |
+| `branch_name` | `VARCHAR(255)` | `NULLABLE` | Branch title |
+| `upi_id` | `VARCHAR(100)` | `NULLABLE`, `INDEX` | Virtual Payment Address (VPA) |
+| `is_primary` | `BOOLEAN` | `NOT NULL`, `default=True` | Primary disbursement destination |
+| `is_verified` | `BOOLEAN` | `NOT NULL`, `default=False` | Admin/penny-drop verified flag |
+| `notes` | `TEXT` | `NULLABLE` | Host or verification notes |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+- **Relationships**:
+  - `vendor` -> N:1 [`User`](#users)
+  - `razorpay_fund_account` -> 1:1 [`VendorRazorpayFundAccount`](#vendor_razorpay_fund_accounts), `uselist=False`
+
+---
+
+#### `vendor_razorpay_contacts`
+RazorpayX Contact records mapped to vendor user accounts.
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
+| `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
+| `vendor_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> users.id (CASCADE)` | Owning host account |
+| `razorpay_contact_id`| `VARCHAR(255)`| `UNIQUE`, `NOT NULL`, `INDEX` | Razorpay Contact ID (`cont_...`) |
+| `name` | `VARCHAR(255)` | `NOT NULL` | Contact name |
+| `email` | `VARCHAR(255)` | `NULLABLE` | Contact email |
+| `phone` | `VARCHAR(20)` | `NULLABLE` | Contact phone |
+| `type` | `VARCHAR(50)` | `NOT NULL`, `default='vendor'` | Contact type |
+| `reference_id` | `VARCHAR(255)` | `NULLABLE` | Vendor internal reference |
+| `active` | `BOOLEAN` | `NOT NULL`, `default=True` | Active status flag |
+| `raw_response` | `TEXT` | `NULLABLE` | Raw Razorpay API response JSON |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+- **Table Constraints**:
+  - `uq_vendor_razorpay_contacts_vendor_id` (`UNIQUE(vendor_id)`)
+- **Relationships**:
+  - `vendor` -> N:1 [`User`](#users)
+  - `fund_accounts` -> 1:N [`VendorRazorpayFundAccount`](#vendor_razorpay_fund_accounts), `cascade="all, delete-orphan"`
+
+---
+
+#### `vendor_razorpay_fund_accounts`
+RazorpayX Fund Account representations linked to bank accounts.
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
+| `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
+| `contact_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> vendor_razorpay_contacts.id (CASCADE)` | Parent Razorpay contact |
+| `bank_account_id` | `BigInteger` | `NULLABLE`, `UNIQUE`, `INDEX`, `FK -> vendor_bank_accounts.id (SET NULL)`| Linked bank account |
+| `razorpay_fund_account_id`| `VARCHAR(255)`| `UNIQUE`, `NOT NULL`, `INDEX` | Razorpay Fund Account ID (`fa_...`)|
+| `account_type` | `VARCHAR(50)` | `NOT NULL` | Type (`bank_account` or `vpa`) |
+| `active` | `BOOLEAN` | `NOT NULL`, `default=True` | Active status flag |
+| `raw_response` | `TEXT` | `NULLABLE` | Raw Razorpay API response JSON |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+- **Relationships**:
+  - `contact` -> N:1 [`VendorRazorpayContact`](#vendor_razorpay_contacts)
+  - `bank_account` -> N:1 [`VendorBankAccount`](#vendor_bank_accounts)
 
 ---
 
@@ -682,12 +778,18 @@ A refund request against a specific payment/booking, with an approval workflow. 
 | `status` | `Enum(RefundRequestStatus)` | `NOT NULL`, `INDEX`, `default='pending'` | Request lifecycle status |
 | `approved_by` | `BigInteger` | `NULLABLE`, `FK -> users.id (SET NULL)` | Admin/vendor who approved it |
 | `approved_at` | `TIMESTAMPTZ` | `NULLABLE` | When it was approved |
+| `razorpay_refund_id`| `VARCHAR(255)` | `NULLABLE` | Gateway refund identifier |
+| `razorpay_status`| `VARCHAR(50)` | `NULLABLE` | Gateway refund status |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
 
+- **Table Constraints**:
+  - `chk_refund_request_amount` (`CHECK(amount > 0)`)
 - **Relationships**:
   - `payment` -> N:1 [`Payment`](#payments)
   - `booking` -> N:1 [`Booking`](#bookings)
+  - `requester` -> N:1 [`User`](#users)
+  - `approver` -> N:1 [`User`](#users)
 
 ---
 
@@ -747,7 +849,63 @@ Platform-level testimonials and endorsements submitted by guests or hosts/vendor
 
 ---
 
-### 9. Application Configuration & Statistics
+### 9. Host Onboarding & Communication
+
+#### `host_requests`
+Applications submitted by prospective hosts to list their properties on TashiHome.
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
+| `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
+| `user_id` | `BigInteger` | `NULLABLE`, `INDEX`, `FK -> users.id (SET NULL)` | Existing user account, if logged in |
+| `full_name` | `VARCHAR(255)` | `NOT NULL` | Applicant name |
+| `email` | `VARCHAR(255)` | `NOT NULL`, `INDEX` | Applicant contact email |
+| `phone` | `VARCHAR(20)` | `NOT NULL`, `INDEX` | Contact phone number |
+| `company_name` | `VARCHAR(255)` | `NULLABLE` | Business entity name |
+| `property_name`| `VARCHAR(255)` | `NULLABLE` | Proposed property name |
+| `property_type`| `VARCHAR(50)` | `NULLABLE` | Typology (homestay, villa, cottage, etc.) |
+| `city` | `VARCHAR(100)` | `NULLABLE` | City location |
+| `address` | `VARCHAR(255)` | `NULLABLE` | Physical property address |
+| `expected_rooms`| `INTEGER` | `NULLABLE` | Expected number of rooms/keys |
+| `notes` | `TEXT` | `NULLABLE` | Additional information from applicant |
+| `status` | `Enum(HostRequestStatus)`| `NOT NULL`, `INDEX`, `default='pending'`| Lifecycle (`pending`, `under_review`, `approved`, `rejected`, `converted`) |
+| `reviewed_by` | `BigInteger` | `NULLABLE`, `INDEX`, `FK -> users.id (SET NULL)` | Admin reviewer user ID |
+| `reviewed_at` | `TIMESTAMPTZ` | `NULLABLE` | When review took place |
+| `converted_user_id`| `BigInteger`| `NULLABLE`, `INDEX`, `FK -> users.id (SET NULL)` | Newly converted vendor user account |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+- **Relationships**:
+  - `messages` -> 1:N [`HostRequestMessage`](#host_request_messages), `cascade="all, delete-orphan"`
+  - `applicant_user` -> N:1 [`User`](#users)
+  - `reviewer` -> N:1 [`User`](#users)
+  - `converted_user` -> N:1 [`User`](#users)
+
+---
+
+#### `host_request_messages`
+Communication trail between administrators and host applicants.
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
+| `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
+| `host_request_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> host_requests.id (CASCADE)`| Parent host application |
+| `sender_id` | `BigInteger` | `NULLABLE`, `INDEX`, `FK -> users.id (SET NULL)` | Message author user ID |
+| `sender_name` | `VARCHAR(255)` | `NOT NULL` | Author display name |
+| `sender_role` | `VARCHAR(50)` | `NOT NULL` | Role (`admin`, `applicant`, `staff`) |
+| `message` | `TEXT` | `NOT NULL` | Communication message body |
+| `is_internal` | `BOOLEAN` | `NOT NULL`, `default=False` | Admin internal note (hidden from applicant) |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
+
+- **Relationships**:
+  - `host_request` -> N:1 [`HostRequest`](#host_requests)
+  - `sender` -> N:1 [`User`](#users)
+
+---
+
+### 10. Application Configuration, Taxes & Notifications
 
 #### `settings`
 Key-value configuration store for system parameters and dynamic configurations.
@@ -858,8 +1016,10 @@ Persistent in-app notifications for Admins, Vendors (Hosts), and Users (Guests) 
 | `roomunitstatus` | `RoomUnitStatus` | `'active'`, `'maintenance'`, `'inactive'` |
 | `reviewstatus` | `ReviewStatus` | `'pending'`, `'published'`, `'hidden'`, `'flagged'`, `'rejected'` |
 | `testimonialstatus` | `TestimonialStatus` | `'pending'`, `'approved'`, `'rejected'`, `'hidden'` |
-| `payoutstatus` | `PayoutStatus` | `'pending'`, `'processing'`, `'paid'`, `'failed'` |
+| `payoutstatus` | `PayoutStatus` | `'pending'`, `'processing'`, `'paid'`, `'failed'`, `'reversed'`, `'rejected'`, `'cancelled'` |
+| `bankaccounttype` | `BankAccountType` | `'bank_account'`, `'vpa'` |
 | `refundrequeststatus` | `RefundRequestStatus` | `'pending'`, `'approved'`, `'rejected'`, `'processed'` |
+| `hostrequeststatus` | `HostRequestStatus` | `'pending'`, `'under_review'`, `'approved'`, `'rejected'`, `'converted'` |
 
 ---
 
@@ -897,12 +1057,15 @@ alembic history
    - `bookings.guest_id` and `bookings.property_id` use `ondelete="RESTRICT"` to protect financial/reservation history — properties and users with bookings must be deactivated (status change) rather than hard-deleted.
    - `payments.booking_id` uses `ondelete="CASCADE"` — payment history is meaningless without its parent booking, and bookings themselves are never hard-deleted in practice due to the `RESTRICT` rules above.
    - `payouts.vendor_id`, `refund_requests.payment_id`, and `refund_requests.booking_id` use `ondelete="RESTRICT"` for the same reason — financial audit trails must not silently disappear.
+   - `vendor_bank_accounts.vendor_id` uses `ondelete="CASCADE"`, but payouts referencing bank accounts set `bank_account_id` to `SET NULL`.
+   - `vendor_razorpay_contacts.vendor_id` uses `ondelete="CASCADE"`, and cascading contacts purges associated fund accounts.
    - `reviews.booking_id` uses `ondelete="CASCADE"` (deleting a booking removes its review), while `reviews.guest_id`/`property_id` also cascade for consistency with existing entity-cleanup patterns.
    - `testimonials.user_id` uses `ondelete="CASCADE"` (deleting a user account removes their testimonials).
    - `notifications.user_id` uses `ondelete="CASCADE"` — user-specific notifications are deleted if the user account is purged.
+   - `host_requests.user_id`, `reviewed_by`, and `converted_user_id` use `SET NULL` to retain inquiries even if linked accounts are removed. `host_request_messages` cascade when the host request is deleted.
 
-3. **Overbooking Prevention**:
-   - Room inventory is enforced by a `BEFORE INSERT OR UPDATE` trigger on `bookings` (`check_booking_availability()`), not a database exclusion constraint — this correctly accounts for properties with multiple units of the same room type, and also subtracts any overlapping `room_blocks`. See the note under [`bookings`](#bookings) for details.
+3. **Overbooking Prevention & Availability**:
+   - Room inventory is computed dynamically by checking `property_room_types.units`, subtracting all active overlapping `bookings` (`pending`, `confirmed`, `checked_in`), and subtracting any overlapping `room_blocks` within the check-in/check-out date range.
 4. **Cancellation & Refund Flow**:
    - `cancellation_policies.refund_tiers` is the source of truth for how much to refund based on how close to check-in a cancellation happens; `bookings.cancellation_policy_id` snapshots the policy in effect at booking time so later policy edits don't retroactively change existing bookings' terms.
    - `refund_requests` is the workflow/approval layer; `payments.refunded_amount` is the ledger of money actually returned.

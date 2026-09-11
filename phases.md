@@ -8,14 +8,15 @@ This document outlines the phased development roadmap for the **TashiHome Backen
 
 | Phase | Domain | Status | Key Deliverables |
 | :--- | :--- | :--- | :--- |
-| **Phase 1** | **Core Foundation & Infrastructure** | ✅ **Completed** | FastAPI setup, Async SQLAlchemy, PostgreSQL, Redis, Alembic, S3 Storage, Event Bus |
+| **Phase 1** | **Core Foundation & Infrastructure** | ✅ **Completed** | FastAPI setup, Async SQLAlchemy 2.0, PostgreSQL, Redis, Alembic, S3 Storage, Event Bus |
 | **Phase 2** | **Authentication, Users & Vendors** | ✅ **Completed** | JWT lifecycle, RBAC, Redis token blacklist, Login audit logs, Companies, Addresses |
 | **Phase 3** | **Locations & Master Attributes** | ✅ **Completed** | Countries, Cities, Locations hierarchy, Facilities, Amenities, Room Types catalog |
 | **Phase 4** | **Properties & Media Management** | ✅ **Completed** | Property listings CRUD, Multi-asset S3/CloudFront upload, Facilities/Amenities/Food options mapping |
-| **Phase 5** | **Search, Availability & Bookings** | 🔄 **In Progress** | Date-range availability, Pricing engine, Booking state machine, Redis reservation locks |
-| **Phase 6** | **Payments, Invoicing & Payouts** | ⏳ **Planned** | Payment gateways (Razorpay/Stripe), Webhook handling, Refunds, Vendor payouts |
-| **Phase 7** | **Reviews, Wishlists & Communication** | ⏳ **Planned** | Guest reviews & ratings, Wishlist/favorites, Host-guest messaging, Transactional emails |
-| **Phase 8** | **Observability, Hardening & Deployment**| 🔄 **Ongoing** | Unit/integration test suites, OpenTelemetry/Prometheus, CI/CD, Containerization |
+| **Phase 5** | **Search, Availability & Booking Engine** | ✅ **Completed** | Date-range availability, Pricing engine, Booking state machine, Room blocks, Occupancy variable pricing |
+| **Phase 6** | **Payments, Invoicing & Payouts** | ✅ **Completed** | Razorpay gateway, Webhook signature verification, Idempotency engine, Refunds, Vendor bank accounts, RazorpayX payouts |
+| **Phase 7** | **Reviews, Testimonials & Notifications** | ✅ **Completed** | Verified guest reviews, Testimonials moderation, Host applications with messaging, Socket.IO real-time notifications |
+| **Phase 8** | **AI Concierge, MCP & Vector Search** | ✅ **Completed** | Bedrock Nova Lite / Gemini / OpenAI LLMs, MCP JSON-RPC/SSE & stdio server, S3 vector store & embeddings |
+| **Phase 9** | **Production Resilience & Scaling** | 🔄 **Ongoing** | Pytest suites, Multi-worker Redis leader election, Method rate limiting, OpenTelemetry, Kubernetes manifests |
 
 ---
 
@@ -104,78 +105,122 @@ This document outlines the phased development roadmap for the **TashiHome Backen
 
 ---
 
-### Phase 5: Search, Availability & Booking Engine 🔄
+### Phase 5: Search, Availability & Booking Engine ✅
 *Goal: High-performance search, real-time availability tracking, reservation holds, and booking lifecycle.*
 
-- [ ] **Search & Filtering Engine**:
-  - Public search by destination/city/location, check-in/check-out dates, guest counts, and price ranges.
-  - Filter by property type, facilities, amenities, and food options.
-  - Geospatial radius search based on coordinates.
-- [ ] **Availability Calendar & Dynamic Pricing**:
-  - Day-by-day room inventory and availability tracking.
-  - Seasonal pricing, weekend markups, custom date-based discounts, and minimum stay rules.
-- [ ] **Booking State Machine**:
-  - Lifecycle: `pending` -> `confirmed` -> `checked_in` -> `checked_out` -> `cancelled` / `refunded`.
-  - Redis-backed distributed locks for temporary inventory reservation holds (15-minute hold during checkout).
-  - Guest details, guest count verification, and special requests handling.
-- [ ] **Vendor Booking Dashboard**:
-  - Vendor reservation calendar, booking approval/rejection, check-in verification.
-  - Guest communication and cancellation policy enforcement.
+- [x] **Search & Filtering Engine**:
+  - Public search by destination/city/location, check-in/check-out dates, guest counts, and price ranges (`/api/v1/public/stay/*`).
+  - Filter by property typology, facilities, amenities, and dining options.
+  - Slug-based URL lookups and geo-location sorting.
+- [x] **Availability Calendar & Dynamic Inventory**:
+  - Real-time room inventory deduction accounting for active bookings (`pending`, `confirmed`, `checked_in`).
+  - Property room blocks (`room_blocks`) for host blackout dates, maintenance holds, and private reservations.
+  - Multi-occupancy variable pricing tiers (`property_room_type_prices`) per room category.
+- [x] **Booking State Machine**:
+  - Complete lifecycle: `pending` $\to$ `confirmed` $\to$ `checked_in` $\to$ `checked_out` $\to$ `cancelled` / `completed`.
+  - Automated booking reference generator (e.g. `TSH-2026-XXXX`).
+  - Guest details, guest count validation, and special requests handling.
+- [x] **Booking Administration**:
+  - Admin booking oversight, filterable lists, status transition controls.
+  - Vendor booking dashboard for checking reservations, guest records, and check-in status.
+  - User booking dashboard for personal reservations and itinerary history.
 
 ---
 
-### Phase 6: Payments, Invoicing & Payouts ⏳
+### Phase 6: Payments, Invoicing & Payouts ✅
 *Goal: Reliable payment gateway integration, transaction auditing, automated invoicing, and vendor payouts.*
 
-- [ ] **Payment Gateway Integration**:
-  - Multi-gateway support (Stripe, Razorpay, PhonePe).
-  - Payment intent creation, customer checkout sessions, and 3D Secure verification.
-- [ ] **Webhooks & Idempotency**:
-  - Resilient webhook processing with cryptographic signature verification.
-  - Idempotent transaction processing to prevent duplicate charges or double bookings.
-- [ ] **Refunds & Cancellation Processing**:
-  - Automated refund calculation based on property cancellation policies (e.g. Free cancellation up to 48 hours).
-  - Partial refunds and penalty deductions.
-- [ ] **Vendor Commission & Payouts**:
-  - Platform commission fee deduction per booking.
-  - Vendor ledger, wallet balance, and payout disbursement tracking.
-  - Automated PDF invoice and booking voucher generation.
+- [x] **Payment Gateway Integration**:
+  - Razorpay payment order generation, client checkout verification, and signature capture (`app/services/razorpay_service.py`).
+  - Webhook processing with cryptographic HMAC SHA-256 signature verification (`X-Razorpay-Signature`).
+  - Multi-currency support and payment status synchronization (`payments`).
+- [x] **Idempotency Engine**:
+  - Custom Redis-backed `IdempotencyMiddleware` supporting `Idempotency-Key` / `X-Idempotency-Key`.
+  - Distributed in-flight request locking preventing race-condition double charges (returns HTTP 409).
+  - SHA-256 request fingerprinting and 24-hour response caching with `Idempotent-Replay: true` header.
+- [x] **Refunds & Cancellation Processing**:
+  - Cancellation policy tier evaluation for automated refund calculations.
+  - Refund requests workflow (`refund_requests`) with admin approval and Razorpay refund API execution.
+- [x] **Host Banking & RazorpayX Payouts**:
+  - Host bank account and UPI VPA registry (`vendor_bank_accounts`) with verification status.
+  - Automated provisioning of RazorpayX Contacts (`vendor_razorpay_contacts`) and Fund Accounts (`vendor_razorpay_fund_accounts`).
+  - Vendor payout settlement engine calculating gross revenue minus platform commission (`payouts`).
+  - Disbursement execution via NEFT, RTGS, IMPS, and UPI modes.
+- [x] **PDF Invoicing & Vouchers**:
+  - Automated PDF invoice and booking voucher generation (`app/services/invoice_service.py`) with GST breakdown.
 
 ---
 
-### Phase 7: Reviews, Wishlists & Engagement ⏳
-*Goal: Social proof, traveler retention, wishlist collections, and multi-channel notifications.*
+### Phase 7: Reviews, Testimonials, Host Requests & Real-Time Notifications ✅
+*Goal: Social proof, host onboarding workflows, real-time alerts, and multi-channel communication.*
 
-- [ ] **Reviews & Ratings System**:
-  - Verified-stay reviews only (guests who have completed their stay).
-  - Multi-criteria ratings (Cleanliness, Location, Service, Value for Money, Accuracy).
-  - Vendor response to reviews and admin moderation queue.
-- [ ] **Wishlists & Saved Properties**:
-  - Traveler wishlist collections and favorites toggle.
-- [ ] **Transactional Notification System**:
-  - Automated transactional emails (HTML templates via Jinja2) for booking confirmations, cancellations, and invoices.
-  - SMS & WhatsApp alerts for critical booking milestones.
-  - In-app notification center for users and vendors.
-- [ ] **Guest-Host Messaging**:
-  - In-platform direct messaging between confirmed guests and property hosts.
+- [x] **Reviews & Ratings System**:
+  - Verified guest reviews linked directly to completed bookings (`reviews`).
+  - 1-to-5 star ratings with guest comments and host public replies.
+  - Moderation states (`pending`, `published`, `hidden`, `flagged`, `rejected`).
+- [x] **Platform Testimonials**:
+  - Platform-wide endorsements submitted by guests or hosts (`testimonials`).
+  - Admin review, approval, and homepage featuring flags.
+- [x] **Host Onboarding & Inquiry Pipeline**:
+  - Prospective host inquiry submission (`host_requests`) with property details and room estimates.
+  - Admin review, status tracking (`pending`, `under_review`, `approved`, `rejected`, `converted`).
+  - Internal and applicant messaging thread (`host_request_messages`).
+  - One-click applicant conversion to active vendor account (`converted_user_id`).
+- [x] **Real-Time Notification Engine**:
+  - Persistent in-app notifications store (`notifications`).
+  - Real-time WebSocket broadcasting via Socket.IO (`app/core/socket.py`).
+  - Authenticated room-based channel isolation (`admin_notifications`, `vendor_{id}`, `user_{id}`).
+- [x] **Transactional Email Service**:
+  - Multi-provider email engine (`app/services/email_service.py`) supporting SMTP, Mailgun, Brevo, and Mock modes.
+  - HTML email templates rendered via Jinja2 for account verification, password reset, and booking milestones.
 
 ---
 
-### Phase 8: Production Hardening, Observability & Scaling 🔄
-*Goal: Maximize reliability, security compliance, performance under high load, and CI/CD automation.*
+### Phase 8: AI Concierge, Model Context Protocol (MCP) & Vector Search ✅
+*Goal: Conversational travel concierge, standardized MCP integration, and semantic homestay search.*
 
-- [ ] **Testing & Quality Assurance**:
-  - End-to-end integration tests for checkout, booking, and payment flows.
-  - Repository and use case unit test suites (`pytest`, `pytest-asyncio`).
-  - Stress and concurrency testing for inventory locking under flash sales.
-- [ ] **Monitoring & Observability**:
-  - Prometheus metrics endpoint for request latency, error rates, and DB pool stats.
-  - Structured JSON logging and Sentry integration for real-time error tracking.
-  - OpenTelemetry distributed tracing.
-- [ ] **Security & Compliance**:
-  - OWASP Top 10 hardening (SQLi prevention, XSS mitigation, rate-limiting per IP/User).
-  - PII data encryption and GDPR-compliant data export/deletion requests.
-- [ ] **DevOps & Infrastructure**:
-  - Production Dockerfile with multi-stage builds and minimal image size.
-  - Docker Compose for local full-stack replication (Backend, PostgreSQL, Redis, MinIO/LocalStack).
-  - GitHub Actions CI/CD for automated linting, testing, migration checks, and cloud deployments.
+- [x] **Multi-Provider LLM Integration**:
+  - Pluggable AI engine supporting Amazon Bedrock (Nova Lite, Titan), Google Gemini (`gemini-1.5-flash`), and OpenAI.
+  - Conversational intent detection, entity extraction, and multi-turn dialogue management.
+  - Streaming responses (`/api/v1/public/assistant/chat/stream`) using Server-Sent Events (SSE).
+- [x] **Model Context Protocol (MCP) Server**:
+  - Standardized MCP server implementation (`app/mcp/`) compliant with the Model Context Protocol specification.
+  - JSON-RPC 2.0 endpoint (`/api/v1/public/mcp/rpc`) and persistent SSE stream (`/api/v1/public/mcp/sse`).
+  - Standalone stdio MCP runner (`scripts/mcp_server.py`) for external desktop clients (Claude Desktop, Cursor).
+  - Comprehensive tool suite (`search_homestays`, `check_availability`, `get_property_details`, `get_cancellation_policies`, `create_booking_reservation`).
+  - Standardized prompts and dynamic resources (`homestay://catalog`, `homestay://destinations`).
+- [x] **Vector Embeddings & Semantic Search**:
+  - Embedding generation pipeline (`text-embedding-004`, `amazon.titan-embed-text-v2:0`).
+  - Cosine similarity vector search engine (`app/services/vector_search_service.py`).
+  - Persistent vector index storage in Amazon S3 (`tashihome-vector`).
+  - Natural language stay search API (`/api/v1/public/assistant/semantic-search`).
+  - Embedding synchronization CLI tool (`scripts/sync_embeddings.py`).
+- [x] **Strict Security & Privacy**:
+  - Zero internal integer database ID leakage (exclusive UUIDv4 usage across all tools and schemas).
+  - Defensive parameter bounds, Pydantic validation, and read/write tool separation.
+
+---
+
+### Phase 9: Production Resilience, Hardening & Enterprise Scaling 🔄
+*Goal: Maximize reliability, observability, distributed worker safety, and CI/CD automation.*
+
+- [x] **Distributed Multi-Worker Safety**:
+  - Continuous Redis leader election (`RedisLeaderElector`) ensuring only a single elected leader runs background jobs and event subscribers.
+  - Decoupled deployment support (run scheduler embedded in web leader OR as isolated daemon `scripts/run_scheduler.py`).
+  - Redis distributed locking preventing overlapping cron job executions.
+- [x] **Pre-Aggregated Public Statistics Engine**:
+  - Dedicated `public_stats` table updated asynchronously by APScheduler to serve landing page stats in $O(1)$ time without joins.
+  - CLI job runner (`scripts/run_job.py`) for on-demand job inspection and manual execution.
+- [x] **Defensive Rate Limiting & Cooldown**:
+  - Method-specific sliding-window rate limiter (GET, POST, PUT, PATCH, DELETE) with 1-hour abusive IP cooldown lockout (`app/core/rate_limiter.py`).
+- [x] **Automated Testing Suite**:
+  - Unit and integration tests (`pytest`, `pytest-asyncio`) for use cases, repositories, rate limiting, idempotency, MCP tools, and vector search.
+- [ ] **Observability & Telemetry**:
+  - Prometheus metrics exporter for request latency, error counts, and DB connection pool saturation.
+  - OpenTelemetry distributed tracing across HTTP, Redis, and PostgreSQL calls.
+  - Centralized structured JSON logging and Sentry APM integration.
+- [ ] **DevOps & Cloud Orchestration**:
+  - Multi-stage production Dockerfile and Docker Compose environment.
+  - Kubernetes deployment manifests (Web Deployment, Background Worker StatefulSet, HPA).
+  - GitHub Actions CI/CD workflows for automated linting, test runs, migration dry-runs, and staging deployments.
+

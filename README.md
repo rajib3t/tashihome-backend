@@ -1,28 +1,44 @@
 # TashiHome Backend
 
-TashiHome Backend is a high-performance, enterprise-grade FastAPI application powering the TashiHome homestay platform. It provides authentication, property & room management, booking workflows, payments, reviews, pre-aggregated analytics, and a multi-worker safe scheduled tasks framework.
+TashiHome Backend is a high-performance, enterprise-grade FastAPI application powering the TashiHome homestay and accommodation platform. It features clean layered architecture, real-time WebSocket communication via Socket.IO, an AI Concierge with Model Context Protocol (MCP) server integration, vector semantic search, Razorpay payments and RazorpayX payouts, an enterprise Redis idempotency engine, method-specific rate limiting, pre-aggregated analytics, and a multi-worker safe scheduled tasks framework.
 
 ---
 
 ## Architecture Highlights
 
-- **Layered Architecture**: Strict separation of concerns — API Routes $\to$ Use Cases $\to$ Domain Services $\to$ Repositories $\to$ Models.
+- **Layered Clean Architecture**: Strict separation of concerns — API Routes $\to$ Application Use Cases $\to$ Domain Services $\to$ Repositories $\to$ Database Models.
+- **Real-Time Communication (Socket.IO ASGI)**: Seamlessly mounted Socket.IO server handling instant event broadcasts, unread notification counters, and room-scoped messaging (`user_{id}`, `vendor_{id}`, `admin_notifications`).
+- **AI Concierge & Model Context Protocol (MCP)**:
+  - Multi-provider LLM support: Amazon Bedrock (Nova Lite, Titan), Google Gemini (`gemini-1.5-flash`), and OpenAI.
+  - Conversational chat with tool calling and progressive Server-Sent Events (SSE) token streaming (`/api/v1/public/assistant/chat/stream`).
+  - Full MCP standard compliance with JSON-RPC 2.0 (`/api/v1/public/mcp/rpc`), SSE stream (`/api/v1/public/mcp/sse`), and standalone stdio CLI runner (`scripts/mcp_server.py`) for Claude Desktop and Cursor.
+- **Vector Semantic Search**: Cosine similarity search over text embeddings (`text-embedding-004`, `amazon.titan-embed-text-v2:0`) stored in Amazon S3 (`tashihome-vector`) for vibe-based and natural language stay discovery.
+- **Financial Workflows & Payouts**:
+  - Razorpay payment order generation, client signature capture, and HMAC SHA-256 webhook verification.
+  - Automated vendor payouts via RazorpayX Contacts & Fund Accounts linked to host bank accounts (`vendor_bank_accounts`).
+  - Automated PDF invoices and booking vouchers generation.
+- **Enterprise Idempotency Engine (`app/core/idempotency.py`)**: Custom Redis-backed middleware supporting `Idempotency-Key` / `X-Idempotency-Key`, concurrent in-flight locking (HTTP 409 prevention of duplicate charges), and 24-hour response caching (`Idempotent-Replay: true`).
+- **Advanced Rate Limiting (`app/core/rate_limiter.py`)**: Method-specific sliding-window rate limits (GET 120/min, POST 30/min, PUT 30/min, PATCH 30/min, DELETE 20/min) with automatic 1-hour abusive IP cooldown lockouts.
 - **Pre-Aggregated Public Stats**: Dedicated `public_stats` table updated asynchronously by background jobs to serve homepage statistics in $O(1)$ time with zero multi-table joins.
-- **Enterprise Scheduled Jobs (APScheduler)**: Extensible jobs framework with distributed locking via Redis to prevent concurrent execution overlaps.
-- **Multi-Worker Safety (Redis Leader Election)**: Only the single elected leader worker runs background scheduler and event subscriber tasks. Standby workers serve HTTP traffic with zero task overhead.
-- **Decoupled Production Deployments**: Supports running scheduled tasks embedded in the web leader OR as a dedicated isolated worker process.
+- **Multi-Worker Safety (Redis Leader Election)**: Only the single elected Gunicorn worker runs the background scheduler and event subscriber. Standby workers serve HTTP traffic with zero task overhead.
+- **Decoupled Production Deployments**: Supports running scheduled tasks embedded in the web leader OR as a dedicated isolated worker container (`python scripts/run_scheduler.py`).
 
 ---
 
 ## Tech Stack
 
-- **Runtime**: Python 3.14+
-- **Web Framework**: FastAPI & Uvicorn
-- **Database**: PostgreSQL with SQLAlchemy 2.0 (`asyncpg` async driver, `psycopg2` sync driver for Alembic)
-- **Cache & Message Broker**: Redis
-- **Task Scheduler**: APScheduler (`AsyncIOScheduler`)
-- **Database Migrations**: Alembic
-- **Settings**: Pydantic Settings (`.env`)
+| Category | Technology |
+| :--- | :--- |
+| **Runtime & Language** | Python 3.14+ |
+| **Web Framework & Server** | FastAPI, Uvicorn, Gunicorn (async workers) |
+| **Database & ORM** | PostgreSQL 14+, SQLAlchemy 2.0 (Async), `asyncpg` async driver, `psycopg2` sync driver (Alembic) |
+| **Cache & Message Broker** | Redis 6.2+ (Connection pool, distributed locks, token blacklisting) |
+| **Real-Time Communication**| Python-SocketIO (ASGI mounted) |
+| **Task Scheduler** | APScheduler 3.x (`AsyncIOScheduler`) with Redis distributed locking |
+| **Cloud Storage & CDN** | AWS S3 / MinIO, Amazon CloudFront (RSA private key signed cookies/URLs) |
+| **Payments & Payouts** | Razorpay Payment Gateway, RazorpayX Banking & Payout APIs |
+| **AI & LLM Orchestration** | Amazon Bedrock (Nova Lite, Titan), Google Gemini, OpenAI, MCP SDK |
+| **Settings & Validation** | Pydantic Settings v2, Pydantic v2 schemas |
 
 ---
 
@@ -53,7 +69,7 @@ pip install -e .
 
 ### 2. Configure Environment Variables
 
-Create your local `.env` file from the example:
+Create your local `.env` file:
 ```bash
 cp .env.example .env
 ```
@@ -65,12 +81,40 @@ ENV=development
 DEBUG=true
 PORT=8020
 
+# Database & Redis
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/tashihome
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
+# Authentication
+JWT_SECRET=your-super-secret-jwt-key-min-32-chars
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# Rate Limiting & Idempotency
+RATE_LIMIT_ENABLED=true
+IDEMPOTENCY_ENABLED=true
+
+# Payments (Razorpay)
+PAYMENT_ENABLED=true
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=...
+RAZORPAY_WEBHOOK_SECRET=...
+
+# Background Scheduler
 ENABLE_SCHEDULER=true
 PUBLIC_STATS_UPDATE_INTERVAL_MINUTES=15
+
+# AI Assistant & MCP
+AI_ENABLED=true
+AI_PROVIDER=gemini           # "bedrock", "gemini", "openai", "mock"
+GEMINI_API_KEY=...
+AI_MODEL=gemini-1.5-flash
+
+# Vector Semantic Search
+VECTOR_SEARCH_ENABLED=true
+EMBEDDING_PROVIDER=gemini    # "bedrock", "gemini", "openai"
+VECTOR_S3_BUCKET=tashihome-vector
 ```
 
 ### 3. Run Database Migrations
@@ -80,14 +124,21 @@ Apply all schema migrations up to the latest head:
 alembic upgrade head
 ```
 
-### 4. Seed Initial Super Admin
+### 4. Provision Super Admin Account
 
 Create your initial super admin account:
 ```bash
 python scripts/create_admin.py --email admin@tashihomes.in --password AdminSecurePassword123! --phone +919876543210
 ```
 
-### 5. Start Application in Development Mode
+### 5. Synchronize Vector Embeddings (Optional)
+
+Index homestay listings into vector embeddings and sync to the vector index:
+```bash
+python scripts/sync_embeddings.py
+```
+
+### 6. Start Application in Development Mode
 
 Run with auto-reload:
 ```bash
@@ -98,9 +149,48 @@ Or directly:
 python main.py
 ```
 
-- Swagger UI docs: [http://localhost:8020/docs](http://localhost:8020/docs)
-- Health check: [http://localhost:8020/](http://localhost:8020/)
-- Public stats: [http://localhost:8020/api/v1/stats](http://localhost:8020/api/v1/stats)
+- **Swagger UI Interactive Docs**: [http://localhost:8020/docs](http://localhost:8020/docs)
+- **Health Check**: [http://localhost:8020/](http://localhost:8020/)
+- **Public Stats**: [http://localhost:8020/api/v1/public/stat](http://localhost:8020/api/v1/public/stat)
+- **Socket.IO Endpoint**: `ws://localhost:8020/socket.io/`
+
+---
+
+## AI Concierge & Model Context Protocol (MCP)
+
+TashiHome features an integrated AI Travel Concierge and a full implementation of the **Model Context Protocol (MCP)**.
+
+### Key AI Endpoints
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/v1/public/assistant/chat` | Conversational assistant with multi-tool calling |
+| `POST` | `/api/v1/public/assistant/chat/stream` | Streaming assistant replies via Server-Sent Events (SSE) |
+| `POST` | `/api/v1/public/assistant/semantic-search`| Natural language / vibe-based vector stay search |
+| `POST` | `/api/v1/public/assistant/checkout` | Direct AI checkout with auto-registration |
+| `POST` | `/api/v1/public/mcp/rpc` | JSON-RPC 2.0 MCP endpoint |
+| `GET` | `/api/v1/public/mcp/sse` | Persistent Server-Sent Events stream for MCP |
+| `GET` | `/api/v1/public/mcp/tools` | List all available MCP tool schemas |
+
+### Connecting MCP Desktop Clients (Claude Desktop / Cursor)
+
+To connect Claude Desktop or Cursor to TashiHome tools and resources, add this configuration to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "tashihome": {
+      "command": "/var/www/tashihome-backend/.venv/bin/python",
+      "args": ["scripts/mcp_server.py"],
+      "cwd": "/var/www/tashihome-backend",
+      "env": {
+        "DATABASE_URL": "postgresql+asyncpg://postgres:postgres@localhost:5432/tashihome",
+        "REDIS_HOST": "localhost"
+      }
+    }
+  }
+}
+```
 
 ---
 
@@ -129,17 +219,17 @@ gunicorn main:app \
 
 > **How it works under the hood**:
 > - Worker 1 acquires the Redis leadership lock $\to$ starts `start_event_subscriber()` and `start_scheduler()`.
-> - Workers 2, 3, 4 are standbys $\to$ handle HTTP traffic only.
+> - Workers 2, 3, 4 are standbys $\to$ handle HTTP and Socket.IO traffic only.
 > - If Worker 1 restarts or crashes, Worker 2 automatically takes over leadership within seconds.
 
 ---
 
 ### Strategy B: Decoupled Enterprise Deployment (High Traffic / Kubernetes)
 
-For high-traffic or microservices architectures, it is best practice to completely isolate HTTP API servers from background task processing:
+For high-traffic or microservices architectures, isolate HTTP API servers from background task processing:
 
 #### 1. Web API Pods / Containers
-Dedicated solely to serving user traffic with zero CPU/memory interference from background jobs:
+Dedicated solely to serving user traffic with zero background task overhead:
 ```env
 # .env on Web Containers
 ENABLE_SCHEDULER=false
@@ -154,7 +244,8 @@ Dedicated solely to executing scheduled tasks and cron jobs:
 ```bash
 python scripts/run_scheduler.py
 ```
-Or in a systemd service:
+
+Systemd service example:
 ```ini
 [Unit]
 Description=TashiHome Background Scheduler Daemon
@@ -189,33 +280,6 @@ python scripts/run_job.py update_public_stats
 python scripts/run_job.py --all
 ```
 
-### Adding New Scheduled Functions
-
-To add a new scheduled function:
-1. Create a job class inheriting from `BaseJob` in `app/schedulers/jobs/`:
-```python
-from app.schedulers.base import BaseJob
-from app.schedulers.registry import register_job
-from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy.ext.asyncio import AsyncSession
-
-@register_job
-class BookingRemindersJob(BaseJob):
-    name = "send_booking_reminders"
-    description = "Send check-in reminders to upcoming guests"
-
-    @property
-    def trigger(self):
-        return CronTrigger(hour=8, minute=0)  # Every day at 8:00 AM
-
-    async def run(self, session: AsyncSession):
-        # Business logic with auto session management and Redis distributed locking
-        ...
-```
-2. Import the job class in `app/schedulers/jobs/__init__.py`.
-
-The job will automatically be scheduled, monitored, and available in the CLI runner.
-
 ---
 
 ## Running Automated Tests
@@ -225,17 +289,31 @@ Run the test suite using `pytest`:
 # Run all tests
 pytest
 
-# Run scheduled jobs and public stats tests
-pytest tests/test_public_stats_scheduler.py -v
+# Run tests with verbose output
+pytest -v
+
+# Run specific domain test suites
+pytest tests/test_assistant_and_mcp.py -v
+pytest tests/test_idempotency.py -v
+pytest tests/test_rate_limiter.py -v
+pytest tests/test_admin_payout_use_cases.py -v
 ```
 
 ---
 
-## Project Documentation
+## Project Documentation Catalog
 
-- [structure.md](structure.md) — Detailed codebase architecture and request flow
-- [database.md](database.md) — Comprehensive database schema, table catalogs, and enum references
-- [security.md](security.md) — Authentication, rate limiting, and security policies
-- [phases.md](phases.md) — Implementation roadmap and milestones
-- [docs/frontend_public_properties_guide.md](docs/frontend_public_properties_guide.md) — Frontend integration guide for public properties, slug filters, pricing, and sorting
+- [structure.md](structure.md) — Comprehensive codebase architecture, package map, and request flows
+- [database.md](database.md) — Complete 36-table database schema, ERD diagrams, and enums reference
+- [security.md](security.md) — Authentication, idempotency defenses, rate limiting, SSRF, and Razorpay security
+- [phases.md](phases.md) — Implementation roadmap, completed deliverables, and scaling milestones
+- [docs/frontend_ai_assistant_and_mcp_guide.md](docs/frontend_ai_assistant_and_mcp_guide.md) — Frontend integration guide for AI Concierge, SSE streaming, and MCP
+- [docs/idempotency_frontend_guide.md](docs/idempotency_frontend_guide.md) — Frontend guide for safe retries and idempotency headers
+- [docs/production_notification_guide.md](docs/production_notification_guide.md) — Socket.IO real-time notifications integration guide
+- [docs/frontend_payout_management_guide.md](docs/frontend_payout_management_guide.md) — Host bank account & RazorpayX payout management guide
+- [docs/frontend_public_properties_guide.md](docs/frontend_public_properties_guide.md) — Public properties listing, filters, pricing, and sorting
+- [docs/frontend_room_block_guide.md](docs/frontend_room_block_guide.md) — Room block and calendar blackout integration guide
+- [docs/frontend_tax_and_settings_guide.md](docs/frontend_tax_and_settings_guide.md) — Tax calculation & dynamic platform settings guide
+- [docs/FRONTEND_API_GUIDE_REVIEWS_TESTIMONIALS.md](docs/FRONTEND_API_GUIDE_REVIEWS_TESTIMONIALS.md) — Reviews and testimonials integration guide
+
 

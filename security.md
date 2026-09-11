@@ -12,7 +12,7 @@ This document outlines the security architecture, defensive input validation str
 |                        (Web Frontend, Mobile App, Vendors)                        |
 +-----------------------------------------+-----------------------------------------+
                                           |
-                        HTTPS (TLS 1.3)   | + CSRF Token Header / Cookies
+                        HTTPS (TLS 1.3)   | + WSS / Socket.IO (JWT Auth Handshake)
                                           v
 +-----------------------------------------------------------------------------------+
 |                                 API Gateway / WAF                                 |
@@ -24,8 +24,11 @@ This document outlines the security architecture, defensive input validation str
 +-----------------------------------------------------------------------------------+
 |                             FastAPI Application Layer                             |
 |  +---------------------------+  +------------------------+  +-------------------+  |
-|  |     CSRF Middleware       |  |   JWT / RBAC Auth      |  | Pydantic Schemas  |  |
-|  | (Double-Submit Token Val) |  | (Access/Refresh Tokens)|  | (Type & Boundary) |  |
+|  |   Idempotency Middleware  |  |  Rate Limiting (Redis) |  |   CSRF Middleware |  |
+|  |  (In-Flight Locking / TTL)|  |  (Method Sliding Window|  | (Double-Submit Val|  |
+|  +---------------------------+  +------------------------+  +-------------------+  |
+|  |      JWT / RBAC Auth      |  |  Socket.IO Room Gating |  | Pydantic Schemas  |  |
+|  | (Access/Refresh Tokens)   |  | (Role-Based Isolation) |  | (Strict Validation|  |
 |  +---------------------------+  +------------------------+  +-------------------+  |
 +-----------------------------------------+-----------------------------------------+
                                           |
@@ -36,13 +39,17 @@ This document outlines the security architecture, defensive input validation str
 |  |  Business Rules & State   |  | Media Sanitization     |  | Safe Outbound     |  |
 |  |  Validation (Ownership)   |  | (EXIF Stripping, WebP) |  | HTTP Client (SSRF)|  |
 |  +---------------------------+  +------------------------+  +-------------------+  |
+|  |  MCP Tool Parameter Gate  |  | Razorpay Signature HMAC|  | Distributed Locks |  |
+|  |  (UUID Opaque Enforce)    |  | (Webhook Verification) |  | (Redis Cron/Leads)|  |
+|  +---------------------------+  +------------------------+  +-------------------+  |
 +-----------------------------------------+-----------------------------------------+
        |                                  |                                  |
        v                                  v                                  v
 +---------------+                +-----------------+                +----------------+
 |  PostgreSQL   |                |  Redis Cluster  |                | S3 / CDN Cloud |
-| (ORM, Param,  |                | (Token Blacklist|                | (Presigned URLs|
-|  Strict Enums)|                |  Rate Limiting) |                |  Private ACLs) |
+| (ORM, Param,  |                | (Token Blacklist|                | (Signed Cookies|
+|  Strict Enums)|                |  Idempotency,   |                |  Private ACLs, |
+|               |                |  Rate Limiting) |                |  Vector Store) |
 +---------------+                +-----------------+                +----------------+
 ```
 
@@ -77,6 +84,18 @@ This document outlines the security architecture, defensive input validation str
   - Non-sensitive cookie: `csrf_token` (readable by frontend client).
   - Header validation: `X-CSRF-Token` sent by client and compared via `hmac.compare_digest`.
   - Cookies set with `SameSite=Lax` or `Strict`, `Secure=True`, and proper `Domain` scoping.
+
+### 2.5 Real-Time WebSocket & Socket.IO Security
+- **Handshake Authentication**:
+  - Socket.IO clients authenticate during the connection handshake via bearer JWT tokens sent in `auth: { token: "..." }` or the `Authorization` header.
+  - Expired or revoked tokens are rejected immediately before WebSocket upgrade.
+- **Room Isolation & Channel Authorization**:
+  - Users are automatically joined only to their authorized private room: `user_{user_id}`.
+  - Vendors join `vendor_{vendor_id}` only after role verification.
+  - Administrators join `admin_notifications` only if their authenticated role is `admin`.
+  - Broadcast notifications are never sent globally without room-level scoping.
+- **Cross-Site WebSocket Hijacking (CSWSH) Defense**:
+  - Origin verification ensures only authorized frontend domains (`CORS_ALLOWED_ORIGINS`) can initiate WebSocket handshakes.
 
 ---
 
@@ -124,6 +143,19 @@ TashiHome follows a **Defense-in-Depth Validation Strategy** across three isolat
   - Images are converted to optimized WebP format with dimension caps (e.g., max 1920px) to prevent image decompression bombs (Pixel Floods / Decompression DoS).
 - **Direct S3 / Presigned URL Flow**:
   - Direct binary streaming avoids storing untrusted files on local backend disk storage.
+
+### 3.2 AI Concierge & Model Context Protocol (MCP) Security
+- **Zero Internal ID Exposure (Opaque UUID Boundary)**:
+  - All entities manipulated by the AI Concierge and exposed through MCP tools exclusively utilize `public_id` (UUIDv4) represented as `"id"`.
+  - Database primary keys (`BigInteger`) are strictly prohibited from tool arguments, schemas, and return payloads, mitigating horizontal enumeration vulnerabilities.
+- **Strict Parameter Whitelisting & Schema Enforcement**:
+  - All MCP tool invocations validate incoming arguments using Pydantic schemas with type assertions, regex date bounds (`YYYY-MM-DD`), and range clamps (`guests >= 1`).
+- **Read / Write Action Isolation**:
+  - Information discovery tools (`search_homestays`, `check_availability`, `get_property_policies`) operate strictly as read-only idempotent queries.
+  - Transactional tools (e.g. `create_booking_reservation`, `checkout`) enforce strict customer credential validations, verify room inventory dynamically, and require explicit guest confirmation.
+- **Prompt Injection Defense & Guardrails**:
+  - System instructions enforce strict role boundaries preventing instruction override from untrusted guest messages.
+  - LLM outputs are treated as untrusted strings, requiring escaping and structured JSON parsing before frontend consumption.
 
 ---
 
@@ -222,13 +254,108 @@ Prohibited IP Ranges for Outbound Requests:
 - Production secrets injected via Kubernetes Secrets, AWS Secrets Manager, or HashiCorp Vault.
 - `.env.example` provides template keys with dummy values.
 
-### 5.4 Rate Limiting & Abuse Prevention
-- Redis token-bucket rate limiting applied on sensitive routes:
-  - `/api/v1/auth/login` (prevent brute-force password guessing).
-  - `/api/v1/auth/forgot-password` (prevent email enumeration & spam).
-  - `/api/v1/auth/register` (prevent automated bot registration).
-
-### 5.5 Audit & Incident Response
+### 5.4 Audit & Incident Response
 - Comprehensive audit records stored in `login_logs` for anomaly detection.
 - Centralized error tracking via Sentry with PII scrubbing (passwords, tokens, cookies redacted).
 - Security vulnerability reports should be directed to the security operations team.
+
+---
+
+## 6. Idempotency Engine & Concurrency Attack Defenses (`app/core/idempotency.py`)
+
+To prevent **double-spend attacks**, **race-condition overbooking**, and **accidental duplicate payment requests**, TashiHome enforces an enterprise-grade, Redis-backed idempotency layer.
+
+### 6.1 Idempotency Key Specification
+- **Client Header**: Clients supply a unique identifier via `Idempotency-Key` or `X-Idempotency-Key` (UUIDv4 or client transaction identifier, max 255 characters).
+- **Scope & Method Applicability**: Applied automatically to state-modifying HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`). Safe methods (`GET`, `HEAD`, `OPTIONS`) bypass idempotency caching.
+
+### 6.2 In-Flight Execution Locking (Race Condition Prevention)
+```
+[ Incoming Request with Idempotency-Key ]
+                   |
+                   v
+       +-----------------------+
+       | Redis Lock Check      |
+       | `idempotency:lock:*`  |
+       +-----------+-----------+
+                   |
+         +---------+---------+
+         |                   |
+    Lock Acquired       Lock Active
+         |                   |
+         v                   v
++------------------+  +---------------------------------------------+
+| Execute Request  |  | Return HTTP 409 Conflict                    |
+| Under 30s Lock   |  | "A request with this key is being processed"|
++------------------+  +---------------------------------------------+
+         |
+         v
++------------------------------------------+
+| Cache Status, Headers & Response Body    |
+| (24-Hour TTL in Redis)                   |
++------------------------------------------+
+```
+- **Distributed In-Flight Lock**: Before executing the route handler, an atomic Redis `SET NX` lock is acquired with a 30-second TTL (`IDEMPOTENCY_LOCK_TIMEOUT_SECONDS`).
+- **Concurrent Request Defense**: If a concurrent duplicate request arrives while the first is still processing, the middleware immediately returns **`HTTP 409 Conflict`** with error code `IDEMPOTENT_LOCK_FAILED`, preventing duplicate DB mutations or double charges.
+
+### 6.3 Request Fingerprinting & Cache Verification
+- **SHA-256 Fingerprint**: To prevent key-tampering (e.g. an attacker reusing another user's key with different payload), each key is hashed alongside the request signature:
+  $$\text{Fingerprint} = \text{SHA-256}(\text{Method} \parallel \text{Path} \parallel \text{User ID / IP} \parallel \text{Raw Body})$$
+- **Replay Response**: Subsequent requests with identical idempotency keys return the cached response immediately from Redis with:
+  - Header: `Idempotent-Replay: true`
+  - Original HTTP status code and response payload.
+  - Response cache duration: 24 hours (`IDEMPOTENCY_EXPIRE_SECONDS = 86400`).
+
+---
+
+## 7. Enterprise Rate Limiting & Cooldown Protection (`app/core/rate_limiter.py`)
+
+TashiHome implements a multi-tier sliding-window rate limiter powered by Redis to safeguard API endpoints against denial-of-service (DoS), brute-force password guessing, and automated scraping.
+
+### 7.1 Method-Specific Quotas
+Configured centrally via `app/core/config.py`:
+- **GET**: 120 requests / 60 seconds (`RATE_LIMIT_GET_MAX_REQUESTS`)
+- **POST**: 30 requests / 60 seconds (`RATE_LIMIT_POST_MAX_REQUESTS`)
+- **PUT**: 30 requests / 60 seconds (`RATE_LIMIT_PUT_MAX_REQUESTS`)
+- **PATCH**: 30 requests / 60 seconds (`RATE_LIMIT_PATCH_MAX_REQUESTS`)
+- **DELETE**: 20 requests / 60 seconds (`RATE_LIMIT_DELETE_MAX_REQUESTS`)
+- **Default Fallback**: 60 requests / 60 seconds
+
+### 7.2 Abusive Client Cooldown Lockout
+- **Automatic Cooldown Trigger**: When a client breaches their rate limit quota, an extended lockout penalty is initiated (`RATE_LIMIT_COOLDOWN_SECONDS`, default: **3600 seconds / 1 hour**).
+- **Hard Block During Cooldown**: While in cooldown, all subsequent requests are rejected immediately at the gateway layer without consuming application or database resources.
+- **RFC Standard Compliance Headers**:
+  - `X-RateLimit-Limit`: Maximum allowed requests per window.
+  - `X-RateLimit-Remaining`: Remaining quota in current window.
+  - `X-RateLimit-Reset`: Unix timestamp when current window expires.
+  - `Retry-After`: Seconds until cooldown penalty expires (on HTTP 429).
+
+---
+
+## 8. Payment Gateway & Webhook Security (Razorpay & RazorpayX)
+
+### 8.1 Cryptographic Webhook Signature Verification
+- Inbound webhooks from Razorpay (e.g. `payment.captured`, `refund.processed`, `payout.processed`) are strictly authenticated:
+  - Raw request payload bytes are hashed with HMAC SHA-256 using the pre-shared secret `RAZORPAY_WEBHOOK_SECRET`.
+  - The computed signature is compared against the `X-Razorpay-Signature` header using `hmac.compare_digest` to prevent timing attacks.
+  - Unsigned or mismatched webhooks are rejected with `HTTP 400 Bad Request` and logged.
+
+### 8.2 Host Bank Account & Payout Safeguards
+- **Beneficiary Verification**: Vendor bank accounts (`vendor_bank_accounts`) must undergo administrative verification (`is_verified=True`) before fund disbursement can be triggered.
+- **Admin-Only Payout Initiation**: Payout operations (`/api/v1/admin/payouts/*`) are restricted strictly to administrators with `UserRole.ADMIN`.
+- **Financial Audit Immutability**: All payment, payout, and refund records use foreign keys with `ON DELETE RESTRICT` constraints, ensuring immutable transaction history.
+
+---
+
+## 9. Content Delivery & Media Storage Security (CloudFront & S3)
+
+### 9.1 S3 Bucket Isolation
+- S3 object storage buckets (`tashihome-assets`, `tashihome-vector`) are private with public access blocks enabled.
+- Access is restricted exclusively to application IAM service roles and signed CloudFront distributions.
+
+### 9.2 CloudFront Signed Cookies & URL Protection
+- Premium or private media assets are distributed through Amazon CloudFront using **RSA Private Key Signed Cookies**:
+  - `CloudFront-Policy`
+  - `CloudFront-Signature`
+  - `CloudFront-Key-Pair-Id`
+- Cookies are scoped to the apex domain (`.tashihomes.in`) with short TTLs (`CLOUDFRONT_COOKIE_TTL = 3600s`), preventing unauthorized media hotlinking.
