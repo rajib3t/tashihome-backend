@@ -49,6 +49,10 @@ class BookingService:
         """
         return await self.booking_repository.get_next_invoice_number()
 
+    async def lock_property_for_booking(self, property_id: int) -> None:
+        """Acquires a pessimistic row-level lock on the property to serialize concurrent bookings."""
+        await self.booking_repository.lock_property_for_booking(property_id)
+
     async def get_total_units(self, property_id: int, room_type_id: Optional[int]) -> int:
         """Determines the configured total units for a room type or property."""
         if room_type_id is not None:

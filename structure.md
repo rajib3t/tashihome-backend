@@ -76,7 +76,7 @@ Contains pure application logic isolated from HTTP transport details.
 - **`app/application/use_case/`**:
   - `admin/` — Admin vendor onboarding, payout approvals, staff accounts, tax settings, content moderation.
   - `vendor/` — Vendor homestay registration, property updates, room unit management, room blocks.
-  - `user/` — Booking creations, cancellation requests, review submissions, testimonials.
+  - `user/` — Booking creations (with pessimistic DB row locking and 15m hold), cancellation requests, review submissions, testimonials.
   - `auth/` — Registration, login verification, token refreshing, password resets.
   - `public/` — Property search, slug resolution, destination highlights.
 - **`app/application/dto/`**: Data Transfer Objects defining typed inputs and outputs between routes and use cases.
@@ -277,6 +277,27 @@ All Workers attempt Redis Lock: `SET leader_lock <worker_id> NX EX 15`
   └── Workers 2, 3, 4 ──► STANDBY
         └── Serve incoming HTTP requests with zero background task overhead
         └── Heartbeat loop monitors leader lock; auto-elects new leader on failure
+```
+
+---
+
+### 6. Concurrent Booking Serialization Flow (Row-Level Locking)
+```
+Concurrent Requests (Customer 1 & Customer 2 for same property & dates)
+  │
+  ├──► Customer 1: Begin DB Transaction
+  │     ├── Execute: SELECT id FROM properties WHERE id = :property_id FOR UPDATE
+  │     │     └── Acquired DB exclusive row lock
+  │     ├── check_availability(): 1 unit available
+  │     ├── Insert Booking: status=PENDING, expires_at=NOW() + 15m
+  │     └── Commit Transaction ──► Releases Property Lock
+  │
+  └──► Customer 2: Begin DB Transaction
+        ├── Execute: SELECT id FROM properties WHERE id = :property_id FOR UPDATE
+        │     └── BLOCKED: Waits until Customer 1 commits
+        ├── Lock Granted (after Customer 1 commits)
+        ├── check_availability(): 0 units available (includes Customer 1's active hold)
+        └── Raise AppException (HTTP 400 "ROOMS_UNAVAILABLE") ──► Overbooking Prevented!
 ```
 
 ---

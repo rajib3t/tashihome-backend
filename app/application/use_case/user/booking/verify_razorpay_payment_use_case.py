@@ -119,9 +119,40 @@ class VerifyRazorpayPaymentUseCase(BaseUseCase):
         if total_paid_so_far >= float(booking.total_amount) - 0.01:
             booking.payment_status = PaymentStatus.PAID
             if booking.status == BookingStatus.PENDING:
-                booking.status = BookingStatus.CONFIRMED
-            # Generate invoice number if not already set
-            if not booking.invoice_number:
+                now = datetime.now(timezone.utc)
+                is_expired = False
+                if booking.expires_at:
+                    b_exp = booking.expires_at
+                    if b_exp.tzinfo is None:
+                        b_exp = b_exp.replace(tzinfo=timezone.utc)
+                    if b_exp < now:
+                        is_expired = True
+
+                if is_expired:
+                    # Check if property/room is still available despite expiration
+                    availability = await self.booking_service.check_availability(
+                        property_id=booking.property_id,
+                        room_type_id=booking.room_type_id,
+                        check_in_date=booking.check_in_date,
+                        check_out_date=booking.check_out_date,
+                        num_rooms=booking.num_rooms,
+                        exclude_booking_id=booking.id,
+                    )
+                    if availability["is_available"]:
+                        booking.status = BookingStatus.CONFIRMED
+                    else:
+                        booking.status = BookingStatus.CANCELLED
+                        booking.cancellation_reason = "Payment received after reservation hold expired and dates were rebooked"
+                        booking.cancelled_at = now
+                        logger.warning(
+                            "Booking %s payment received after hold expired and property was already booked. Cancelled for refund.",
+                            booking.booking_reference,
+                        )
+                else:
+                    booking.status = BookingStatus.CONFIRMED
+
+            # Generate invoice number only if confirmed
+            if booking.status == BookingStatus.CONFIRMED and not booking.invoice_number:
                 booking.invoice_number = await self.booking_service.generate_invoice_number()
                 booking_just_completed = True
         else:

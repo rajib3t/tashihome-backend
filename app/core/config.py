@@ -151,6 +151,7 @@ class Settings(BaseSettings):
 
     # Razorpay / Payment Configuration
     PAYMENT_ENABLED: bool = True
+    BOOKING_HOLD_MINUTES: int = 15
     RAZORPAY_KEY_ID: Optional[str] = None
     RAZORPAY_KEY_SECRET: Optional[str] = None
     RAZORPAY_WEBHOOK_SECRET: Optional[str] = None

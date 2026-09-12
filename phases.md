@@ -12,7 +12,7 @@ This document outlines the phased development roadmap for the **TashiHome Backen
 | **Phase 2** | **Authentication, Users & Vendors** | ✅ **Completed** | JWT lifecycle, RBAC, Redis token blacklist, Login audit logs, Companies, Addresses |
 | **Phase 3** | **Locations & Master Attributes** | ✅ **Completed** | Countries, Cities, Locations hierarchy, Facilities, Amenities, Room Types catalog |
 | **Phase 4** | **Properties & Media Management** | ✅ **Completed** | Property listings CRUD, Multi-asset S3/CloudFront upload, Facilities/Amenities/Food options mapping |
-| **Phase 5** | **Search, Availability & Booking Engine** | ✅ **Completed** | Date-range availability, Pricing engine, Booking state machine, Room blocks, Occupancy variable pricing |
+| **Phase 5** | **Search, Availability & Booking Engine** | ✅ **Completed** | Date-range availability, Pricing engine, Booking state machine, Room blocks, Occupancy variable pricing, Row-level concurrency locks, Reservation hold TTL |
 | **Phase 6** | **Payments, Invoicing & Payouts** | ✅ **Completed** | Razorpay gateway, Webhook signature verification, Idempotency engine, Refunds, Vendor bank accounts, RazorpayX payouts |
 | **Phase 7** | **Reviews, Testimonials & Notifications** | ✅ **Completed** | Verified guest reviews, Testimonials moderation, Host applications with messaging, Socket.IO real-time notifications |
 | **Phase 8** | **AI Concierge, MCP & Vector Search** | ✅ **Completed** | Bedrock Nova Lite / Gemini / OpenAI LLMs, MCP JSON-RPC/SSE & stdio server, S3 vector store & embeddings |
@@ -120,6 +120,10 @@ This document outlines the phased development roadmap for the **TashiHome Backen
   - Complete lifecycle: `pending` $\to$ `confirmed` $\to$ `checked_in` $\to$ `checked_out` $\to$ `cancelled` / `completed`.
   - Automated booking reference generator (e.g. `TSH-2026-XXXX`).
   - Guest details, guest count validation, and special requests handling.
+- [x] **Concurrency & Double-Booking Protection**:
+  - **Pessimistic Row-Level Locking (`SELECT ... FOR UPDATE`)**: Property row locks serialize simultaneous booking requests on the same property, ensuring atomic inventory verification and zero double bookings.
+  - **Reservation Hold Expiry (`expires_at` / TTL)**: 15-minute hold window for unpaid pending reservations; `count_booked_units()` automatically excludes expired holds, releasing rooms back to inventory without manual intervention.
+  - **Payment Flow Safeguards**: Expired reservations cannot generate Razorpay orders (`BOOKING_EXPIRED`); late payment captures on rebooked inventory automatically cancel the booking and initiate a refund request.
 - [x] **Booking Administration**:
   - Admin booking oversight, filterable lists, status transition controls.
   - Vendor booking dashboard for checking reservations, guest records, and check-in status.

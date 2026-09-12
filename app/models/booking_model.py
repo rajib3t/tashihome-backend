@@ -107,6 +107,7 @@ class Booking(Base):
     special_requests = Column(Text, nullable=True)
     cancellation_reason = Column(String(255), nullable=True)
     cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     created_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     updated_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

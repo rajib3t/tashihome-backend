@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional, Tuple
 from uuid import UUID
 
@@ -160,7 +160,9 @@ class CreateBookingUseCase(BaseUseCase):
         elif property_.property_room_types and len(property_.property_room_types) == 1:
             room_type_id_db = property_.property_room_types[0].room_type_id
 
-        # 3. Check Availability
+        # 3. Lock Property & Check Availability (Atomic Concurrency Control)
+        await self.booking_service.lock_property_for_booking(property_.id)
+
         availability = await self.booking_service.check_availability(
             property_id=property_.id,
             room_type_id=room_type_id_db,
@@ -191,8 +193,10 @@ class CreateBookingUseCase(BaseUseCase):
             tax_code=tax_code,
         )
 
-        # 5. Generate Reference and Create Booking
+        # 5. Generate Reference and Create Booking with Hold Expiration
         booking_reference = self.booking_service.generate_booking_reference()
+        hold_minutes = getattr(settings, "BOOKING_HOLD_MINUTES", 15)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=hold_minutes)
 
         booking = Booking(
             booking_reference=booking_reference,
@@ -212,6 +216,7 @@ class CreateBookingUseCase(BaseUseCase):
             status=BookingStatus.PENDING,
             payment_status=PaymentStatus.PENDING,
             special_requests=data.special_requests,
+            expires_at=expires_at,
             created_by=self.current_user.id,
         )
 

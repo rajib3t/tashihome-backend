@@ -579,6 +579,7 @@ Reservation records linking a guest to a property (and optionally a specific roo
 | `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
 | `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
 | `booking_reference` | `VARCHAR(20)` | `UNIQUE`, `NOT NULL`, `INDEX` | Human-readable booking code shown to guest/vendor |
+| `invoice_number` | `VARCHAR(30)` | `UNIQUE`, `NULLABLE`, `INDEX` | Sequential monthly tax invoice identifier (e.g. `INV-202609-0000001`) |
 | `guest_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> users.id (RESTRICT)` | Guest who made the booking |
 | `property_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> properties.id (RESTRICT)` | Booked property |
 | `room_type_id` | `BigInteger` | `NULLABLE`, `INDEX`, `FK -> room_types.id (SET NULL)` | Booked room type, if applicable |
@@ -597,6 +598,7 @@ Reservation records linking a guest to a property (and optionally a specific roo
 | `special_requests` | `TEXT` | `NULLABLE` | Guest notes / special requests |
 | `cancellation_reason` | `VARCHAR(255)` | `NULLABLE` | Reason if cancelled |
 | `cancelled_at` | `TIMESTAMPTZ` | `NULLABLE` | Cancellation timestamp |
+| `expires_at` | `TIMESTAMPTZ` | `NULLABLE`, `INDEX` | Reservation hold expiry timestamp (15m window; auto-releases inventory) |
 | `created_by` | `BigInteger` | `NULLABLE`, `FK -> users.id (SET NULL)` | User who created the record (guest or admin/vendor on their behalf) |
 | `updated_by` | `BigInteger` | `NULLABLE`, `FK -> users.id (SET NULL)` | User who last updated the record |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
@@ -615,7 +617,10 @@ Reservation records linking a guest to a property (and optionally a specific roo
 
 > **Note**: `guest_id` and `property_id` use `ON DELETE RESTRICT` so a user or property with existing bookings cannot be hard-deleted — soft-delete (`status`) the property or deactivate the user instead to preserve financial/booking history.
 
-> **Overbooking prevention**: inventory is checked by the `check_booking_availability()` trigger (fires `BEFORE INSERT OR UPDATE` on `bookings`), not by a database exclusion constraint. A plain `EXCLUDE` constraint on `(property_id, room_type_id, daterange)` would incorrectly block *any* second overlapping booking for a room type, even when a property holds several units of it. The trigger sums `num_rooms` already booked (excluding `cancelled`/`no_show`) **plus** any overlapping `room_blocks.units_blocked` for the same `property_id + room_type_id`, and rejects the write only if it would exceed `property_room_types.total_units`.
+> **Concurrency & Overbooking Prevention**:
+> 1. **Pessimistic Row-Level Locking**: When a customer initiates a booking, [`CreateBookingUseCase`](app/application/use_case/user/booking/create_booking_use_case.py) issues `SELECT Property.id FROM properties WHERE id = :property_id FOR UPDATE`. Concurrent booking requests for the same property wait on the database lock, guaranteeing that inventory checks and booking creations are atomic and cannot race.
+> 2. **Reservation Hold Expiry (`expires_at`)**: New pending bookings receive a 15-minute hold window (`expires_at`). In `BookingRepository.count_booked_units()`, `pending` bookings are only counted if `expires_at > func.now()`. If a customer closes checkout without paying, the hold expires and the room is immediately released back to other users without requiring manual intervention.
+> 3. **Late Payment Reconciliation**: If payment is captured after a hold expired and the room was taken by another customer, `VerifyRazorpayPaymentUseCase` marks the booking cancelled and generates an automated refund request.
 
 ---
 

@@ -170,6 +170,7 @@ class BookingSchema(BaseModel):
     special_requests: Optional[str] = None
     cancellation_reason: Optional[str] = None
     cancelled_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

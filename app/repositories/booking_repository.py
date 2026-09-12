@@ -199,6 +199,15 @@ class BookingRepository(BaseRepository[Booking]):
         query = self._apply_relations(query, with_relations, self._relation_map)
         return await self._paginate(query, page=page, page_size=page_size, flush=flush)
 
+    async def lock_property_for_booking(self, property_id: int) -> None:
+        """
+        Acquire a pessimistic row-level lock on the property to serialize concurrent bookings.
+        Uses SELECT Property.id ... FOR UPDATE so concurrent booking requests on the same
+        property queue up at the database level and sequentially verify room inventory.
+        """
+        query = select(Property.id).where(Property.id == property_id).with_for_update()
+        await self.db.execute(query)
+
     async def count_booked_units(
         self,
         property_id: int,
@@ -209,19 +218,21 @@ class BookingRepository(BaseRepository[Booking]):
     ) -> int:
         """
         Count active booked rooms overlapping with the given date range.
-        Active statuses: PENDING, CONFIRMED, CHECKED_IN.
+        Active bookings: CONFIRMED, CHECKED_IN, or non-expired PENDING.
         Overlap condition: check_in_date < booking.check_out_date AND check_out_date > booking.check_in_date.
         """
-        active_statuses = [
-            BookingStatus.PENDING,
-            BookingStatus.CONFIRMED,
-            BookingStatus.CHECKED_IN,
-        ]
+        active_condition = or_(
+            Booking.status.in_([BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN]),
+            and_(
+                Booking.status == BookingStatus.PENDING,
+                or_(Booking.expires_at.is_(None), Booking.expires_at > func.now()),
+            ),
+        )
 
         query = select(func.coalesce(func.sum(Booking.num_rooms), 0)).where(
             and_(
                 Booking.property_id == property_id,
-                Booking.status.in_(active_statuses),
+                active_condition,
                 Booking.check_in_date < check_out_date,
                 Booking.check_out_date > check_in_date,
             )

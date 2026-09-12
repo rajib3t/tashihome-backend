@@ -17,6 +17,10 @@ TashiHome Backend is a high-performance, enterprise-grade FastAPI application po
   - Razorpay payment order generation, client signature capture, and HMAC SHA-256 webhook verification.
   - Automated vendor payouts via RazorpayX Contacts & Fund Accounts linked to host bank accounts (`vendor_bank_accounts`).
   - Automated PDF invoices and booking vouchers generation.
+- **Multi-User Booking Concurrency & Double-Booking Protection**:
+  - **Pessimistic Row-Level Locking (`SELECT ... FOR UPDATE`)**: Property rows are locked during booking creation, serializing concurrent checkouts so inventory checks are atomic and double-bookings are prevented even under high concurrency.
+  - **Reservation Hold Expiry (`expires_at` / TTL)**: Unpaid `pending` bookings automatically hold room inventory for 15 minutes (`BOOKING_HOLD_MINUTES = 15`), automatically releasing dates back to other guests if checkout is abandoned.
+  - **Payment Reconciliation Safeguards**: Razorpay payment verification re-checks availability on expired reservations, preventing overbooking and issuing automated refunds if dates were already rebooked.
 - **Enterprise Idempotency Engine (`app/core/idempotency.py`)**: Custom Redis-backed middleware supporting `Idempotency-Key` / `X-Idempotency-Key`, concurrent in-flight locking (HTTP 409 prevention of duplicate charges), and 24-hour response caching (`Idempotent-Replay: true`).
 - **Advanced Rate Limiting (`app/core/rate_limiter.py`)**: Method-specific sliding-window rate limits (GET 120/min, POST 30/min, PUT 30/min, PATCH 30/min, DELETE 20/min) with automatic 1-hour abusive IP cooldown lockouts.
 - **Pre-Aggregated Public Stats**: Dedicated `public_stats` table updated asynchronously by background jobs to serve homepage statistics in $O(1)$ time with zero multi-table joins.
@@ -95,8 +99,9 @@ REFRESH_TOKEN_EXPIRE_DAYS=7
 RATE_LIMIT_ENABLED=true
 IDEMPOTENCY_ENABLED=true
 
-# Payments (Razorpay)
+# Payments & Bookings
 PAYMENT_ENABLED=true
+BOOKING_HOLD_MINUTES=15
 RAZORPAY_KEY_ID=rzp_test_...
 RAZORPAY_KEY_SECRET=...
 RAZORPAY_WEBHOOK_SECRET=...

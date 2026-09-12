@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from app.application.dto.bookings.booking import RazorpayCreateOrderDTO
@@ -50,6 +51,22 @@ class CreateRazorpayOrderUseCase(BaseUseCase):
                 message="Cannot create payment order for a cancelled booking.",
                 error_code="BOOKING_CANCELLED",
             )
+
+        now = datetime.now(timezone.utc)
+        if booking.status == BookingStatus.PENDING and booking.expires_at:
+            booking_expires_at = booking.expires_at
+            if booking_expires_at.tzinfo is None:
+                booking_expires_at = booking_expires_at.replace(tzinfo=timezone.utc)
+            if booking_expires_at < now:
+                booking.status = BookingStatus.CANCELLED
+                booking.cancellation_reason = "Reservation hold expired before payment initiated"
+                booking.cancelled_at = now
+                await self.booking_service.update_booking(booking)
+                raise AppException(
+                    status_code=400,
+                    message="Booking reservation hold has expired. Please select your dates and book again.",
+                    error_code="BOOKING_EXPIRED",
+                )
 
         if booking.payment_status == PaymentStatus.PAID:
             raise AppException(

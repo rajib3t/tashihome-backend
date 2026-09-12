@@ -48,8 +48,8 @@ This document outlines the security architecture, defensive input validation str
 +---------------+                +-----------------+                +----------------+
 |  PostgreSQL   |                |  Redis Cluster  |                | S3 / CDN Cloud |
 | (ORM, Param,  |                | (Token Blacklist|                | (Signed Cookies|
-|  Strict Enums)|                |  Idempotency,   |                |  Private ACLs, |
-|               |                |  Rate Limiting) |                |  Vector Store) |
+|  Strict Enums,|                |  Idempotency,   |                |  Private ACLs, |
+|  Row Locks)   |                |  Rate Limiting) |                |  Vector Store) |
 +---------------+                +-----------------+                +----------------+
 ```
 
@@ -305,6 +305,51 @@ To prevent **double-spend attacks**, **race-condition overbooking**, and **accid
   - Header: `Idempotent-Replay: true`
   - Original HTTP status code and response payload.
   - Response cache duration: 24 hours (`IDEMPOTENCY_EXPIRE_SECONDS = 86400`).
+
+### 6.4 Multi-User Booking Concurrency & Double-Allocation Protection
+
+While idempotency keys protect against duplicate submissions from the *same* user or network client, a distinct high-risk financial vulnerability is the **Time-of-Check to Time-of-Use (TOCTOU) race condition** where multiple *distinct* users concurrently attempt to book the exact same homestay or room units on overlapping dates.
+
+```
+[ Customer 1 & Customer 2 simultaneously book Property 10 ]
+                       │
+       ┌───────────────┴───────────────┐
+       ▼                               ▼
+Customer 1: Begins Tx           Customer 2: Begins Tx
+SELECT ... FOR UPDATE           SELECT ... FOR UPDATE
+  └── Acquired Lock               └── BLOCKED (Queued by PostgreSQL Engine)
+check_availability() (1 free)
+INSERT Booking (expires_at=15m)
+COMMIT (Releases Lock)
+       │
+       └───────────────────────────────┐
+                                       ▼
+                                Lock Granted to Customer 2
+                                check_availability() (0 free!)
+                                Raise HTTP 400 "ROOMS_UNAVAILABLE"
+```
+
+#### 1. Pessimistic Row-Level Locking (`SELECT ... FOR UPDATE`)
+- **Isolation Guarantee**: In [`CreateBookingUseCase`](app/application/use_case/user/booking/create_booking_use_case.py), prior to checking room availability or computing quotes, an exclusive row-level lock is acquired on the target property:
+  ```python
+  await db.execute(
+      select(Property.id).where(Property.id == property_id).with_for_update()
+  )
+  ```
+- **Queueing vs. Colliding**: PostgreSQL places concurrent checkout attempts for the same property into a native lock wait queue. Transaction 2 is prevented from evaluating room inventory until Transaction 1 commits or rolls back, completely eliminating double-booking overselling even under intense flash-sale concurrency.
+
+#### 2. Denial-of-Inventory (Room-Hogging) Mitigation via Reservation TTL
+- **Threat Vector**: Malicious bots or abandoning users initiating multiple checkout flows without paying, locking all homestays on the platform in `pending` status indefinitely.
+- **Defense Controls**:
+  - Every pending booking is created with a strict expiration timestamp: `expires_at = NOW() + 15 minutes` (`BOOKING_HOLD_MINUTES = 15`).
+  - [`BookingRepository.count_booked_units()`](app/repositories/booking_repository.py) evaluates active holds:
+    $$\text{Active Hold} = (\text{status} \in \{\text{confirmed}, \text{checked\_in}\}) \lor (\text{status} = \text{pending} \land \text{expires\_at} > \text{NOW}())$$
+  - Expired pending bookings are automatically ignored during availability checks, instantly restoring room inventory for legitimate guests without requiring manual cancellations or heavy cron loops.
+  - Expired reservations are strictly blocked from initiating Razorpay payment orders (`HTTP 400 BOOKING_EXPIRED`).
+
+#### 3. Post-Expiry Payment Reconciliation & Double-Allocation Shield
+- **Threat Scenario**: If a guest completes payment on a gateway modal after their 15-minute hold expired, and another customer booked the dates in the interim.
+- **Mitigation Control**: [`VerifyRazorpayPaymentUseCase`](app/application/use_case/user/booking/verify_razorpay_payment_use_case.py) re-validates room availability under transaction isolation before confirming. If a conflict occurred due to rebooking, the booking is automatically marked `cancelled` and an automated refund request (`RefundRequest`) is generated for administrative/gateway refund processing, guaranteeing that two guests are never double-assigned to the same property.
 
 ---
 
