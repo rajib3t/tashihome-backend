@@ -44,6 +44,7 @@ class Company(Base):
         primaryjoin="and_(Company.id==foreign(Address.owner_id), Address.owner_type=='company')",
         back_populates="company",
         cascade="all, delete-orphan",
+        overlaps="addresses",
     )
 
     user = relationship(

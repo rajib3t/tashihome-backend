@@ -42,10 +42,12 @@ class Address(Base):
         "User",
         primaryjoin="and_(foreign(Address.owner_id)==User.id, Address.owner_type=='user')",
         back_populates="addresses",
+        overlaps="addresses",
     )
 
     company = relationship(
         "Company",
         primaryjoin="and_(foreign(Address.owner_id)==Company.id, Address.owner_type=='company')",
         back_populates="addresses",
+        overlaps="addresses,user",
     )
