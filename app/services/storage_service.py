@@ -110,7 +110,7 @@ class StorageService:
         return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
     async def get_display_url(self, value: Optional[str]) -> Optional[str]:
-        if value is None:
+        if not value or not str(value).strip():
             return None
         # Check if the URL is already a presigned URL
         if await self.is_presigned_url(value):

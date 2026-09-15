@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Optional, Union
+from typing import Any, Optional, Union
 import logging
 
-from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 
 from app.api.base_controller import BaseController
 from app.application.dto.setting import SettingUpdateDTO
@@ -28,7 +28,27 @@ class SettingsController(BaseController):
 
     def _register_routes(self):
         routes = [
-            ("post", "/", self._save_setting, {"response_model": SettingResponseSchema, "response_model_by_alias": False}),
+            (
+                "post",
+                "/",
+                self._save_setting,
+                {
+                    "response_model": SettingResponseSchema,
+                    "response_model_by_alias": False,
+                    "openapi_extra": {
+                        "requestBody": {
+                            "content": {
+                                "multipart/form-data": {
+                                    "schema": SettingUpdateDTO.model_json_schema()
+                                },
+                                "application/json": {
+                                    "schema": SettingUpdateDTO.model_json_schema()
+                                },
+                            }
+                        }
+                    },
+                },
+            ),
             ("get", "/fetch", self._get_settings, {"response_model": SettingResponseSchema, "response_model_by_alias": False}),
         ]
         for method, path, handler, route_kwargs in routes:
@@ -37,91 +57,26 @@ class SettingsController(BaseController):
     @handle_api_exceptions
     async def _save_setting(
         self,
-        # Branding & General
-        app_name: Optional[str] = Form(None),
-        app_logo: Optional[UploadFile] = File(None),
-        white_logo: Optional[UploadFile] = File(None),
-        app_favicon: Optional[UploadFile] = File(None),
-        app_timezone: Optional[str] = Form(None),
-        app_date_format: Optional[str] = Form(None),
-        app_time_format: Optional[str] = Form(None),
-        default_currency: Optional[str] = Form(None),
-        currency_symbol: Optional[str] = Form(None),
-        # Contact & Support
-        contact_email: Optional[str] = Form(None),
-        contact_phone: Optional[str] = Form(None),
-        contact_address: Optional[str] = Form(None),
-        contact_whatsapp: Optional[str] = Form(None),
-        # Booking & Finance Defaults
-        default_commission_percentage: Optional[float] = Form(None),
-        service_fee_percentage: Optional[float] = Form(None),
-        check_in_time: Optional[str] = Form(None),
-        check_out_time: Optional[str] = Form(None),
-        min_booking_days: Optional[int] = Form(None),
-        max_booking_days: Optional[int] = Form(None),
-        cancellation_grace_period_hours: Optional[int] = Form(None),
-        # Social links
-        facebook_url: Optional[str] = Form(None),
-        instagram_url: Optional[str] = Form(None),
-        twitter_url: Optional[str] = Form(None),
-        linkedin_url: Optional[str] = Form(None),
-        youtube_url: Optional[str] = Form(None),
-        # SEO & Policies
-        meta_title: Optional[str] = Form(None),
-        meta_description: Optional[str] = Form(None),
-        meta_keywords: Optional[str] = Form(None),
-        meta_image: Optional[UploadFile] = File(None),
-        terms_and_conditions_url: Optional[str] = Form(None),
-        privacy_policy_url: Optional[str] = Form(None),
-        refund_policy_url: Optional[str] = Form(None),
-        # Coming Soon
-        is_enabled_coming_soon: Optional[bool] = Form(None),
-        launch_date: Optional[datetime] = Form(None),
-        coming_soon_message: Optional[str] = Form(None),
-        coming_background_image: Optional[UploadFile] = File(None),
-        coming_soon_video: Optional[UploadFile] = File(None),
+        request: Request,
         use_case: UpdateSettingUseCase = Depends(get_update_setting_use_case),
     ):
-        settings_payload = SettingUpdateDTO(
-            app_name=app_name,
-            app_logo=app_logo,
-            white_logo=white_logo,
-            app_favicon=app_favicon,
-            app_timezone=app_timezone,
-            app_date_format=app_date_format,
-            app_time_format=app_time_format,
-            default_currency=default_currency,
-            currency_symbol=currency_symbol,
-            contact_email=contact_email,
-            contact_phone=contact_phone,
-            contact_address=contact_address,
-            contact_whatsapp=contact_whatsapp,
-            default_commission_percentage=default_commission_percentage,
-            service_fee_percentage=service_fee_percentage,
-            check_in_time=check_in_time,
-            check_out_time=check_out_time,
-            min_booking_days=min_booking_days,
-            max_booking_days=max_booking_days,
-            cancellation_grace_period_hours=cancellation_grace_period_hours,
-            facebook_url=facebook_url,
-            instagram_url=instagram_url,
-            twitter_url=twitter_url,
-            linkedin_url=linkedin_url,
-            youtube_url=youtube_url,
-            meta_title=meta_title,
-            meta_description=meta_description,
-            meta_keywords=meta_keywords,
-            meta_image=meta_image,
-            terms_and_conditions_url=terms_and_conditions_url,
-            privacy_policy_url=privacy_policy_url,
-            refund_policy_url=refund_policy_url,
-            is_enabled_coming_soon=is_enabled_coming_soon,
-            launch_date=launch_date,
-            coming_soon_message=coming_soon_message,
-            coming_background_image=coming_background_image,
-            coming_soon_video=coming_soon_video,
-        )
+        content_type = request.headers.get("content-type", "")
+        payload_data: dict[str, Any] = {}
 
+        if "application/json" in content_type:
+            payload_data = await request.json()
+        else:
+            form_data = await request.form()
+            for key, value in form_data.items():
+                if isinstance(value, UploadFile):
+                    if bool(getattr(value, "filename", None)):
+                        payload_data[key] = value
+                    else:
+                        payload_data[key] = None
+                else:
+                    payload_data[key] = value
+
+        settings_payload = SettingUpdateDTO(**payload_data)
         result = await use_case.execute(settings_payload)
         return self.build_response("Settings saved successfully", data=result)
 

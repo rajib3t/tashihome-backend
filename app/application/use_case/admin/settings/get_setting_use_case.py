@@ -46,7 +46,10 @@ class GetSettingUseCase:
             value = setting.value
 
             if setting.key in self.FILE_SETTING_KEYS:
-                value = await self.storage_service.get_display_url(value)
+                if value and str(value).strip():
+                    value = await self.storage_service.get_display_url(value)
+                else:
+                    value = None
             elif setting.key == "is_enabled_coming_soon":
                 value = str(value).lower()
 

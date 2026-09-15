@@ -51,17 +51,51 @@ class SettingUpdateDTO(BaseModel):
 
     # Coming Soon Settings
     is_enabled_coming_soon: Optional[Union[bool, str]] = None
-    launch_date: Optional[datetime] = None
+    launch_date: Optional[Union[datetime, str]] = None
     coming_soon_message: Optional[str] = None
     coming_background_image: Optional[Union[str, UploadFile]] = None
     coming_soon_video: Optional[Union[str, UploadFile]] = None
 
-    @field_validator(
-        'is_enabled_coming_soon',
-        mode='before'
-    )
+    @field_validator('is_enabled_coming_soon', mode='before')
     @classmethod
     def convert_bool_to_str(cls, v):
         if isinstance(v, bool):
             return str(v).lower()
+        if isinstance(v, str):
+            val = v.strip().lower()
+            if val in ('true', '1'):
+                return 'true'
+            if val in ('false', '0'):
+                return 'false'
+            return val
+        return v
+
+    @field_validator('launch_date', mode='before')
+    @classmethod
+    def convert_launch_date(cls, v):
+        if isinstance(v, str):
+            trimmed = v.strip()
+            if not trimmed:
+                return None
+            try:
+                return datetime.fromisoformat(trimmed)
+            except ValueError:
+                try:
+                    return datetime.strptime(trimmed, "%Y-%m-%d")
+                except ValueError:
+                    return trimmed
+        return v
+
+    @field_validator(
+        'default_commission_percentage',
+        'service_fee_percentage',
+        'min_booking_days',
+        'max_booking_days',
+        'cancellation_grace_period_hours',
+        mode='before'
+    )
+    @classmethod
+    def convert_empty_number_to_none(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
         return v

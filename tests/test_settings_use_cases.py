@@ -99,3 +99,95 @@ async def test_get_settings_coming_soon_filtering(mock_setting_service, mock_sto
     logo_item = next(item for item in result if item.name == "app_logo")
     assert logo_item.value == "https://cdn.tashihomes.in/settings/logo.png"
 
+
+@pytest.mark.asyncio
+async def test_update_settings_clear_social_media(mock_setting_service, mock_storage_service, mock_admin):
+    # Pre-existing settings with social media URLs
+    saved_settings = {
+        "facebook_url": "https://facebook.com/tashihomes",
+        "instagram_url": "https://instagram.com/tashihomes",
+        "twitter_url": "https://x.com/tashihomes",
+        "app_name": "Tashi Homestays",
+    }
+
+    async def mock_upsert(key, value):
+        saved_settings[key] = value
+        return Setting(key=key, value=value)
+
+    async def mock_get_all():
+        return [Setting(key=k, value=v) for k, v in saved_settings.items()]
+
+    mock_setting_service.upsert = AsyncMock(side_effect=mock_upsert)
+    mock_setting_service.get_all = AsyncMock(side_effect=mock_get_all)
+
+    use_case = UpdateSettingUseCase(
+        setting_service=mock_setting_service,
+        storage_service=mock_storage_service,
+        current_user=mock_admin,
+    )
+
+    # Admin removes all social media by submitting empty strings
+    dto = SettingUpdateDTO(
+        facebook_url="",
+        instagram_url="",
+        twitter_url="",
+        linkedin_url="",
+        youtube_url="",
+    )
+
+    response = await use_case.execute(dto)
+
+    # Social media fields should be cleared to empty string, not keeping old URLs
+    assert saved_settings["facebook_url"] == ""
+    assert saved_settings["instagram_url"] == ""
+    assert saved_settings["twitter_url"] == ""
+    assert saved_settings["linkedin_url"] == ""
+    assert saved_settings["youtube_url"] == ""
+    # Unmentioned field app_name should be preserved
+    assert saved_settings["app_name"] == "Tashi Homestays"
+
+    resp_map = {item.name: item.value for item in response}
+    assert resp_map["facebook_url"] == ""
+    assert resp_map["instagram_url"] == ""
+    assert resp_map["app_name"] == "Tashi Homestays"
+
+
+@pytest.mark.asyncio
+async def test_update_settings_preserves_existing_files_when_no_new_file(mock_setting_service, mock_storage_service, mock_admin):
+    saved_settings = {
+        "app_logo": "settings/app_logo_old.webp",
+        "app_name": "Tashi Homestays",
+    }
+
+    async def mock_upsert(key, value):
+        saved_settings[key] = value
+        return Setting(key=key, value=value)
+
+    async def mock_get_all():
+        return [Setting(key=k, value=v) for k, v in saved_settings.items()]
+
+    mock_setting_service.upsert = AsyncMock(side_effect=mock_upsert)
+    mock_setting_service.get_all = AsyncMock(side_effect=mock_get_all)
+
+    use_case = UpdateSettingUseCase(
+        setting_service=mock_setting_service,
+        storage_service=mock_storage_service,
+        current_user=mock_admin,
+    )
+
+    # Mock empty UploadFile (as sent when no file is chosen in browser)
+    empty_upload = MagicMock()
+    empty_upload.filename = ""
+    empty_upload.read = AsyncMock(return_value=b"")
+
+    dto = SettingUpdateDTO(
+        app_name="Updated Homestays",
+        app_logo=empty_upload,
+    )
+
+    response = await use_case.execute(dto)
+
+    # app_name should be updated, and existing app_logo must NOT be overwritten by empty UploadFile
+    assert saved_settings["app_name"] == "Updated Homestays"
+    assert saved_settings["app_logo"] == "settings/app_logo_old.webp"
+
