@@ -100,6 +100,8 @@ class LocationService:
         page_size: int = 10,
         search: Optional[str] = None,
         filters: Optional[list[dict[str, str]]] = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
         with_relations: Optional[WithRelations] = None,
         flush: bool = False
     ) -> Page[Location]:
@@ -108,6 +110,8 @@ class LocationService:
             page_size=page_size,
             search=search,
             filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
             with_relations=with_relations,
             flush=flush
         )

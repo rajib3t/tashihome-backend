@@ -153,17 +153,39 @@ class LocationRepository(BaseRepository[Location]):
         page_size: int = 20,
         search: Optional[str] = None,
         filters: Optional[list[dict[str, str]]] = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
         with_relations: Optional[WithRelations] = None,
         flush: bool = False,
-        ) -> Page[Location]:
-            query = select(Location).order_by(Location.created_at.desc())
-            query = self._apply_search(query, search, search_fields=[Location.name, Location.slug, Location.city_id])
-            query = self._apply_dynamic_filters(query, filters, self._filter_map)
-            query = self._apply_relations(query, with_relations, self._relation_map)
-            if with_relations and with_relations.get("city"):
-                query = self._with_city_country(query)
-    
-            return await self._paginate(query, page=page, page_size=page_size, flush=flush)
+    ) -> Page[Location]:
+        sort_col = getattr(Location, sort_by, Location.created_at)
+        if str(sort_order).lower() == "asc":
+            query = select(Location).order_by(sort_col.asc())
+        else:
+            query = select(Location).order_by(sort_col.desc())
+
+        # Extract name filter if present to do case-insensitive substring matching on Location.name
+        name_filter = None
+        remaining_filters = []
+        if filters:
+            for f in filters:
+                if isinstance(f, dict) and f.get("name") == "name":
+                    name_filter = f.get("value")
+                elif hasattr(f, "name") and getattr(f, "name") == "name":
+                    name_filter = getattr(f, "value")
+                else:
+                    remaining_filters.append(f)
+
+        if name_filter:
+            query = query.where(Location.name.ilike(f"%{str(name_filter).strip()}%"))
+
+        query = self._apply_search(query, search, search_fields=[Location.name, Location.slug, Location.city_id])
+        query = self._apply_dynamic_filters(query, remaining_filters, self._filter_map)
+        query = self._apply_relations(query, with_relations, self._relation_map)
+        if with_relations and with_relations.get("city"):
+            query = self._with_city_country(query)
+
+        return await self._paginate(query, page=page, page_size=page_size, flush=flush)
 
     async def get_all_by_city_id(self, city_id: int) -> list[Location]:
         query = select(Location).where(Location.city_id == city_id)

@@ -9,6 +9,7 @@ from app.schemas.response import BaseResponse, PaginationResponse
 class CityLocationSchema(BaseModel):
     name: str
     slug: str | None = None
+    image_url: str | None = None
     country: CountrySchema | None = None
     status: str
     id: str | None = Field(
@@ -30,6 +31,7 @@ class CityLocationSchema(BaseModel):
 class LocationBase(BaseModel):
     name: str
     slug: str | None = None
+    image_url: str | None = None
     city: Optional[CityLocationSchema] = None
     status: str 
 
@@ -57,3 +59,5 @@ class LocationResponseSchema(BaseResponse):
 
 class LocationsResponseSchema(PaginationResponse):
     data: list[LocationSchema]
+
+LocationListResponseSchema = LocationsResponseSchema
