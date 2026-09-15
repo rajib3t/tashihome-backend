@@ -13,14 +13,19 @@ TashiHome Backend is a high-performance, enterprise-grade FastAPI application po
   - Conversational chat with tool calling and progressive Server-Sent Events (SSE) token streaming (`/api/v1/public/assistant/chat/stream`).
   - Full MCP standard compliance with JSON-RPC 2.0 (`/api/v1/public/mcp/rpc`), SSE stream (`/api/v1/public/mcp/sse`), and standalone stdio CLI runner (`scripts/mcp_server.py`) for Claude Desktop and Cursor.
 - **Vector Semantic Search**: Cosine similarity search over text embeddings (`text-embedding-004`, `amazon.titan-embed-text-v2:0`) stored in Amazon S3 (`tashihome-vector`) for vibe-based and natural language stay discovery.
-- **Financial Workflows & Payouts**:
+- **Financial Workflows, Invoicing & Payouts**:
   - Razorpay payment order generation, client signature capture, and HMAC SHA-256 webhook verification.
   - Automated vendor payouts via RazorpayX Contacts & Fund Accounts linked to host bank accounts (`vendor_bank_accounts`).
-  - Automated PDF invoices and booking vouchers generation.
+  - Itemized tax & GST engine (`taxes`), sequential monthly tax invoice numbering (`invoice_number`), and automated PDF invoices/booking vouchers generation.
 - **Multi-User Booking Concurrency & Double-Booking Protection**:
   - **Pessimistic Row-Level Locking (`SELECT ... FOR UPDATE`)**: Property rows are locked during booking creation, serializing concurrent checkouts so inventory checks are atomic and double-bookings are prevented even under high concurrency.
   - **Reservation Hold Expiry (`expires_at` / TTL)**: Unpaid `pending` bookings automatically hold room inventory for 15 minutes (`BOOKING_HOLD_MINUTES = 15`), automatically releasing dates back to other guests if checkout is abandoned.
   - **Payment Reconciliation Safeguards**: Razorpay payment verification re-checks availability on expired reservations, preventing overbooking and issuing automated refunds if dates were already rebooked.
+- **Dynamic Platform Settings & Media Engine**:
+  - Key-value platform configuration store (`settings`) with multi-file asset uploader (app logo, white logo, favicon, OG meta image, coming-soon video) with automated WebP compression and file size caps.
+  - Automated replacement garbage collection in S3 to prevent orphaned storage bloat.
+  - Dynamic maintenance and Coming Soon mode toggling with public payload gating.
+- **Geographical Slug Routing**: URL-friendly, collision-safe slug routing for countries, cities, and neighborhood locations with composite unique constraints.
 - **Enterprise Idempotency Engine (`app/core/idempotency.py`)**: Custom Redis-backed middleware supporting `Idempotency-Key` / `X-Idempotency-Key`, concurrent in-flight locking (HTTP 409 prevention of duplicate charges), and 24-hour response caching (`Idempotent-Replay: true`).
 - **Advanced Rate Limiting (`app/core/rate_limiter.py`)**: Method-specific sliding-window rate limits (GET 120/min, POST 30/min, PUT 30/min, PATCH 30/min, DELETE 20/min) with automatic 1-hour abusive IP cooldown lockouts.
 - **Pre-Aggregated Public Stats**: Dedicated `public_stats` table updated asynchronously by background jobs to serve homepage statistics in $O(1)$ time with zero multi-table joins.
@@ -302,6 +307,7 @@ pytest tests/test_assistant_and_mcp.py -v
 pytest tests/test_idempotency.py -v
 pytest tests/test_rate_limiter.py -v
 pytest tests/test_admin_payout_use_cases.py -v
+pytest tests/test_settings_use_cases.py -v
 ```
 
 ---
@@ -312,13 +318,18 @@ pytest tests/test_admin_payout_use_cases.py -v
 - [database.md](database.md) — Complete 36-table database schema, ERD diagrams, and enums reference
 - [security.md](security.md) — Authentication, idempotency defenses, rate limiting, SSRF, and Razorpay security
 - [phases.md](phases.md) — Implementation roadmap, completed deliverables, and scaling milestones
+- [docs/frontend_admin_dashboard_guide.md](docs/frontend_admin_dashboard_guide.md) — Admin dashboard analytics, KPIs, and operational oversight
+- [docs/frontend_supply_dashboard_guide.md](docs/frontend_supply_dashboard_guide.md) — Homestay inventory supply dashboard and vendor operations
+- [docs/frontend_tax_and_settings_guide.md](docs/frontend_tax_and_settings_guide.md) — Dynamic platform settings, branding assets, and GST calculation guide
 - [docs/frontend_ai_assistant_and_mcp_guide.md](docs/frontend_ai_assistant_and_mcp_guide.md) — Frontend integration guide for AI Concierge, SSE streaming, and MCP
 - [docs/idempotency_frontend_guide.md](docs/idempotency_frontend_guide.md) — Frontend guide for safe retries and idempotency headers
 - [docs/production_notification_guide.md](docs/production_notification_guide.md) — Socket.IO real-time notifications integration guide
+- [docs/frontend_notification_angular_guide.md](docs/frontend_notification_angular_guide.md) — Angular real-time notifications client integration
 - [docs/frontend_payout_management_guide.md](docs/frontend_payout_management_guide.md) — Host bank account & RazorpayX payout management guide
 - [docs/frontend_public_properties_guide.md](docs/frontend_public_properties_guide.md) — Public properties listing, filters, pricing, and sorting
 - [docs/frontend_room_block_guide.md](docs/frontend_room_block_guide.md) — Room block and calendar blackout integration guide
-- [docs/frontend_tax_and_settings_guide.md](docs/frontend_tax_and_settings_guide.md) — Tax calculation & dynamic platform settings guide
+- [docs/frontend_room_block_dashboard_guide.md](docs/frontend_room_block_dashboard_guide.md) — Room block management dashboard UI guide
+- [docs/frontend_variable_pricing_guide.md](docs/frontend_variable_pricing_guide.md) — Variable occupancy pricing tiers integration guide
 - [docs/FRONTEND_API_GUIDE_REVIEWS_TESTIMONIALS.md](docs/FRONTEND_API_GUIDE_REVIEWS_TESTIMONIALS.md) — Reviews and testimonials integration guide
 
 

@@ -53,7 +53,8 @@ This document outlines the phased development roadmap for the **TashiHome Backen
   - Password reset with time-bound verification tokens.
   - Token blacklisting and revocation in Redis on logout.
 - [x] **Role-Based Access Control (RBAC)**:
-  - Strict role enforcement for `admin`, `vendor`, and `user` via FastAPI dependency injection (`app/deps/`).
+  - Multi-tier role authorization for `admin`, `staff`, `vendor`, `agent`, and `user` via FastAPI dependency injection (`app/deps/`).
+  - Scoped permissions and resource-ownership verification.
   - CSRF protection middleware for sensitive state-changing operations.
 - [x] **Audit Logging & Device Tracking**:
   - Capture client IP, User-Agent, geo-resolved city/country, and JSONB device metadata in `login_logs`.
@@ -67,8 +68,9 @@ This document outlines the phased development roadmap for the **TashiHome Backen
 ### Phase 3: Locations & Master Catalog (Attributes) ✅
 *Goal: Build the foundational geographic and catalog metadata required for property listings.*
 
-- [x] **Geographical Hierarchy**:
+- [x] **Geographical Hierarchy & Slug Routing**:
   - Multi-tier structure: **Countries** -> **Cities** -> **Locations** (areas/neighborhoods).
+  - URL-friendly, collision-resistant slug generation (`slug` column with `UNIQUE(city_id, slug)` on locations, `UNIQUE(slug)` on countries and cities).
   - Unique composite constraints (e.g., area names unique per city).
   - Admin management APIs with status toggles (`active`/`inactive`).
   - Public-facing APIs with city highlights, featured flags, and banner imagery.
@@ -100,8 +102,12 @@ This document outlines the phased development roadmap for the **TashiHome Backen
   - Public property listing with pagination, location filters, and detailed view.
   - Vendor property dashboard for creation, updates, and asset management.
   - Admin property oversight and moderation.
-- [x] **Dynamic System Settings**:
+- [x] **Dynamic System Settings & Branding Engine**:
   - Key-value configuration store (`settings`) for platform runtime parameters.
+  - Multi-file asset upload validation (app logo, white logo, favicon, OG meta image, coming-soon video) with automatic WebP conversion and file size caps.
+  - Automatic deletion of replaced assets in S3 to prevent storage leakage.
+  - Platform social media handles and corporate contact information management.
+  - Dynamic maintenance & Coming Soon mode toggling with public data gating.
 
 ---
 
@@ -116,6 +122,9 @@ This document outlines the phased development roadmap for the **TashiHome Backen
   - Real-time room inventory deduction accounting for active bookings (`pending`, `confirmed`, `checked_in`).
   - Property room blocks (`room_blocks`) for host blackout dates, maintenance holds, and private reservations.
   - Multi-occupancy variable pricing tiers (`property_room_type_prices`) per room category.
+- [x] **Tax & GST Dynamic Pricing**:
+  - Real-time tax computation in booking quotes supporting tax-inclusive and tax-exclusive pricing.
+  - Itemized CGST, SGST, and IGST rate evaluation according to active platform tax rules.
 - [x] **Booking State Machine**:
   - Complete lifecycle: `pending` $\to$ `confirmed` $\to$ `checked_in` $\to$ `checked_out` $\to$ `cancelled` / `completed`.
   - Automated booking reference generator (e.g. `TSH-2026-XXXX`).
@@ -142,16 +151,19 @@ This document outlines the phased development roadmap for the **TashiHome Backen
   - Custom Redis-backed `IdempotencyMiddleware` supporting `Idempotency-Key` / `X-Idempotency-Key`.
   - Distributed in-flight request locking preventing race-condition double charges (returns HTTP 409).
   - SHA-256 request fingerprinting and 24-hour response caching with `Idempotent-Replay: true` header.
+- [x] **Tax & GST Configuration Management**:
+  - Dedicated `taxes` catalog for percentage and fixed GST configurations, business GSTIN, SAC codes, and default flags.
 - [x] **Refunds & Cancellation Processing**:
   - Cancellation policy tier evaluation for automated refund calculations.
-  - Refund requests workflow (`refund_requests`) with admin approval and Razorpay refund API execution.
+  - Refund requests workflow (`refund_requests`) with admin approval and Razorpay refund API execution (`razorpay_refund_id`, `razorpay_status`).
 - [x] **Host Banking & RazorpayX Payouts**:
   - Host bank account and UPI VPA registry (`vendor_bank_accounts`) with verification status.
   - Automated provisioning of RazorpayX Contacts (`vendor_razorpay_contacts`) and Fund Accounts (`vendor_razorpay_fund_accounts`).
   - Vendor payout settlement engine calculating gross revenue minus platform commission (`payouts`).
   - Disbursement execution via NEFT, RTGS, IMPS, and UPI modes.
-- [x] **PDF Invoicing & Vouchers**:
-  - Automated PDF invoice and booking voucher generation (`app/services/invoice_service.py`) with GST breakdown.
+- [x] **PDF Invoicing & Sequential Tax Invoices**:
+  - Sequential monthly tax invoice generation (e.g. `invoice_number` like `INV-202609-0000001`).
+  - Automated PDF invoice and booking voucher generation (`app/services/invoice_service.py`) with full GST breakdown.
 
 ---
 
@@ -218,7 +230,7 @@ This document outlines the phased development roadmap for the **TashiHome Backen
 - [x] **Defensive Rate Limiting & Cooldown**:
   - Method-specific sliding-window rate limiter (GET, POST, PUT, PATCH, DELETE) with 1-hour abusive IP cooldown lockout (`app/core/rate_limiter.py`).
 - [x] **Automated Testing Suite**:
-  - Unit and integration tests (`pytest`, `pytest-asyncio`) for use cases, repositories, rate limiting, idempotency, MCP tools, and vector search.
+  - Unit and integration tests (`pytest`, `pytest-asyncio`) covering system settings use cases (`test_settings_use_cases.py`), administrative payouts (`test_admin_payout_use_cases.py`), booking holds and race condition prevention, sliding-window rate limiting (`test_rate_limiter.py`), Redis idempotency engine (`test_idempotency.py`), MCP tool endpoints (`test_assistant_and_mcp.py`), and vector similarity search.
 - [ ] **Observability & Telemetry**:
   - Prometheus metrics exporter for request latency, error counts, and DB connection pool saturation.
   - OpenTelemetry distributed tracing across HTTP, Redis, and PostgreSQL calls.

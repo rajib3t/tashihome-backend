@@ -72,12 +72,14 @@ This document outlines the security architecture, defensive input validation str
 - **Timing-Attack Resistance**: Authentication routines utilize constant-time comparison methods (`hmac.compare_digest`) for secret and token checks.
 
 ### 2.3 Role-Based Access Control (RBAC)
-- Strict authorization barriers segment endpoints:
-  - `/api/v1/admin/*` -> Requires `UserRole.ADMIN`.
-  - `/api/v1/vendor/*` -> Requires `UserRole.VENDOR` or `UserRole.ADMIN` with resource-ownership verification.
-  - `/api/v1/user/*` / `/api/v1/profile/*` -> Requires authenticated user.
-  - `/api/v1/public/*` -> Unauthenticated public read-only access with rate limiting.
-- RBAC is enforced declaratively via FastAPI dependency injection (`app.deps`).
+- Strict authorization barriers segment endpoints via FastAPI dependency injection (`app.deps`):
+  - **`admin`**: Full platform oversight, system settings, tax configurations, payout disbursements, host request approvals, user/staff management (`/api/v1/admin/*`).
+  - **`staff`**: Scoped administrative workflows and customer support operations.
+  - **`vendor`**: Property management, room blocks, asset uploads, bank account setup, booking calendar oversight (`/api/v1/vendor/*`).
+  - **`agent`**: Travel concierge and reservation assistance workflows.
+  - **`user`**: Guest bookings, reviews, testimonials, and personal profile management (`/api/v1/user/*`, `/api/v1/profile/*`).
+  - **Public**: Unauthenticated read-only access protected by sliding-window rate limiting (`/api/v1/public/*`).
+- RBAC is enforced declaratively, and all mutations verify resource ownership (e.g. vendor can only modify properties they own).
 
 ### 2.4 CSRF Protection
 - State-modifying requests (POST, PUT, PATCH, DELETE) in browser-facing sessions enforce the **Double-Submit Cookie Pattern**:
@@ -136,15 +138,38 @@ TashiHome follows a **Defense-in-Depth Validation Strategy** across three isolat
 ### 3.1 Media & File Upload Validation
 - **MIME Type & Magic Byte Verification**:
   - Base64 / Data URL inputs are parsed using regex (`DATA_URL_PATTERN`) and decoded.
-  - MIME types are validated against an allowed whitelist (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`).
+  - Multi-field upload configurations enforce strict MIME prefixes and size ceilings:
+    - `app_logo` & `white_logo`: Allowed `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml` (Max 2 MB, converted to WebP).
+    - `app_favicon`: Allowed `image/x-icon`, `image/png`, `image/svg+xml`, `image/webp` (Max 1 MB).
+    - `meta_image`: Allowed `image/png`, `image/jpeg`, `image/webp` (Max 3 MB, converted to WebP).
+    - `coming_background_image`: Allowed `image/png`, `image/jpeg`, `image/webp` (Max 4 MB).
+    - `coming_soon_video`: Allowed `video/*` (Max 10 MB).
 - **Image Sanitization & EXIF Stripping**:
   - Uploaded images are re-encoded through Pillow (`PIL.Image`).
   - Privacy-sensitive metadata (GPS coordinates, camera serials, timestamps) is stripped by default unless explicitly extracted.
   - Images are converted to optimized WebP format with dimension caps (e.g., max 1920px) to prevent image decompression bombs (Pixel Floods / Decompression DoS).
+- **Storage Lifecycle & Orphan Prevention**:
+  - When an existing asset (e.g., logo, banner) is replaced, the old asset key in S3 is automatically deleted via `StorageService` to prevent storage bloat and stale asset access.
+  - Empty or unselected file inputs in multipart forms are discarded so existing storage references are never unintentionally cleared.
 - **Direct S3 / Presigned URL Flow**:
-  - Direct binary streaming avoids storing untrusted files on local backend disk storage.
+  - Binary streaming directly to object storage avoids storing untrusted files on local backend disk storage.
 
-### 3.2 AI Concierge & Model Context Protocol (MCP) Security
+### 3.2 Dynamic System Settings & Administrative Integrity
+- **Privilege Partitioning**:
+  - All system setting mutations (`/api/v1/admin/settings`) and tax configurations (`/api/v1/admin/taxes`) require `UserRole.ADMIN`.
+- **Maintenance / Coming Soon Gating**:
+  - When `is_enabled_coming_soon` is `'false'`, public setting queries automatically filter out sensitive pre-launch information (`coming_soon_message`, `coming_background_image`, `coming_soon_video`, `launch_date`).
+- **Social & External Link Validation**:
+  - Social media URLs are validated for protocol (`https://`) and domain patterns. An explicit empty string input clears an entry without leaving malformed strings.
+
+### 3.3 URL Slug Sanitization & Injection Defense
+- **Normalization & Character Stripping**:
+  - Slugs for countries, cities, locations, and properties are normalized via NFKD Unicode normalization and stripped of non-ASCII characters.
+  - Special characters and punctuation are eliminated via `re.sub(r'[^a-z0-9-]', '', slug)` with consecutive hyphens collapsed.
+- **Shadowing & Collision Prevention**:
+  - Scoped unique database constraints (e.g., `UNIQUE(city_id, slug)` on locations, `UNIQUE(vendor_id, slug)` on properties, and `UNIQUE(slug)` on countries and cities) guarantee that URL routing paths cannot collide or be hijacked to shadow existing destinations.
+
+### 3.4 AI Concierge & Model Context Protocol (MCP) Security
 - **Zero Internal ID Exposure (Opaque UUID Boundary)**:
   - All entities manipulated by the AI Concierge and exposed through MCP tools exclusively utilize `public_id` (UUIDv4) represented as `"id"`.
   - Database primary keys (`BigInteger`) are strictly prohibited from tool arguments, schemas, and return payloads, mitigating horizontal enumeration vulnerabilities.

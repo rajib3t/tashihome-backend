@@ -191,6 +191,7 @@ Master directory of countries.
 | `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
 | `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
 | `name` | `VARCHAR(255)` | `UNIQUE`, `NOT NULL`, `INDEX` | Country name |
+| `slug` | `VARCHAR(255)` | `UNIQUE`, `NOT NULL`, `INDEX` | URL-friendly slug for country routing |
 | `code` | `VARCHAR(10)` | `UNIQUE`, `NOT NULL`, `INDEX` | Country code (e.g. ISO-2/3) |
 | `status` | `Enum(CountryStatus)` | `NOT NULL`, `INDEX`, `default='active'` | Status (`active`, `inactive`) |
 | `created_by` | `BigInteger` | `NULLABLE`, `FK -> users.id` | User who created the record |
@@ -211,6 +212,7 @@ Cities linked to countries.
 | `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
 | `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
 | `name` | `VARCHAR(255)` | `UNIQUE`, `NOT NULL`, `INDEX` | City name |
+| `slug` | `VARCHAR(255)` | `UNIQUE`, `NOT NULL`, `INDEX` | URL-friendly slug for city landing pages and search |
 | `image_url` | `VARCHAR(500)` | `NULLABLE` | City banner/feature image URL |
 | `country_id` | `BigInteger` | `NOT NULL`, `FK -> countries.id (CASCADE)` | Parent country |
 | `tag_line` | `VARCHAR(255)` | `NULLABLE` | Catchy promotional tagline |
@@ -237,6 +239,7 @@ Specific destinations, areas, or neighborhoods within a city.
 | `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
 | `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
 | `name` | `VARCHAR(255)` | `NOT NULL`, `INDEX` | Location/area name |
+| `slug` | `VARCHAR(255)` | `NOT NULL`, `INDEX` | URL-friendly slug scoped to city |
 | `image_url` | `VARCHAR(500)` | `NULLABLE` | Location image URL |
 | `city_id` | `BigInteger` | `NOT NULL`, `FK -> cities.id (CASCADE)` | Parent city |
 | `status` | `Enum(LocationStatus)` | `NOT NULL`, `INDEX`, `default='active'` | Status (`active`, `inactive`) |
@@ -247,6 +250,7 @@ Specific destinations, areas, or neighborhoods within a city.
 
 - **Table Constraints**:
   - `uq_location_city_name` (`UNIQUE(city_id, name)`)
+  - `uq_location_city_slug` (`UNIQUE(city_id, slug)`)
 - **Relationships**:
   - `city` -> N:1 [`City`](#cities)
   - `properties` -> 1:N [`Property`](#properties), `cascade="all, delete-orphan"`
@@ -913,15 +917,59 @@ Communication trail between administrators and host applicants.
 ### 10. Application Configuration, Taxes & Notifications
 
 #### `settings`
-Key-value configuration store for system parameters and dynamic configurations.
+Key-value configuration store for system runtime parameters, branding media assets, booking defaults, tax settings, and dynamic maintenance/coming-soon controls.
 
 | Column | Type | Constraints / Defaults | Description |
 | :--- | :--- | :--- | :--- |
-| `id` | `BigInteger` | `PRIMARY KEY` | Setting identifier |
-| `key` | `VARCHAR(255)` | `UNIQUE`, `NOT NULL` | Configuration key |
-| `value` | `TEXT` | `NOT NULL` | Configuration value (raw text or JSON) |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Setting identifier |
+| `key` | `VARCHAR(255)` | `UNIQUE`, `NOT NULL`, `INDEX` | Configuration key |
+| `value` | `TEXT` | `NOT NULL` | Configuration value (raw string, scalar, or JSON) |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+##### Supported Configuration Keys Reference
+
+| Category | Setting Key | Type | Description / Constraints |
+| :--- | :--- | :--- | :--- |
+| **Branding & Assets** | `app_logo` | `File (S3 Key)` | Primary brand logo (max 2MB, WebP converted, display CDN URL resolved) |
+| | `white_logo` | `File (S3 Key)` | Inverted brand logo for dark backgrounds (max 2MB, WebP converted) |
+| | `app_favicon` | `File (S3 Key)` | Platform browser favicon (`.ico`, `.png`, `.svg`, max 1MB) |
+| | `meta_image` | `File (S3 Key)` | Open Graph / Social sharing preview banner (max 3MB, WebP converted) |
+| | `meta_title` | `String` | Default SEO title suffix |
+| | `meta_description` | `String` | Default SEO meta description |
+| **Platform Defaults** | `app_name` | `String` | Platform brand name (default: `'Tashi Homestays'`) |
+| | `default_currency` | `String` | ISO currency code (default: `'INR'`) |
+| | `currency_symbol` | `String` | Currency symbol (default: `'₹'`) |
+| | `site_country` | `String` | Base operation country |
+| **Contact & Socials** | `contact_email` | `String` | Support contact email |
+| | `contact_phone` | `String` | Customer service contact phone |
+| | `contact_whatsapp` | `String` | Official WhatsApp business phone |
+| | `facebook_url` | `String` | Facebook official page URL (empty string clears) |
+| | `instagram_url` | `String` | Instagram profile URL (empty string clears) |
+| | `twitter_url` | `String` | Twitter / X profile URL (empty string clears) |
+| | `linkedin_url` | `String` | LinkedIn corporate page URL (empty string clears) |
+| | `youtube_url` | `String` | YouTube channel URL (empty string clears) |
+| **Booking & Policies**| `check_in_time` | `String` | Standard check-in time (e.g. `'14:00'`) |
+| | `check_out_time` | `String` | Standard check-out time (e.g. `'11:00'`) |
+| | `min_booking_days` | `Integer` | Minimum allowed stay duration (e.g. `1`) |
+| | `max_booking_days` | `Integer` | Maximum allowed stay duration (e.g. `30`) |
+| | `default_commission_percentage` | `Numeric` | Platform commission retained on payouts (e.g. `10.0`) |
+| | `service_fee_percentage` | `Numeric` | Guest platform service fee percentage (e.g. `2.5`) |
+| **Taxes & GST** | `is_gst_enabled` | `Boolean string` | Whether GST calculation is active (`'true'` / `'false'`) |
+| | `gst_percentage` | `Numeric string` | Default GST rate applied if not overridden by specific tax rule |
+| | `is_tax_inclusive` | `Boolean string` | Whether room prices are tax-inclusive (`'true'` / `'false'`) |
+| **Maintenance / Coming Soon** | `is_enabled_coming_soon` | `Boolean string` | Toggles maintenance/coming soon mode (`'true'` / `'false'`) |
+| | `coming_soon_message` | `String` | Maintenance or launch announcement message |
+| | `coming_background_image` | `File (S3 Key)` | Background hero imagery for coming-soon page (max 4MB) |
+| | `coming_soon_video` | `File (S3 Key)` | Background promotional video (max 10MB, `video/*`) |
+| | `launch_date` | `String / ISO` | Scheduled platform launch timestamp |
+
+> **Asset Lifecycle & Security Rules**:
+> 1. **Automated Replacement Cleanup**: When a file setting is updated with a new upload, the previously stored file in S3/storage is automatically deleted via `StorageService` to prevent orphaned storage bloat.
+> 2. **Empty Upload Safety**: Discarded/empty `UploadFile` objects (e.g., when saving settings form without choosing a new file) are ignored and preserve existing asset keys.
+> 3. **Coming Soon Gating**: In `GetSettingUseCase`, if `is_enabled_coming_soon` is `'false'`, sensitive coming soon fields (`coming_soon_message`, `coming_background_image`, `coming_soon_video`, `launch_date`) are automatically pruned from responses.
+
+---
 
 #### `public_stats`
 Pre-aggregated statistics table updated periodically by scheduled jobs / cron to eliminate multi-table joins on high-traffic public API endpoints.
