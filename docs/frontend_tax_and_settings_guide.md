@@ -200,6 +200,11 @@ Public Web App / Mobile Web
 |                                                                                                         |
 |  Meta Description                                                                                       |
 |  [ Discover handpicked homestays and heritage retreats across Northeast India. ]                        |
+|                                                                                                         |
+|  OG / Social Preview Image (Max 3MB, 1200x630px recommended)                                            |
+|  +---------------------------------------------+  [ Upload OG Image ]                                    |
+|  | [ OG Social Preview Image Banner ]           |                                                        |
+|  +---------------------------------------------+                                                        |
 +---------------------------------------------------------------------------------------------------------+
 ```
 
@@ -335,6 +340,7 @@ export interface SystemSettingsMap {
   meta_description?: string;
   meta_keywords?: string;
   meta_image?: string;
+  og_image?: string;
   terms_and_conditions_url?: string;
   privacy_policy_url?: string;
   refund_policy_url?: string;
@@ -431,7 +437,8 @@ export interface SystemSettingsMap {
 #### 1. Save / Update System Settings (Admin)
 - **Endpoint**: `POST /api/v1/admin/settings`
 - **Content-Type**: `multipart/form-data` (due to optional file uploads)
-- **Form Fields**: Any or all keys from `SystemSettingsUpdatePayload`, plus file fields (`app_logo`, `white_logo`, `app_favicon`, `coming_background_image`, `coming_soon_video`).
+- **Form Fields**: Any or all keys from `SystemSettingsUpdatePayload`, plus file fields (`app_logo`, `white_logo`, `app_favicon`, `og_image` / `meta_image`, `coming_background_image`, `coming_soon_video`).
+- **Tab URL Synchronization**: Tab state persists in the browser address bar query string: `/admin/setting?tab=general|contact|financials|seo|coming-soon`. Deep-linking and refreshing retains the active tab.
 - **Response**:
 ```json
 {
@@ -538,7 +545,9 @@ export function calculateBookingPrice(
 3. **Tax Code**:
    - Always uppercase alphanumeric with underscores (e.g., `GST_12`, `GST_18`, `LUXURY_5`).
 4. **Settings Multipart Uploads**:
-   - Images (`app_logo`, `white_logo`, `app_favicon`): Max 2MB, WebP/PNG/JPG.
+   - Images (`app_logo`, `white_logo`, `app_favicon`): Max 2MB (Favicon 1MB), WebP/PNG/JPG/SVG.
+   - Social / SEO Share Image (`og_image` / `meta_image`): Max 3MB, WebP/PNG/JPG (1200×630px recommended).
+   - Splash Image (`coming_background_image`): Max 4MB, WebP/PNG/JPG.
    - Video (`coming_soon_video`): Max 10MB, MP4/WebM.
 
 ---

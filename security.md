@@ -141,7 +141,7 @@ TashiHome follows a **Defense-in-Depth Validation Strategy** across three isolat
   - Multi-field upload configurations enforce strict MIME prefixes and size ceilings:
     - `app_logo` & `white_logo`: Allowed `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml` (Max 2 MB, converted to WebP).
     - `app_favicon`: Allowed `image/x-icon`, `image/png`, `image/svg+xml`, `image/webp` (Max 1 MB).
-    - `meta_image`: Allowed `image/png`, `image/jpeg`, `image/webp` (Max 3 MB, converted to WebP).
+    - `og_image` & `meta_image`: Allowed `image/png`, `image/jpeg`, `image/webp` (Max 3 MB, converted to WebP).
     - `coming_background_image`: Allowed `image/png`, `image/jpeg`, `image/webp` (Max 4 MB).
     - `coming_soon_video`: Allowed `video/*` (Max 10 MB).
 - **Image Sanitization & EXIF Stripping**:

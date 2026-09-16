@@ -191,3 +191,56 @@ async def test_update_settings_preserves_existing_files_when_no_new_file(mock_se
     assert saved_settings["app_name"] == "Updated Homestays"
     assert saved_settings["app_logo"] == "settings/app_logo_old.webp"
 
+
+@pytest.mark.asyncio
+async def test_update_settings_og_image_sync(mock_setting_service, mock_storage_service, mock_admin):
+    saved_settings = {}
+
+    async def mock_upsert(key, value):
+        saved_settings[key] = value
+        return Setting(key=key, value=value)
+
+    async def mock_get_all():
+        return [Setting(key=k, value=v) for k, v in saved_settings.items()]
+
+    mock_setting_service.upsert = AsyncMock(side_effect=mock_upsert)
+    mock_setting_service.get_all = AsyncMock(side_effect=mock_get_all)
+
+    use_case = UpdateSettingUseCase(
+        setting_service=mock_setting_service,
+        storage_service=mock_storage_service,
+        current_user=mock_admin,
+    )
+
+    dto = SettingUpdateDTO(
+        og_image="https://cdn.tashihomes.in/settings/custom-og.jpg",
+    )
+
+    response = await use_case.execute(dto)
+
+    assert saved_settings["og_image"] == "https://cdn.tashihomes.in/settings/custom-og.jpg"
+    assert saved_settings["meta_image"] == "https://cdn.tashihomes.in/settings/custom-og.jpg"
+
+    resp_map = {item.name: item.value for item in response}
+    assert resp_map["og_image"] == "https://cdn.tashihomes.in/settings/custom-og.jpg"
+    assert resp_map["meta_image"] == "https://cdn.tashihomes.in/settings/custom-og.jpg"
+
+
+@pytest.mark.asyncio
+async def test_get_settings_og_image_resolution(mock_setting_service, mock_storage_service):
+    settings_data = [
+        Setting(key="app_name", value="Tashi Homes"),
+        Setting(key="og_image", value="settings/og_banner.png"),
+    ]
+    mock_setting_service.get_all = AsyncMock(return_value=settings_data)
+
+    use_case = GetSettingUseCase(mock_setting_service, mock_storage_service)
+    result = await use_case.execute()
+
+    result_map = {item.name: item.value for item in result}
+    assert "og_image" in result_map
+    assert "meta_image" in result_map
+    assert result_map["og_image"] == "https://cdn.tashihomes.in/settings/og_banner.png"
+    assert result_map["meta_image"] == "https://cdn.tashihomes.in/settings/og_banner.png"
+
+

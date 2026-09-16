@@ -934,7 +934,8 @@ Key-value configuration store for system runtime parameters, branding media asse
 | **Branding & Assets** | `app_logo` | `File (S3 Key)` | Primary brand logo (max 2MB, WebP converted, display CDN URL resolved) |
 | | `white_logo` | `File (S3 Key)` | Inverted brand logo for dark backgrounds (max 2MB, WebP converted) |
 | | `app_favicon` | `File (S3 Key)` | Platform browser favicon (`.ico`, `.png`, `.svg`, max 1MB) |
-| | `meta_image` | `File (S3 Key)` | Open Graph / Social sharing preview banner (max 3MB, WebP converted) |
+| | `og_image` | `File (S3 Key)` | Open Graph / Social sharing preview banner (max 3MB, WebP converted, display CDN URL resolved) |
+| | `meta_image` | `File (S3 Key)` | Open Graph / Social sharing preview banner (alias for `og_image`, max 3MB, WebP converted) |
 | | `meta_title` | `String` | Default SEO title suffix |
 | | `meta_description` | `String` | Default SEO meta description |
 | **Platform Defaults** | `app_name` | `String` | Platform brand name (default: `'Tashi Homestays'`) |

@@ -45,6 +45,7 @@ class SettingUpdateDTO(BaseModel):
     meta_description: Optional[str] = None
     meta_keywords: Optional[str] = None
     meta_image: Optional[Union[str, UploadFile]] = None
+    og_image: Optional[Union[str, UploadFile]] = None
     terms_and_conditions_url: Optional[str] = None
     privacy_policy_url: Optional[str] = None
     refund_policy_url: Optional[str] = None

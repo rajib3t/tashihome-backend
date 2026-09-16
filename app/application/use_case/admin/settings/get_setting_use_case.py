@@ -17,6 +17,7 @@ class GetSettingUseCase:
         "white_logo",
         "app_favicon",
         "meta_image",
+        "og_image",
         "coming_background_image",
         "coming_soon_video",
     }
@@ -59,5 +60,13 @@ class GetSettingUseCase:
                     value=value,
                 )
             )
+
+        resp_keys = {s.name for s in response}
+        if "og_image" in resp_keys and "meta_image" not in resp_keys:
+            og_item = next(s for s in response if s.name == "og_image")
+            response.append(SettingSchema(name="meta_image", value=og_item.value))
+        elif "meta_image" in resp_keys and "og_image" not in resp_keys:
+            meta_item = next(s for s in response if s.name == "meta_image")
+            response.append(SettingSchema(name="og_image", value=meta_item.value))
 
         return response
