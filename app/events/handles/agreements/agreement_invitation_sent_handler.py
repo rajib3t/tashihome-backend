@@ -26,6 +26,8 @@ class AgreementInvitationSentHandler:
         recipient_name = payload.get("recipient_name") or "Host Partner"
         token = payload.get("token") or ""
         commission_pct = payload.get("commission_percentage") or 10.0
+        company_name = payload.get("company_name") or f"{recipient_name}'s Homestay"
+        expires_in_days = payload.get("expires_in_days") or 7
 
         frontend_url = (getattr(settings, "FRONTEND_URL", "") or "").rstrip("/")
         signing_url = f"{frontend_url}/agreements/{token}" if frontend_url else f"/agreements/{token}"
@@ -35,6 +37,8 @@ class AgreementInvitationSentHandler:
             app_name = "TashiHome"
             tagline = "Authentic Homestays"
             logo_url = None
+            legal_name = "TashiHome Technologies Pvt. Ltd."
+            legal_address = "Gangtok, Sikkim, India"
 
             if database.async_session is not None:
                 try:
@@ -43,13 +47,19 @@ class AgreementInvitationSentHandler:
                         storage_service = get_storage_service()
 
                         app_name_setting = await setting_service.get_by_key("app_name")
-                        logo_setting = await setting_service.get_by_key("app_logo")
+                        logo_setting = await setting_service.get_by_key("agreement_logo") or await setting_service.get_by_key("app_logo")
                         tagline_setting = await setting_service.get_by_key("app_tagline")
+                        legal_name_setting = await setting_service.get_by_key("agreement_company_legal_name") or await setting_service.get_by_key("legal_name")
+                        legal_address_setting = await setting_service.get_by_key("agreement_company_address") or await setting_service.get_by_key("contact_address")
 
                         if app_name_setting and app_name_setting.value:
                             app_name = app_name_setting.value
                         if tagline_setting and tagline_setting.value:
                             tagline = tagline_setting.value
+                        if legal_name_setting and legal_name_setting.value:
+                            legal_name = legal_name_setting.value
+                        if legal_address_setting and legal_address_setting.value:
+                            legal_address = legal_address_setting.value
                         if logo_setting and logo_setting.value:
                             logo_url = await storage_service.get_display_url(logo_setting.value)
                 except Exception as db_err:
@@ -58,11 +68,16 @@ class AgreementInvitationSentHandler:
             template_data = {
                 "app_name": app_name,
                 "tagline": tagline,
-                "logo_url": logo_url,
+                "logo_url": logo_url or "",
+                "logo_display": "block" if logo_url else "none",
                 "year": current_year,
                 "host_name": recipient_name,
+                "company_name": company_name,
                 "commission_percentage": f"{float(commission_pct):.1f}",
+                "expires_in_days": str(expires_in_days),
                 "signing_url": signing_url,
+                "legal_name": legal_name,
+                "legal_address": legal_address,
                 "support_email": getattr(settings, "SUPPORT_EMAIL", f"partner@{app_name.lower().replace(' ', '')}.in"),
             }
 
