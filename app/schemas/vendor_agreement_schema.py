@@ -14,6 +14,25 @@ class AgreementClauseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SignatureFontOptionSchema(BaseModel):
+    id: str
+    name: str
+    font_family: str
+    category: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+AVAILABLE_SIGNATURE_FONTS = [
+    SignatureFontOptionSchema(id="dancing_script", name="Dancing Script", font_family="'Dancing Script', cursive", category="Cursive & Fluid"),
+    SignatureFontOptionSchema(id="great_vibes", name="Great Vibes", font_family="'Great Vibes', cursive", category="Classic Calligraphy"),
+    SignatureFontOptionSchema(id="caveat", name="Caveat", font_family="'Caveat', cursive", category="Modern Handwritten"),
+    SignatureFontOptionSchema(id="sacramento", name="Sacramento", font_family="'Sacramento', cursive", category="Monoline Script"),
+    SignatureFontOptionSchema(id="parisienne", name="Parisienne", font_family="'Parisienne', cursive", category="Casual Chic"),
+    SignatureFontOptionSchema(id="alex_brush", name="Alex Brush", font_family="'Alex Brush', cursive", category="Traditional Elegance"),
+]
+
+
 class VendorAgreementData(BaseModel):
     id: str | None = Field(
         default=None,
@@ -34,12 +53,14 @@ class VendorAgreementData(BaseModel):
     signer_email: Optional[str] = None
     signer_phone: Optional[str] = None
     signature_type: Optional[str] = None
+    signature_font: Optional[str] = None
     document_hash: Optional[str] = None
     pdf_file_url: Optional[str] = None
     first_party_signer_name: Optional[str] = None
     first_party_signer_role: Optional[str] = None
     first_party_signature_type: Optional[str] = None
     first_party_signature_data: Optional[str] = None
+    first_party_signature_font: Optional[str] = None
     first_party_signed_at: Optional[datetime] = None
     is_first_party_signed: Optional[bool] = None
     is_second_party_signed: Optional[bool] = None
@@ -77,6 +98,7 @@ class PublicAgreementDetailData(BaseModel):
     signer_name: Optional[str] = None
     signature_type: Optional[str] = None
     signature_data: Optional[str] = None
+    signature_font: Optional[str] = None
     document_hash: Optional[str] = None
     signer_ip: Optional[str] = None
     sent_at: Optional[datetime] = None
@@ -84,6 +106,7 @@ class PublicAgreementDetailData(BaseModel):
     first_party_signer_role: Optional[str] = None
     first_party_signature_type: Optional[str] = None
     first_party_signature_data: Optional[str] = None
+    first_party_signature_font: Optional[str] = None
     first_party_signed_at: Optional[datetime] = None
     is_first_party_signed: Optional[bool] = None
     is_second_party_signed: Optional[bool] = None
@@ -92,6 +115,7 @@ class PublicAgreementDetailData(BaseModel):
     operator_legal_name: Optional[str] = None
     operator_logo_url: Optional[str] = None
     operator_address: Optional[str] = None
+    available_signature_fonts: List[SignatureFontOptionSchema] = Field(default_factory=lambda: list(AVAILABLE_SIGNATURE_FONTS))
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -116,6 +140,7 @@ class VendorAgreementDetailData(PublicAgreementDetailData):
     signer_email: Optional[str] = None
     signature_type: Optional[str] = None
     signature_data: Optional[str] = None
+    signature_font: Optional[str] = None
     document_hash: Optional[str] = None
     signer_ip: Optional[str] = None
     created_at: Optional[datetime] = None

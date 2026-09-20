@@ -1070,6 +1070,118 @@ def test_agreement_event_handlers_execution(monkeypatch):
     asyncio.run(run_test())
 
 
+def test_agreement_pdf_generation_with_all_signature_fonts():
+    """Verify that AgreementPdfService generates valid PDFs with each signature font option."""
+    pdf_service = AgreementPdfService()
+
+    mock_vendor = MagicMock()
+    mock_vendor.full_name = "Karma Tenzin"
+    mock_vendor.email = "karma@example.com"
+    mock_vendor.phone = "+919876543210"
+
+    mock_company = MagicMock()
+    mock_company.name = "Tenzin Heritage Homestay"
+
+    fonts_to_test = [
+        "dancing_script",
+        "great_vibes",
+        "caveat",
+        "sacramento",
+        "parisienne",
+        "alex_brush",
+        "unknown_custom_font",  # tests graceful fallback to Helvetica-Oblique
+    ]
+
+    for font_key in fonts_to_test:
+        mock_agreement = MagicMock()
+        mock_agreement.public_id = uuid.uuid4()
+        mock_agreement.signer_name = "Karma Tenzin"
+        mock_agreement.signer_email = "karma@example.com"
+        mock_agreement.signer_phone = "+919876543210"
+        mock_agreement.commission_percentage = 10.0
+        mock_agreement.signed_at = datetime.now(timezone.utc)
+        mock_agreement.signature_type = "typed"
+        mock_agreement.signature_data = "Karma Tenzin"
+        mock_agreement.signature_font = font_key
+        mock_agreement.first_party_signature_type = "typed"
+        mock_agreement.first_party_signature_font = font_key
+        mock_agreement.first_party_signer_name = "Admin Signatory"
+        mock_agreement.first_party_signer_role = "Platform Authorized Signatory"
+        mock_agreement.first_party_signed_at = datetime.now(timezone.utc)
+        mock_agreement.document_hash = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+        mock_agreement.signer_ip = "192.168.1.1"
+        mock_agreement.signer_user_agent = "Mozilla/5.0 Test Browser"
+
+        pdf_bytes = pdf_service.generate_signed_agreement_pdf(
+            agreement=mock_agreement,
+            vendor=mock_vendor,
+            company=mock_company,
+            address=None,
+        )
+
+        assert isinstance(pdf_bytes, bytes), f"Failed for font: {font_key}"
+        assert pdf_bytes.startswith(b"%PDF-"), f"Invalid PDF header for font: {font_key}"
+        assert len(pdf_bytes) > 1000, f"PDF suspiciously small for font: {font_key}"
+
+
+def test_sign_agreement_with_font_selection():
+    """Verify that sign_agreement properly assigns the chosen signature_font."""
+    async def run_test():
+        repo = AsyncMock()
+        email_service = AsyncMock()
+        template_service = AsyncMock()
+        storage_service = AsyncMock()
+        pdf_service = MagicMock()
+        pdf_service.generate_signed_agreement_pdf.return_value = b"%PDF-1.4 dummy"
+
+        service = VendorAgreementService(
+            repository=repo,
+            email_service=email_service,
+            email_template_service=template_service,
+            storage_service=storage_service,
+            pdf_service=pdf_service,
+        )
+
+        mock_agreement = MagicMock(spec=VendorAgreement)
+        mock_agreement.status = AgreementStatus.SENT
+        mock_agreement.expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        mock_agreement.public_id = uuid.uuid4()
+        mock_agreement.vendor_id = 10
+        mock_agreement.vendor = MagicMock()
+        mock_agreement.vendor.email = "test@host.com"
+        mock_agreement.vendor.phone = "+919876543210"
+        mock_agreement.terms_snapshot = None
+        mock_agreement.is_first_party_signed = True
+        repo.get_by_token.return_value = mock_agreement
+        repo.update.return_value = mock_agreement
+
+        sign_dto = SignAgreementDTO(
+            signer_name="Karma Tenzin",
+            signature_type="typed",
+            signature_data="Karma Tenzin",
+            signature_font="great_vibes",
+            terms_accepted=True,
+            consent_acknowledged=True,
+        )
+
+        with patch.object(service, "get_operator_info", new_callable=AsyncMock) as mock_op, \
+             patch.object(service, "_emit_agreement_completed", new_callable=AsyncMock) as mock_emit:
+            mock_op.return_value = {"app_name": "TashiHome", "legal_name": "TashiHome Pvt Ltd"}
+            result = await service.sign_agreement(
+                token="tok-font-test",
+                sign_dto=sign_dto,
+                client_ip="103.1.1.1",
+                user_agent="TestAgent",
+                authenticated_user_id=10,
+            )
+
+            assert result.signature_font == "great_vibes"
+            assert result.signature_type == "typed"
+
+    asyncio.run(run_test())
+
+
+
 
 
 

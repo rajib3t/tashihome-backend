@@ -97,6 +97,7 @@ class VendorAgreement(Base):
     first_party_signer_role = Column(String(100), nullable=True, default="Platform Authorized Signatory")
     first_party_signature_type = Column(String(50), nullable=True, default="digital")
     first_party_signature_data = Column(Text, nullable=True)
+    first_party_signature_font = Column(String(100), nullable=True)
     first_party_signed_at = Column(DateTime(timezone=True), nullable=True)
     first_party_signer_ip = Column(String(100), nullable=True)
 
@@ -107,6 +108,7 @@ class VendorAgreement(Base):
     signer_phone = Column(String(50), nullable=True)
     signature_type = Column(String(50), nullable=True)  # 'typed' or 'drawn'
     signature_data = Column(Text, nullable=True)  # base64 data URL or typed text
+    signature_font = Column(String(100), nullable=True)  # chosen font key/name for typed signature
     signer_ip = Column(String(100), nullable=True)
     signer_user_agent = Column(String(500), nullable=True)
 

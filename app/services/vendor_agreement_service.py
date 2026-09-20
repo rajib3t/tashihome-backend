@@ -370,6 +370,7 @@ class VendorAgreementService:
         agreement.signer_phone = agreement.vendor.phone if agreement.vendor else None
         agreement.signature_type = sign_dto.signature_type
         agreement.signature_data = sign_dto.signature_data
+        agreement.signature_font = getattr(sign_dto, "signature_font", None) or ("dancing_script" if sign_dto.signature_type == "typed" else None)
         agreement.signer_ip = client_ip
         agreement.signer_user_agent = user_agent
         agreement.document_hash = doc_hash
@@ -531,6 +532,7 @@ class VendorAgreementService:
         agreement.first_party_signer_role = signer_role
         agreement.first_party_signature_type = sig_type
         agreement.first_party_signature_data = sig_data
+        agreement.first_party_signature_font = getattr(data, "signature_font", None) if data else None
         agreement.first_party_signed_at = now
         agreement.first_party_signer_ip = client_ip or "127.0.0.1"
 

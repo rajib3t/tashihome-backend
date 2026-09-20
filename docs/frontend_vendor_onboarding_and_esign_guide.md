@@ -296,6 +296,13 @@ export type AgreementType =
 
 export type SignatureType = 'typed' | 'drawn';
 
+export interface SignatureFontOption {
+  id: string; // e.g. 'dancing_script', 'great_vibes', 'caveat', 'sacramento', 'parisienne', 'alex_brush'
+  name: string; // e.g. 'Dancing Script'
+  font_family: string; // e.g. "'Dancing Script', cursive"
+  category: string; // e.g. 'Cursive & Fluid'
+}
+
 export interface VendorAgreementItem {
   id: string; // public_id UUID
   title: string;
@@ -310,6 +317,8 @@ export interface VendorAgreementItem {
   signer_name: string | null;
   signer_email: string | null;
   signer_phone: string | null;
+  signature_type: SignatureType | null;
+  signature_font?: string | null;
   pdf_file_url: string | null;
   vendor: {
     id: string;
@@ -343,16 +352,26 @@ export interface PublicAgreementDetail {
   }>;
   pdf_download_url?: string;
   signed_at?: string;
+  signer_name?: string;
+  signature_type?: SignatureType;
+  signature_data?: string;
+  signature_font?: string;
+  first_party_signer_name?: string;
+  first_party_signer_role?: string;
+  first_party_signature_type?: string;
+  first_party_signature_font?: string;
   operator_name?: string;
   operator_legal_name?: string;
   operator_logo_url?: string;
   operator_address?: string;
+  available_signature_fonts?: SignatureFontOption[];
 }
 
 export interface SignAgreementPayload {
   signer_name: string;
   signature_type: SignatureType;
   signature_data: string; // Base64 PNG data URL or typed font string
+  signature_font?: string; // e.g. 'dancing_script', 'great_vibes', 'caveat', 'sacramento', 'parisienne', 'alex_brush'
   terms_accepted: boolean;
   consent_acknowledged: boolean;
 }

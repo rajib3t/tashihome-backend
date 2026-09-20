@@ -16,6 +16,7 @@ class SignAgreementDTO:
     signer_name: str
     signature_type: str  # 'drawn' | 'typed'
     signature_data: str  # base64 PNG data URL or typed text
+    signature_font: Optional[str] = "dancing_script"  # font key (e.g. 'dancing_script', 'great_vibes', etc.)
     terms_accepted: bool = True
     consent_acknowledged: bool = True
 
@@ -44,5 +45,6 @@ class AdminCountersignAgreementDTO:
     signer_role: Optional[str] = "Platform Authorized Signatory"
     signature_type: Optional[str] = "digital"  # 'digital' | 'drawn' | 'typed'
     signature_data: Optional[str] = None
+    signature_font: Optional[str] = None
 
 

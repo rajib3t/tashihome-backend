@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import os
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -12,6 +13,8 @@ from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     HRFlowable,
     Image,
@@ -23,6 +26,32 @@ from reportlab.platypus import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Signature TrueType Font configuration
+SIGNATURE_FONTS_MAP: dict[str, dict[str, Any]] = {
+    "dancing_script": {"pdf_font": "DancingScript", "file": "DancingScript.ttf", "fallback": "Helvetica-Oblique", "size": 17},
+    "great_vibes": {"pdf_font": "GreatVibes", "file": "GreatVibes.ttf", "fallback": "Times-Italic", "size": 19},
+    "caveat": {"pdf_font": "Caveat", "file": "Caveat.ttf", "fallback": "Helvetica-Oblique", "size": 18},
+    "sacramento": {"pdf_font": "Sacramento", "file": "Sacramento.ttf", "fallback": "Times-Italic", "size": 20},
+    "parisienne": {"pdf_font": "Parisienne", "file": "Parisienne.ttf", "fallback": "Helvetica-Oblique", "size": 17},
+    "alex_brush": {"pdf_font": "AlexBrush", "file": "AlexBrush.ttf", "fallback": "Times-Italic", "size": 19},
+}
+
+
+def _register_signature_fonts() -> None:
+    """Registers TrueType fonts for electronic signatures with ReportLab."""
+    fonts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "fonts")
+    for key, cfg in SIGNATURE_FONTS_MAP.items():
+        pdf_font_name = cfg["pdf_font"]
+        font_path = os.path.join(fonts_dir, cfg["file"])
+        if os.path.exists(font_path):
+            try:
+                pdfmetrics.registerFont(TTFont(pdf_font_name, font_path))
+            except Exception as e:
+                logger.warning("Failed to register signature font %s: %s", pdf_font_name, e)
+
+
+_register_signature_fonts()
 
 # Brand palette
 PRIMARY = colors.HexColor("#D97706")        # Amber / Gold accent
@@ -230,6 +259,31 @@ class AgreementPdfService:
             ),
         }
 
+    def get_signature_paragraph_style(self, font_key: Optional[str] = None) -> ParagraphStyle:
+        """Returns a ParagraphStyle configured with the requested signature TrueType font or graceful fallback."""
+        normalized_key = (font_key or "dancing_script").strip().lower().replace("-", "_").replace(" ", "_")
+        cfg = SIGNATURE_FONTS_MAP.get(normalized_key) or SIGNATURE_FONTS_MAP.get("dancing_script", {
+            "pdf_font": "Helvetica-Oblique", "fallback": "Helvetica-Oblique", "size": 16
+        })
+        pdf_font = cfg["pdf_font"]
+        try:
+            pdfmetrics.getFont(pdf_font)
+            font_name = pdf_font
+        except Exception:
+            font_name = cfg.get("fallback", "Helvetica-Oblique")
+
+        size = cfg.get("size", 17)
+        style_key = f"SigFont_{font_name}_{size}"
+        if style_key not in self._styles:
+            self._styles[style_key] = ParagraphStyle(
+                style_key,
+                fontName=font_name,
+                fontSize=size,
+                leading=size + 4,
+                textColor=DARK,
+            )
+        return self._styles[style_key]
+
     def generate_signed_agreement_pdf(
         self,
         agreement: Any,
@@ -425,6 +479,10 @@ class AgreementPdfService:
                 fp_flowable = Image(io.BytesIO(img_bytes), width=40 * mm, height=16 * mm)
             except Exception:
                 fp_flowable = Paragraph(f"<font size='11'><b><i>{fp_signer_name}</i></b></font>", styles["body_bold"])
+        elif fp_sig_type == "typed":
+            fp_font = getattr(agreement, "first_party_signature_font", None)
+            fp_style = self.get_signature_paragraph_style(fp_font)
+            fp_flowable = Paragraph(fp_signer_name, fp_style)
         else:
             fp_flowable = Paragraph(
                 f"<font size='10' color='#0F766E'><b>[DIGITALLY COUNTERSIGNED]</b></font><br/>"
@@ -435,6 +493,7 @@ class AgreementPdfService:
         # Second Party (Homestay Host) Execution Details
         sig_type = getattr(agreement, "signature_type", "typed") or "typed"
         sig_data = getattr(agreement, "signature_data", "") or ""
+        sig_font = getattr(agreement, "signature_font", None)
 
         sig_flowable: Any
         if sig_type == "drawn" and sig_data and "base64," in sig_data:
@@ -447,7 +506,9 @@ class AgreementPdfService:
                 logger.warning("Failed to parse signature image: %s", e)
                 sig_flowable = Paragraph(f"<i>{vendor_name}</i>", styles["body_bold"])
         else:
-            sig_flowable = Paragraph(f"<font size='12'><b><i>{vendor_name}</i></b></font>", styles["body_bold"])
+            sig_name = sig_data if (sig_data and not sig_data.startswith("data:")) else vendor_name
+            sig_style = self.get_signature_paragraph_style(sig_font)
+            sig_flowable = Paragraph(sig_name, sig_style)
 
         doc_hash = getattr(agreement, "document_hash", "N/A") or "N/A"
         client_ip = getattr(agreement, "signer_ip", "N/A") or "N/A"
