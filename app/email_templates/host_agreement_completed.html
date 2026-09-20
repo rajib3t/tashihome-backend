@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Agreement Executed - Welcome to {{app_name}}!</title>
+    <style>
+        body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+        table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
+        img { border:0; height:auto; line-height:100%; outline:none; text-decoration:none; }
+        body { margin:0; padding:0; width:100% !important; height:100% !important; }
+        .cta-link:hover { background-color:#B45309 !important; }
+        @media screen and (max-width: 600px) {
+            .email-container { width:100% !important; max-width:100% !important; border-radius:0 !important; }
+            .fluid-padding { padding:24px 20px !important; }
+            .cta-link { display:block !important; width:100% !important; padding:14px 0 !important; }
+        }
+    </style>
+</head>
+
+<body style="margin:0; padding:0; background-color:#F3FAFB; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#1E293B;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F3FAFB; padding:40px 0;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-container"
+                    style="max-width:600px; width:100%; background-color:#FFFFFF; border-radius:12px; overflow:hidden; box-shadow:0 4px 24px rgba(15, 41, 55, 0.08); border:1px solid #E2E8F0;">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="background-color:#0F2937; padding:28px 24px; border-bottom:4px solid #16A34A;">
+                            <img src="{{logo_url}}" alt="{{app_name}}" style="display:{{logo_display}}; max-height:48px; max-width:180px; height:auto; width:auto; border:0; margin:0 auto 10px;" />
+                            <h1 style="margin:0; font-size:24px; font-weight:700; color:#FFFFFF; letter-spacing:0.5px;">{{app_name}}</h1>
+                            <p style="margin:4px 0 0; font-size:12px; color:#DCFCE7; text-transform:uppercase; letter-spacing:1px;">Contract Executed Successfully</p>
+                        </td>
+                    </tr>
+
+                    <!-- Main Body -->
+                    <tr>
+                        <td class="fluid-padding" style="padding:36px 32px 24px 32px;">
+                            <div style="text-align:center; margin-bottom:20px;">
+                                <span style="display:inline-block; font-size:40px;">✅</span>
+                            </div>
+                            <h2 style="margin:0 0 16px; font-size:20px; font-weight:700; color:#0F172A; text-align:center;">
+                                Your Host Agreement is Officially Signed!
+                            </h2>
+                            <p style="margin:0 0 16px; font-size:14px; line-height:22px; color:#475569;">
+                                Dear <strong>{{host_name}}</strong>,
+                            </p>
+                            <p style="margin:0 0 20px; font-size:14px; line-height:22px; color:#475569;">
+                                Your Host Partnership &amp; Service Agreement for <strong>{{company_name}}</strong> has been digitally executed, countersigned by {{app_name}}, and cryptographically verified.
+                            </p>
+
+                            <!-- Execution Details Box -->
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; margin-bottom:24px;">
+                                <tr>
+                                    <td style="padding:16px;">
+                                        <p style="margin:0 0 8px; font-size:12px; font-weight:700; color:#0F2937; text-transform:uppercase; letter-spacing:0.5px;">Execution Summary</p>
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; line-height:22px; color:#334155;">
+                                            <tr>
+                                                <td style="color:#64748B; width:40%;">Agreement Reference:</td>
+                                                <td><strong>{{agreement_ref}}</strong></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color:#64748B;">Signed Date & Time:</td>
+                                                <td><strong>{{signed_date}}</strong></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color:#64748B;">Status:</td>
+                                                <td><span style="color:#16A34A; font-weight:700;">DIGITALLY EXECUTED</span></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Buttons Table -->
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{agreement_view_url}}" class="cta-link" target="_blank"
+                                            style="display:inline-block; padding:12px 24px; background-color:#16A34A; color:#FFFFFF; text-decoration:none; font-size:14px; font-weight:600; border-radius:8px; margin-right:8px;">
+                                            📄 View Executed Agreement
+                                        </a>
+                                        <a href="{{dashboard_url}}" class="cta-link" target="_blank"
+                                            style="display:inline-block; padding:12px 24px; background-color:#0F2937; color:#FFFFFF; text-decoration:none; font-size:14px; font-weight:600; border-radius:8px;">
+                                            Go to Host Dashboard ➔
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin:16px 0 0; font-size:12px; line-height:18px; color:#94A3B8; text-align:center;">
+                                Please retain a copy of this email and the attached agreement for your records.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color:#F8FAFC; padding:20px 32px; border-top:1px solid #E2E8F0; font-size:11px; color:#64748B; text-align:center;">
+                            <p style="margin:0 0 4px;">{{legal_name}}, {{legal_address}}</p>
+                            <p style="margin:0;">Need help? Reach out at <a href="mailto:{{support_email}}" style="color:#D97706; text-decoration:underline;">{{support_email}}</a>.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>
+

@@ -29,6 +29,10 @@ class UpdateSettingUseCase(BaseUseCase):
             "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"),
             "max_size_bytes": 2 * 1024 * 1024,
         },
+        "agreement_logo": {
+            "allowed_prefixes": ("image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"),
+            "max_size_bytes": 2 * 1024 * 1024,
+        },
         "app_favicon": {
             "allowed_prefixes": (
                 "image/png",
@@ -78,6 +82,7 @@ class UpdateSettingUseCase(BaseUseCase):
         file_configs = [
             ("app_logo", True),
             ("white_logo", True),
+            ("agreement_logo", True),
             ("app_favicon", False),
             ("coming_background_image", False),
             ("coming_soon_video", False),

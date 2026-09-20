@@ -27,6 +27,18 @@ from app.deps.vendor import (
     get_upload_vendor_profile_image_use_case,
     get_vendor_use_case,
 )
+from app.application.dto.agreements.agreement_dto import (
+    AgreementQueryDTO,
+    SendVendorAgreementDTO,
+)
+from app.application.use_case.admin.vendors.send_agreement_use_case import SendVendorAgreementUseCase
+from app.deps.agreement import get_send_vendor_agreement_use_case
+from app.deps.service import get_vendor_agreement_service
+from app.schemas.vendor_agreement_schema import (
+    VendorAgreementListResponseSchema,
+    VendorAgreementResponseSchema,
+)
+from app.services.vendor_agreement_service import VendorAgreementService
 from app.schemas.user_schema import UserListResponseSchema, UserResponseSchema
 from app.schemas.vendor_schema import VendorResponseSchema
 from app.utils.exception_decorate import handle_api_exceptions
@@ -53,6 +65,8 @@ class VendorController(BaseController):
             ("patch", "/change/{vendor_id}/{status}", self._update_vendor_status, {"response_model": VendorResponseSchema}),
             ("post", "/{vendor_id}/password-reset", self._send_password_reset_link, {"response_model": None, "status_code": 200}),
             ("post", "/{vendor_id}/convert", self._convert_user_to_host, {"response_model": VendorResponseSchema}),
+            ("post", "/{vendor_id}/agreements/send", self._send_vendor_agreement, {"response_model": VendorAgreementResponseSchema, "status_code": 201}),
+            ("get", "/{vendor_id}/agreements", self._list_vendor_agreements, {"response_model": VendorAgreementListResponseSchema}),
         ]
 
         for method, path, handler, route_kwargs in routes:
@@ -167,6 +181,34 @@ class VendorController(BaseController):
         return self.build_response(
             message="User converted to host successfully.",
             data=host,
+        )
+
+    @handle_api_exceptions
+    async def _send_vendor_agreement(
+        self,
+        vendor_id: str,
+        data: SendVendorAgreementDTO,
+        use_case: SendVendorAgreementUseCase = Depends(get_send_vendor_agreement_use_case),
+    ):
+        agreement = await use_case.execute(vendor_id, data)
+        return self.build_response(
+            message="Host agreement dispatched successfully.",
+            data=agreement,
+        )
+
+    @handle_api_exceptions
+    async def _list_vendor_agreements(
+        self,
+        vendor_id: str,
+        params: AgreementQueryDTO = Depends(),
+        agreement_service: VendorAgreementService = Depends(get_vendor_agreement_service),
+    ):
+        params.vendor_id = vendor_id
+        page = await agreement_service.list_agreements(params)
+        return self.build_response(
+            message="Vendor agreements retrieved successfully.",
+            data=page.items,
+            meta=self.pagination_meta(page),
         )
 
 

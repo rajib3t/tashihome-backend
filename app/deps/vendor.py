@@ -132,12 +132,17 @@ async def get_send_password_reset_link_use_case(
     )
 
 
+from app.deps.service import get_vendor_agreement_service
+from app.services.vendor_agreement_service import VendorAgreementService
+
+
 async def get_admin_onboard_host_use_case(
     user_service: UserService = Depends(get_user_service),
     company_service: CompanyService = Depends(get_company_service),
     address_service: AddressService = Depends(get_address_service),
     event_bus: EventBus = Depends(get_event_bus),
     current_user: CurrentUser = Depends(require_admin_or_staff),
+    agreement_service: VendorAgreementService = Depends(get_vendor_agreement_service),
 ) -> AdminOnboardHostUseCase:
     return AdminOnboardHostUseCase(
         user_service=user_service,
@@ -145,6 +150,7 @@ async def get_admin_onboard_host_use_case(
         address_service=address_service,
         event_bus=event_bus,
         current_user=current_user,
+        agreement_service=agreement_service,
     )
 
 

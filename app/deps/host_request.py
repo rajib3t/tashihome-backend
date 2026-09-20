@@ -109,6 +109,10 @@ async def get_add_host_request_message_use_case(
     )
 
 
+from app.deps.service import get_vendor_agreement_service
+from app.services.vendor_agreement_service import VendorAgreementService
+
+
 async def get_convert_host_request_use_case(
     host_request_service: HostRequestService = Depends(get_host_request_service),
     user_service: UserService = Depends(get_user_service),
@@ -117,6 +121,7 @@ async def get_convert_host_request_use_case(
     event_bus: EventBus = Depends(get_event_bus),
     current_user: CurrentUser = Depends(require_admin_or_staff),
     notification_service: NotificationService = Depends(get_notification_service),
+    agreement_service: VendorAgreementService = Depends(get_vendor_agreement_service),
 ) -> ConvertHostRequestUseCase:
     return ConvertHostRequestUseCase(
         host_request_service=host_request_service,
@@ -126,6 +131,7 @@ async def get_convert_host_request_use_case(
         event_bus=event_bus,
         current_user=current_user,
         notification_service=notification_service,
+        agreement_service=agreement_service,
     )
 
 

@@ -3,6 +3,8 @@ from app.events.handles.users.forgot_password_handler import ForgotPasswordHandl
 from app.events.handles.users.create_user_handler import CreateUserHandler
 from app.events.handles.users.create_vendor_handler import CreateVendorHandler
 from app.events.handles.users.password_reset_handle import ResetPasswordHandler
+from app.events.handles.agreements.agreement_invitation_sent_handler import AgreementInvitationSentHandler
+from app.events.handles.agreements.agreement_completed_handler import AgreementCompletedHandler
 import asyncio
 import json
 import logging
@@ -20,6 +22,8 @@ HANDLERS: dict[str, EventHandler] = {
    "user.forgot_password": ForgotPasswordHandler.handle,
    "user.reset_password": ResetPasswordHandler.handle,
    "booking.completed": BookingCompletedHandler.handle,
+   "agreement.invitation_sent": AgreementInvitationSentHandler.handle,
+   "agreement.completed": AgreementCompletedHandler.handle,
 }
 
 

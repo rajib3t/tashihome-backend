@@ -62,6 +62,11 @@ This document outlines the phased development roadmap for the **TashiHome Backen
   - User profile management with avatar uploads.
   - Polymorphic address storage (`addresses`) supporting user and business addresses.
   - Vendor company registration (`companies`) and admin vendor management workflows.
+  - **Host Onboarding, Consent & E-Sign**:
+    - Automated host agreement generation with dynamic commercial terms (commission rate, payout cycle).
+    - Public, secure e-signature portal (`/agreements/:token`) with draw/type digital signature pad and legal consent checkboxes.
+    - Automated executed contract PDF generation via ReportLab with SHA-256 integrity hash, IP/User-Agent audit stamp, and S3 archival.
+    - Status progression (`draft`, `sent`, `viewed`, `signed`, `declined`, `expired`) and automated vendor activation.
 
 ---
 

@@ -772,6 +772,46 @@ RazorpayX Fund Account representations linked to bank accounts.
 
 ---
 
+#### `vendor_agreements`
+Host partnership agreements and digital consent contracts executed via the electronic signature engine.
+
+| Column | Type | Constraints / Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `BigInteger` | `PRIMARY KEY`, `autoincrement` | Internal identifier |
+| `public_id` | `UUID` | `UNIQUE`, `NOT NULL`, `INDEX`, `default=uuid4` | Public identifier |
+| `vendor_id` | `BigInteger` | `NOT NULL`, `INDEX`, `FK -> users.id (CASCADE)` | Associated vendor / host |
+| `host_request_id` | `BigInteger` | `NULLABLE`, `INDEX`, `FK -> host_requests.id (SET NULL)` | Linked applicant request if converted |
+| `agreement_type` | `Enum(AgreementType)` | `NOT NULL`, `INDEX`, `default='host_onboarding'` | Type (`host_onboarding`, `commission_agreement`, `supplemental`) |
+| `title` | `VARCHAR(255)` | `NOT NULL` | Agreement title |
+| `version` | `VARCHAR(50)` | `NOT NULL`, `default='1.0'` | Agreement template version |
+| `status` | `Enum(AgreementStatus)` | `NOT NULL`, `INDEX`, `default='sent'` | Lifecycle status (`draft`, `sent`, `viewed`, `signed`, `declined`, `expired`, `cancelled`) |
+| `token` | `VARCHAR(255)` | `UNIQUE`, `NOT NULL`, `INDEX` | Unique secure signing token |
+| `commission_percentage` | `NUMERIC(5,2)` | `NOT NULL`, `default=10.00` | Agreed platform commission rate |
+| `expires_at` | `TIMESTAMPTZ` | `NOT NULL` | Token expiration timestamp |
+| `sent_at` | `TIMESTAMPTZ` | `NULLABLE` | Invitation email sent timestamp |
+| `viewed_at` | `TIMESTAMPTZ` | `NULLABLE` | First viewed by host timestamp |
+| `signed_at` | `TIMESTAMPTZ` | `NULLABLE` | Electronic execution timestamp |
+| `signer_name` | `VARCHAR(255)` | `NULLABLE` | Legal name submitted by host |
+| `signer_email` | `VARCHAR(255)` | `NULLABLE` | Signer email address |
+| `signer_phone` | `VARCHAR(50)` | `NULLABLE` | Signer contact number |
+| `signature_type` | `VARCHAR(50)` | `NULLABLE` | Signature type (`drawn` or `typed`) |
+| `signature_data` | `TEXT` | `NULLABLE` | Base64 signature image or typed signature |
+| `signer_ip` | `VARCHAR(100)` | `NULLABLE` | Client IP address at execution |
+| `signer_user_agent` | `VARCHAR(500)` | `NULLABLE` | Client browser user-agent |
+| `document_hash` | `VARCHAR(64)` | `NULLABLE` | SHA-256 integrity hash of terms & signature |
+| `pdf_file_url` | `VARCHAR(500)` | `NULLABLE` | S3 / MinIO storage key of executed PDF |
+| `terms_snapshot` | `JSONB` / `TEXT` | `NULLABLE` | Exact snapshot of agreed terms and clauses |
+| `created_by` | `BigInteger` | `NULLABLE`, `INDEX`, `FK -> users.id (SET NULL)` | Admin who generated the agreement |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()` | Creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, `server_default=now()`, `onupdate=now()` | Last update timestamp |
+
+- **Relationships**:
+  - `vendor` -> N:1 [`User`](#users)
+  - `host_request` -> N:1 [`HostRequest`](#host_requests)
+  - `creator` -> N:1 [`User`](#users)
+
+---
+
 #### `refund_requests`
 A refund request against a specific payment/booking, with an approval workflow. The actual refunded amount is recorded on `payments.refunded_amount` once processed.
 
@@ -959,6 +999,12 @@ Key-value configuration store for system runtime parameters, branding media asse
 | **Taxes & GST** | `is_gst_enabled` | `Boolean string` | Whether GST calculation is active (`'true'` / `'false'`) |
 | | `gst_percentage` | `Numeric string` | Default GST rate applied if not overridden by specific tax rule |
 | | `is_tax_inclusive` | `Boolean string` | Whether room prices are tax-inclusive (`'true'` / `'false'`) |
+| **Host Agreements & Contracts** | `agreement_logo` | `File (S3 Key)` | Dedicated logo for partnership agreement PDF & e-sign screen (falls back to `app_logo`, max 2MB) |
+| | `agreement_title` | `String` | Document title for host contracts (default: `'HOST PARTNERSHIP & SERVICE AGREEMENT'`) |
+| | `agreement_company_legal_name` | `String` | Legal operator entity name (default: `"{app_name} Technologies Pvt. Ltd."`) |
+| | `agreement_company_address` | `String` | Registered corporate office address (default: `"Gangtok, Sikkim, India"`) |
+| | `agreement_default_expiry_days` | `Integer` | Default valid duration for agreement signing link in days (default: `7`) |
+| | `agreement_template_terms` | `JSON / Text` | Structured JSON array of contract clauses `[{"heading": "...", "body": "..."}]` |
 | **Maintenance / Coming Soon** | `is_enabled_coming_soon` | `Boolean string` | Toggles maintenance/coming soon mode (`'true'` / `'false'`) |
 | | `coming_soon_message` | `String` | Maintenance or launch announcement message |
 | | `coming_background_image` | `File (S3 Key)` | Background hero imagery for coming-soon page (max 4MB) |

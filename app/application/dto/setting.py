@@ -48,7 +48,13 @@ class SettingUpdateDTO(BaseModel):
     og_image: Optional[Union[str, UploadFile]] = None
     terms_and_conditions_url: Optional[str] = None
     privacy_policy_url: Optional[str] = None
-    refund_policy_url: Optional[str] = None
+    # Host Agreements & Onboarding Contract Settings
+    agreement_logo: Optional[Union[str, UploadFile]] = None
+    agreement_title: Optional[str] = None
+    agreement_template_terms: Optional[str] = None
+    agreement_company_legal_name: Optional[str] = None
+    agreement_company_address: Optional[str] = None
+    agreement_default_expiry_days: Optional[Union[int, str]] = None
 
     # Coming Soon Settings
     is_enabled_coming_soon: Optional[Union[bool, str]] = None

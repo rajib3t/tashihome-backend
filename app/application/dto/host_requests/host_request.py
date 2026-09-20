@@ -60,6 +60,8 @@ class ConvertHostRequestDTO:
     postal_code: Optional[str] = None
     country: Optional[str] = None
     temporary_password: Optional[str] = None
+    send_agreement: Optional[bool] = True
+    commission_percentage: Optional[float] = None
 
 
 @dataclass(config=ConfigDict(extra="forbid"))

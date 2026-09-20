@@ -56,7 +56,7 @@ class PublicSettingsController(BaseController):
                         )
         else:
             logger.info("CloudFront signing skipped because configuration is incomplete")
-        result = await use_case.execute()
+        result = await use_case.execute(is_admin=False)
         return self.build_response(
             "Settings fetched successfully",
             data=result,

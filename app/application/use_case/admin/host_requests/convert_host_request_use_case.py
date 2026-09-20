@@ -24,6 +24,9 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+from app.services.vendor_agreement_service import VendorAgreementService
+
+
 class ConvertHostRequestUseCase(BaseUseCase):
     def __init__(
         self,
@@ -34,6 +37,7 @@ class ConvertHostRequestUseCase(BaseUseCase):
         event_bus: EventBus,
         current_user: CurrentUser,
         notification_service: Optional[NotificationService] = None,
+        agreement_service: Optional[VendorAgreementService] = None,
     ):
         self.host_request_service = host_request_service
         self.user_service = user_service
@@ -42,6 +46,7 @@ class ConvertHostRequestUseCase(BaseUseCase):
         self.event_bus = event_bus
         self.current_user = current_user
         self.notification_service = notification_service
+        self.agreement_service = agreement_service
         self.password_hasher = PasswordHasher()
 
     async def execute(
@@ -210,6 +215,20 @@ class ConvertHostRequestUseCase(BaseUseCase):
             )
         except Exception as exc:
             logger.warning("Failed to publish CreateVendorEvent for user %s: %s", user.id, exc)
+
+        # ── 5.1 Send agreement for e-sign if requested ────────────────────────
+        if getattr(data, "send_agreement", True) and self.agreement_service:
+            try:
+                await self.agreement_service.create_and_send_agreement(
+                    vendor=user,
+                    host_request_id=host_request.id,
+                    commission_percentage=getattr(data, "commission_percentage", None),
+                    created_by_id=self.current_user.id,
+                    commit=False,
+                )
+                await session.flush()
+            except Exception as exc:
+                logger.warning("Failed to dispatch agreement on host request conversion: %s", exc)
 
         # ── 6. Build response from fresh query ────────────────────────────────
         refreshed_user = await self.user_service.get_user_by_id(

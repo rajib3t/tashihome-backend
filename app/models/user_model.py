@@ -79,4 +79,10 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    agreements = relationship(
+        "VendorAgreement",
+        back_populates="vendor",
+        cascade="all, delete-orphan",
+        foreign_keys="VendorAgreement.vendor_id",
+    )
 

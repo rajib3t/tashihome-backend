@@ -97,4 +97,9 @@ class HostRequest(Base):
     applicant_user = relationship("User", foreign_keys=[user_id])
     reviewer = relationship("User", foreign_keys=[reviewed_by])
     converted_user = relationship("User", foreign_keys=[converted_user_id])
+    agreements = relationship(
+        "VendorAgreement",
+        back_populates="host_request",
+        foreign_keys="VendorAgreement.host_request_id",
+    )
 

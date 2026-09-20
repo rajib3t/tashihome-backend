@@ -112,7 +112,7 @@ class SettingsController(BaseController):
         else:
             logger.info("CloudFront signing skipped because configuration is incomplete")
         issue_csrf_cookie(response)
-        result = await use_case.execute()
+        result = await use_case.execute(is_admin=True)
         return self.build_response(
             "Settings fetched successfully",
             data=result,

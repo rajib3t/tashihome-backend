@@ -12,9 +12,17 @@ class GetSettingUseCase:
         "launch_date",
     }
 
+    ADMIN_ONLY_KEYS = {
+        "agreement_template_terms",
+        "agreement_company_legal_name",
+        "agreement_company_address",
+        "agreement_default_expiry_days",
+    }
+
     FILE_SETTING_KEYS = {
         "app_logo",
         "white_logo",
+        "agreement_logo",
         "app_favicon",
         "meta_image",
         "og_image",
@@ -30,7 +38,7 @@ class GetSettingUseCase:
         self.setting_service = setting_service
         self.storage_service = storage_service
 
-    async def execute(self) -> List[SettingSchema]:
+    async def execute(self, is_admin: bool = False) -> List[SettingSchema]:
         settings = await self.setting_service.get_all()
         response: List[SettingSchema] = []
         coming_soon_enabled = False
@@ -41,6 +49,9 @@ class GetSettingUseCase:
             coming_soon_enabled = coming_soon_flag.lower() == "true"
 
         for setting in settings:
+            if not is_admin and setting.key in self.ADMIN_ONLY_KEYS:
+                continue
+
             if not coming_soon_enabled and setting.key in self.COMING_SOON_KEYS:
                 continue
 

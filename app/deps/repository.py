@@ -225,3 +225,10 @@ async def get_testimonial_repository(
     return TestimonialRepository(db)
 
 
+async def get_vendor_agreement_repository(
+    db: AsyncSession = Depends(get_db),
+):
+    from app.repositories.vendor_agreement_repository import VendorAgreementRepository
+    return VendorAgreementRepository(db)
+
+

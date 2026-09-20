@@ -353,7 +353,12 @@ async def get_vendor_razorpay_fund_account_service(
 
 
 
-from app.deps.repository import get_review_repository, get_tax_repository, get_testimonial_repository
+from app.deps.repository import (
+    get_review_repository,
+    get_tax_repository,
+    get_testimonial_repository,
+    get_vendor_agreement_repository,
+)
 from app.repositories.review_repository import ReviewRepository
 from app.repositories.tax_repository import TaxRepository
 from app.repositories.testimonial_repository import TestimonialRepository
@@ -378,5 +383,32 @@ async def get_testimonial_service(
     testimonial_repository: TestimonialRepository = Depends(get_testimonial_repository),
 ) -> TestimonialService:
     return TestimonialService(testimonial_repository)
+
+
+def get_agreement_pdf_service():
+    from app.services.agreement_pdf_service import AgreementPdfService
+    return AgreementPdfService()
+
+
+async def get_vendor_agreement_service(
+    repository=Depends(get_vendor_agreement_repository),
+    email_service: BaseEmailService = Depends(get_email_service),
+    email_template_service: EmailTemplateService = Depends(get_email_template_service),
+    storage_service: StorageService = Depends(get_storage_service),
+    pdf_service=Depends(get_agreement_pdf_service),
+    setting_service: SettingService = Depends(get_setting_service),
+):
+    from app.deps.event_bus import get_event_bus
+    from app.services.vendor_agreement_service import VendorAgreementService
+    event_bus = await get_event_bus()
+    return VendorAgreementService(
+        repository=repository,
+        email_service=email_service,
+        email_template_service=email_template_service,
+        storage_service=storage_service,
+        pdf_service=pdf_service,
+        setting_service=setting_service,
+        event_bus=event_bus,
+    )
 
 

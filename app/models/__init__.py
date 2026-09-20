@@ -47,6 +47,7 @@ from .host_request_model import HostRequest, HostRequestStatus
 from .host_request_message_model import HostRequestMessage
 from .public_stat_model import PublicStat
 from .notification_model import Notification, NotificationType
+from .vendor_agreement_model import VendorAgreement, AgreementStatus, AgreementType
 
 
 __all__ = [
@@ -116,4 +117,7 @@ __all__ = [
     "PublicStat",
     "Notification",
     "NotificationType",
+    "VendorAgreement",
+    "AgreementStatus",
+    "AgreementType",
 ]

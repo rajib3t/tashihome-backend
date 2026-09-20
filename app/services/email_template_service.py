@@ -35,7 +35,8 @@ class EmailTemplateService:
         def replacer(match):
             key = match.group(1)
             if key in data:
-                return str(data[key])
+                val = data[key]
+                return "" if val is None else str(val)
             if strict:
                 raise KeyError(f"Missing value for placeholder: '{key}'")
             return match.group(0)

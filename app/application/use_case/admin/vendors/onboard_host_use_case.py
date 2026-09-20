@@ -15,6 +15,9 @@ from app.services.address_service import AddressService
 from app.services.company_service import CompanyService
 from app.services.user_service import UserService
 
+from typing import Optional
+from app.services.vendor_agreement_service import VendorAgreementService
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,12 +29,14 @@ class AdminOnboardHostUseCase(BaseUseCase):
         address_service: AddressService,
         event_bus: EventBus,
         current_user: CurrentUser,
+        agreement_service: Optional[VendorAgreementService] = None,
     ):
         self.user_service = user_service
         self.company_service = company_service
         self.address_service = address_service
         self.event_bus = event_bus
         self.current_user = current_user
+        self.agreement_service = agreement_service
         self.password_hasher = PasswordHasher()
 
     async def execute(self, data: AdminOnboardHostDTO) -> VendorUserResponseData:
@@ -103,6 +108,20 @@ class AdminOnboardHostUseCase(BaseUseCase):
             await self.event_bus.publish(CreateVendorEvent(user))
         except Exception as exc:
             logger.warning("Failed to publish CreateVendorEvent for user %s: %s", user.id, exc)
+
+        # 5.1 Send onboarding agreement for e-sign if requested
+        if getattr(data, "send_agreement", True) and self.agreement_service:
+            try:
+                await self.agreement_service.create_and_send_agreement(
+                    vendor=user,
+                    commission_percentage=getattr(data, "commission_percentage", None),
+                    custom_notes=getattr(data, "agreement_notes", None),
+                    created_by_id=self.current_user.id,
+                    commit=False,
+                )
+                await session.flush()
+            except Exception as exc:
+                logger.warning("Failed to generate and send onboarding agreement for user %s: %s", user.id, exc)
 
         # 6. Return freshly queried response
         refreshed = await self.user_service.get_user_by_id(

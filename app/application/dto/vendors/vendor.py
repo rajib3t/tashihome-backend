@@ -71,6 +71,9 @@ class AdminOnboardHostDTO:
     address_line2: Optional[str] = None
     postal_code: Optional[str] = None
     country: Optional[str] = None
+    send_agreement: Optional[bool] = True
+    commission_percentage: Optional[float] = None
+    agreement_notes: Optional[str] = None
 
 
 @dataclass(config=ConfigDict(extra="forbid"))
@@ -82,4 +85,6 @@ class AdminConvertUserToHostDTO:
     address_line2: Optional[str] = None
     postal_code: Optional[str] = None
     country: Optional[str] = None
+    send_agreement: Optional[bool] = True
+    commission_percentage: Optional[float] = None
 
