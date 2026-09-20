@@ -111,6 +111,7 @@ class PublicAgreementResponseSchema(BaseResponse):
 class VendorAgreementDetailData(PublicAgreementDetailData):
     id: Optional[str] = None
     agreement_type: Optional[str] = None
+    pdf_file_url: Optional[str] = None
     signer_name: Optional[str] = None
     signer_email: Optional[str] = None
     signature_type: Optional[str] = None

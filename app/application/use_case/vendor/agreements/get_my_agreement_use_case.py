@@ -82,6 +82,7 @@ class GetMyVendorAgreementUseCase(BaseUseCase):
         return VendorAgreementDetailData(
             id=str(agreement.public_id),
             agreement_type=agreement.agreement_type.value if hasattr(agreement.agreement_type, "value") else str(agreement.agreement_type),
+            pdf_file_url=agreement.pdf_file_url,
             token=agreement.token,
             title=agreement.title,
             version=agreement.version,

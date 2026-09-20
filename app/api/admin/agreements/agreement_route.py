@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from fastapi.responses import RedirectResponse
 
 from app.api.base_controller import BaseController
@@ -145,6 +145,21 @@ class AgreementController(BaseController):
         agreement = await agreement_service.get_by_public_id(agreement_id)
         if not agreement:
             raise AppException(status_code=404, message="Agreement not found.")
+        if agreement.pdf_file_url:
+            try:
+                data, content_type = await agreement_service.storage_service.get_object_bytes(agreement.pdf_file_url)
+                if data:
+                    filename = f"Host_Agreement_{agreement.public_id}.pdf"
+                    return Response(
+                        content=data,
+                        media_type="application/pdf",
+                        headers={
+                            "Content-Disposition": f'inline; filename="{filename}"',
+                            "Cache-Control": "private, max-age=3600",
+                        },
+                    )
+            except Exception:
+                pass
         url = await agreement_service.get_download_url(agreement)
         if not url:
             raise AppException(status_code=404, message="Agreement PDF not available or not yet executed.")
