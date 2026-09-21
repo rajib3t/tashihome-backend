@@ -1,3 +1,4 @@
+from app.core.csrf import issue_csrf_cookie
 from fastapi import APIRouter, Depends, Response
 from app.api.base_controller import BaseController
 from app.application.use_case.admin.settings.get_setting_use_case import GetSettingUseCase
@@ -57,6 +58,7 @@ class PublicSettingsController(BaseController):
         else:
             logger.info("CloudFront signing skipped because configuration is incomplete")
         result = await use_case.execute(is_admin=False)
+        issue_csrf_cookie(response)
         return self.build_response(
             "Settings fetched successfully",
             data=result,

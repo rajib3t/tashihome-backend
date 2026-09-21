@@ -54,8 +54,12 @@ class PropertyStepsService:
         if hasattr(property_obj, "property_assets") and property_obj.property_assets:
             completed.append("media")
 
-        # 7. policies: cancellation policy assigned
-        if getattr(property_obj, "cancellation_policy_id", None):
+        # 7. policies: cancellation policy assigned or standard platform policy applies to active/draft listings
+        prop_status = getattr(property_obj, "status", None)
+        status_val = prop_status.value if hasattr(prop_status, "value") else str(prop_status or "").lower()
+        if getattr(property_obj, "cancellation_policy_id", None) is not None:
+            completed.append("policies")
+        elif status_val in ["active", "draft"]:
             completed.append("policies")
 
         return completed

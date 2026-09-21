@@ -7,6 +7,7 @@ from app.deps.auth import CurrentUser
 from app.models.property_model import Property, PropertyStatus
 from app.repositories.base_repository import Page
 from app.services.property_service import PropertyService
+from app.services.property_steps_service import PropertyStepsService
 from app.services.review_service import ReviewService
 from app.services.storage_service import StorageService
 
@@ -191,6 +192,23 @@ class GetVendorPropertyUseCase(BaseUseCase):
                 "average_rating": rating_data.get("average_rating", 0.0),
                 "total_reviews": rating_data.get("total_reviews", 0),
                 "rating_summary": rating_data,
+                "completed_steps": (
+                    getattr(property_data, "completed_steps", None)
+                    or PropertyStepsService.compute_steps(property_data)
+                ),
+                "current_step": getattr(property_data, "current_step", None),
+                "percent_complete": round(
+                    len(
+                        getattr(property_data, "completed_steps", None)
+                        or PropertyStepsService.compute_steps(property_data)
+                    )
+                    / 7
+                    * 100
+                ),
+                "is_complete": len(
+                    getattr(property_data, "completed_steps", None)
+                    or PropertyStepsService.compute_steps(property_data)
+                ) == 7,
             }
 
     
