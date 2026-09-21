@@ -138,10 +138,12 @@ class PropertyRepository(BaseRepository[Property]):
         with_relations: Optional[WithRelations] = None,
         commit: bool = True,
     ) -> Property:
+        self.db.add(property_)
         if not commit:
             return property_
 
         await self.db.commit()
+
 
         if with_relations:
             query = self._apply_relations(

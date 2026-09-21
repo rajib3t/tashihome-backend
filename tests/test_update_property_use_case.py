@@ -39,6 +39,9 @@ class FakeLookupService:
             return self.entity
         return None
 
+    async def get_user_by_public_id(self, public_id, flush=True, **kwargs):
+        return await self.get_by_public_id(public_id, flush=flush, **kwargs)
+
 
 class FakeAmenityService(FakeLookupService):
     pass
@@ -197,6 +200,7 @@ def test_create_property_with_room_types():
                 property_.property_facilities = []
                 property_.property_food_options = []
                 property_.property_assets = []
+                self.property = property_
                 return property_
 
         property_service = FakeCreatePropertyService(None)
@@ -246,5 +250,80 @@ def test_create_property_with_room_types():
         assert isinstance(created_rt, PropertyRoomType)
         assert created_rt.room_type_id == 4
         assert created_rt.total_units == 3
+
+    asyncio.run(run_test())
+
+
+def test_vendor_create_and_update_property():
+    from app.application.use_case.vendor.property.create_property_use_case import (
+        VendorCreatePropertyUseCase,
+    )
+    from app.application.use_case.vendor.property.update_property_use_case import (
+        VendorUpdatePropertyUseCase,
+    )
+    from app.application.dto.properties.property import PropertyDTO, PropertyUpdateDTO, PropertyRoomTypeDTO
+
+    async def run_test():
+        test_public_id = uuid.uuid4()
+        existing_prop = Property(
+            id=10,
+            public_id=test_public_id,
+            vendor_id=1,
+            name="Vendor Old Hotel",
+            city_id=2,
+            location_id=3,
+            status=PropertyStatus.ACTIVE,
+            type=PropertyType.HOTEL,
+            price_per_night=50.0,
+            sale_per_night=45.0,
+            slug="vendor-old-hotel",
+        )
+        existing_prop.vendor = SimpleNamespace(id=1, public_id=uuid.uuid4(), full_name="Vendor Guy", email="vg@example.com", is_profile_image_url=None)
+        existing_prop.location = SimpleNamespace(id=3, public_id=uuid.uuid4(), name="Location")
+        existing_prop.city = SimpleNamespace(id=2, public_id=uuid.uuid4(), name="City")
+        existing_prop.property_room_types = []
+        existing_prop.property_amenities = []
+        existing_prop.property_facilities = []
+        existing_prop.property_food_options = []
+        existing_prop.property_assets = []
+
+        property_service = FakePropertyService(existing_prop)
+        city_service = FakeLookupService(SimpleNamespace(id=2, public_id="city-1"))
+        location_service = FakeLookupService(SimpleNamespace(id=3, public_id="location-1"))
+        room_type_service = FakeLookupService(SimpleNamespace(id=4, public_id="room-type-1"))
+        amenity_service = FakeAmenityService(SimpleNamespace(id=5, public_id="amenity-1"))
+        facility_service = FakeFacilityService(SimpleNamespace(id=6, public_id="facility-1"))
+        property_amenity_service = FakePropertyAssociationService()
+        property_facility_service = FakePropertyAssociationService()
+        property_food_option_service = FakePropertyAssociationService()
+        property_room_type_service = FakePropertyAssociationService()
+        storage_service = FakeStorageService()
+        current_user = FakeCurrentUser()
+        current_user.id = 1
+
+        vendor_update_use_case = VendorUpdatePropertyUseCase(
+            property_service=property_service,
+            city_service=city_service,
+            location_service=location_service,
+            room_type_service=room_type_service,
+            amenity_service=amenity_service,
+            facility_service=facility_service,
+            property_amenity_service=property_amenity_service,
+            property_facility_service=property_facility_service,
+            property_food_option_service=property_food_option_service,
+            property_room_type_service=property_room_type_service,
+            storage_service=storage_service,
+            current_user=current_user,
+        )
+
+        update_dto = PropertyUpdateDTO(
+            name="Vendor New Hotel",
+            room_types=[PropertyRoomTypeDTO(id="room-type-1", total_units=5)],
+        )
+
+        res = await vendor_update_use_case.execute(str(test_public_id), update_dto)
+        assert res["name"] == "Vendor New Hotel"
+        assert len(property_room_type_service.created) == 1
+        assert property_room_type_service.created[0].total_units == 5
 
     asyncio.run(run_test())

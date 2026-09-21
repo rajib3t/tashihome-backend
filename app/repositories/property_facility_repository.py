@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional, TypedDict
 
 from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from app.models.property_facility_model import PropertyFacility
 from app.repositories.base_repository import BaseRepository, Page
@@ -104,6 +105,28 @@ class PropertyFacilityRepository(BaseRepository[PropertyFacility]):
         await self.db.delete(property_facility)
         if commit:
             await self.db.commit()
+
+    async def create_many(
+        self,
+        items: list[PropertyFacility],
+        commit: bool = True,
+    ) -> list[PropertyFacility]:
+        if not items:
+            return []
+        self.db.add_all(items)
+        if commit:
+            await self.db.commit()
+        return items
+
+    async def delete_by_property_id(
+        self,
+        property_id: int,
+        commit: bool = True,
+    ) -> None:
+        await self.db.execute(delete(PropertyFacility).where(PropertyFacility.property_id == property_id))
+        if commit:
+            await self.db.commit()
+
 
     async def list(
         self,

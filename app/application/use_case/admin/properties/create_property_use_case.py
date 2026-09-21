@@ -146,7 +146,16 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         )
 
         created_property = await self.property_service.create(payload, commit=True)
+        db = getattr(getattr(self.property_service, "property_repository", None), "db", None)
+        created_property = await self.property_service.create(payload, commit=False if db is not None else True)
+        if db is not None and hasattr(db, "flush"):
+            await db.flush()
+
         await self._sync_child_records(created_property.id, property_dto)
+
+        if db is not None and hasattr(db, "commit"):
+            await db.commit()
+
         full_property = await self.property_service.get_by_public_id(
             created_property.public_id,
             with_relations={
@@ -189,8 +198,19 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             amenity_ids = [a.id for a in property_dto.amenities if getattr(a, "id", None)]
 
         if amenity_ids:
+            amenity_id_strs = [str(aid).strip() for aid in amenity_ids if str(aid).strip()]
+            amenities_map = {}
+            if hasattr(self.amenity_service, "get_by_public_ids"):
+                found_amenities = await self.amenity_service.get_by_public_ids(amenity_id_strs, flush=True)
+                for a in found_amenities:
+                    amenities_map[str(a.public_id)] = a
+
+            amenity_records = []
             for amenity_id in amenity_ids:
                 amenity = await self.amenity_service.get_by_public_id(amenity_id, flush=True)
+                amenity = amenities_map.get(str(amenity_id))
+                if not amenity:
+                    amenity = await self.amenity_service.get_by_public_id(amenity_id, flush=True)
                 if not amenity:
                     raise AppException(
                         status_code=404,
@@ -202,6 +222,14 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                     PropertyAmenity(property_id=property_id, amenity_id=amenity.id),
                     commit=True,
                 )
+                amenity_records.append(PropertyAmenity(property_id=property_id, amenity_id=amenity.id))
+
+            if amenity_records:
+                if hasattr(self.property_amenity_service, "create_many"):
+                    await self.property_amenity_service.create_many(amenity_records, commit=False)
+                else:
+                    for item in amenity_records:
+                        await self.property_amenity_service.create(item, commit=False)
 
         facility_ids = property_dto.facility_ids
         if facility_ids is None:
@@ -211,8 +239,19 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                 facility_ids = [f.id for f in property_dto.facilities if getattr(f, "id", None)]
 
         if facility_ids:
+            facility_id_strs = [str(fid).strip() for fid in facility_ids if str(fid).strip()]
+            facilities_map = {}
+            if hasattr(self.facility_service, "get_by_public_ids"):
+                found_facilities = await self.facility_service.get_by_public_ids(facility_id_strs, flush=True)
+                for f in found_facilities:
+                    facilities_map[str(f.public_id)] = f
+
+            facility_records = []
             for facility_id in facility_ids:
                 facility = await self.facility_service.get_by_public_id(facility_id, flush=True)
+                facility = facilities_map.get(str(facility_id))
+                if not facility:
+                    facility = await self.facility_service.get_by_public_id(facility_id, flush=True)
                 if not facility:
                     raise AppException(
                         status_code=404,
@@ -224,30 +263,43 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                     PropertyFacility(property_id=property_id, facility_id=facility.id),
                     commit=True,
                 )
+                facility_records.append(PropertyFacility(property_id=property_id, facility_id=facility.id))
+
+            if facility_records:
+                if hasattr(self.property_facility_service, "create_many"):
+                    await self.property_facility_service.create_many(facility_records, commit=False)
+                else:
+                    for item in facility_records:
+                        await self.property_facility_service.create(item, commit=False)
 
         food_option_names = property_dto.food_option_ids
         if food_option_names is None and property_dto.food_options is not None:
             food_option_names = [fo.name for fo in property_dto.food_options if getattr(fo, "name", None)]
 
         if food_option_names:
-            for food_name in food_option_names:
-                await self.property_food_option_service.create(
-                    PropertyFoodOption(
-                        property_id=property_id,
-                        name=food_name,
-                        is_included=True,
-                        status=PropertyFoodOptionStatus.ACTIVE,
-                    ),
-                    commit=True,
+            food_records = [
+                PropertyFoodOption(
+                    property_id=property_id,
+                    name=food_name,
+                    is_included=True,
+                    status=PropertyFoodOptionStatus.ACTIVE,
                 )
+                for food_name in food_option_names
+            ]
+            if hasattr(self.property_food_option_service, "create_many"):
+                await self.property_food_option_service.create_many(food_records, commit=False)
+            else:
+                for item in food_records:
+                    await self.property_food_option_service.create(item, commit=False)
 
         room_types_data = []
         if property_dto.room_types is not None:
             for rt in property_dto.room_types:
+                rt_room_type = getattr(rt, "room_type", None)
                 rt_id = (
                     getattr(rt, "room_type_id", None)
-                    or (rt.room_type.get("id") or rt.room_type.get("public_id") if isinstance(getattr(rt, "room_type", None), dict) else None)
-                    or (getattr(rt.room_type, "id", None) or getattr(rt.room_type, "public_id", None) if getattr(rt, "room_type", None) else None)
+                    or (rt_room_type.get("id") or rt_room_type.get("public_id") if isinstance(rt_room_type, dict) else None)
+                    or (getattr(rt_room_type, "id", None) or getattr(rt_room_type, "public_id", None) if rt_room_type else None)
                     or getattr(rt, "id", None)
                 )
                 if rt_id:
@@ -283,6 +335,14 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             })
 
         if room_types_data:
+            rt_id_strs = [str(item["rt_id"]).strip() for item in room_types_data if str(item["rt_id"]).strip()]
+            room_types_map = {}
+            if hasattr(self.room_type_service, "get_by_public_ids"):
+                found_rts = await self.room_type_service.get_by_public_ids(rt_id_strs, flush=True)
+                for rt in found_rts:
+                    room_types_map[str(rt.public_id)] = rt
+
+            rt_records = []
             for item in room_types_data:
                 rt_id = item["rt_id"]
                 units = item["units"]
@@ -298,6 +358,9 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                         error_code="TOTAL_UNITS_INVALID",
                     )
                 room_type = await self.room_type_service.get_by_public_id(rt_id, flush=True)
+                room_type = room_types_map.get(str(rt_id))
+                if not room_type:
+                    room_type = await self.room_type_service.get_by_public_id(rt_id, flush=True)
                 if not room_type:
                     prop_rt = await self.property_room_type_service.get_by_public_id(rt_id, with_relations={"room_type": True}, flush=True)
                     if prop_rt and prop_rt.room_type:
@@ -347,7 +410,7 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                         )
                     )
 
-                await self.property_room_type_service.create(
+                rt_records.append(
                     PropertyRoomType(
                         property_id=property_id,
                         room_type_id=room_type.id,
@@ -355,6 +418,13 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                         price_per_night=price_per_night,
                         sale_per_night=sale_per_night,
                         pricing_tiers=tier_objects,
-                    ),
-                    commit=True,
+                    )
                 )
+
+            if rt_records:
+                if hasattr(self.property_room_type_service, "create_many"):
+                    await self.property_room_type_service.create_many(rt_records, commit=False)
+                else:
+                    for r in rt_records:
+                        await self.property_room_type_service.create(r, commit=False)
+

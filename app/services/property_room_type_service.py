@@ -68,4 +68,19 @@ class PropertyRoomTypeService:
         commit: bool = True,
     ) -> None:
         await self.property_room_type_repository.delete(property_room_type, commit=commit)
+
+    async def create_many(
+        self,
+        items: list[PropertyRoomType],
+        commit: bool = True,
+    ) -> list[PropertyRoomType]:
+        return await self.property_room_type_repository.create_many(items, commit=commit)
+
+    async def delete_by_property_id(
+        self,
+        property_id: int,
+        commit: bool = True,
+    ) -> None:
+        await self.property_room_type_repository.delete_by_property_id(property_id, commit=commit)
+
     

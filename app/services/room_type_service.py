@@ -55,3 +55,11 @@ class RoomTypeService:
         return await self.room_type_repository.list(
             page=page, page_size=page_size, search=search, filters=filters, flush=flush
         )
+
+    async def get_by_public_ids(
+        self,
+        public_ids: list[str],
+        flush: bool = False,
+    ) -> list[RoomType]:
+        return await self.room_type_repository.get_by_public_ids(public_ids, flush=flush)
+

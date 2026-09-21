@@ -57,6 +57,21 @@ class PropertyAmenityService:
     ) -> None:
         await self.property_amenity_repository.delete(property_amenity, commit=commit)
 
+    async def create_many(
+        self,
+        items: list[PropertyAmenity],
+        commit: bool = True,
+    ) -> list[PropertyAmenity]:
+        return await self.property_amenity_repository.create_many(items, commit=commit)
+
+    async def delete_by_property_id(
+        self,
+        property_id: int,
+        commit: bool = True,
+    ) -> None:
+        await self.property_amenity_repository.delete_by_property_id(property_id, commit=commit)
+
+
     async def list(
         self,
         page: int = 1,

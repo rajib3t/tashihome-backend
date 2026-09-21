@@ -57,4 +57,23 @@ class FacilityRepository(BaseRepository[Facility]):
         query = select(Facility)
         return await self._fetch_all(query)
 
+    async def get_by_public_ids(self, public_ids: list[str], flush: bool = False) -> list[Facility]:
+        if not public_ids:
+            return []
+        import uuid
+        parsed_ids = []
+        for pid in public_ids:
+            if isinstance(pid, uuid.UUID):
+                parsed_ids.append(pid)
+            elif isinstance(pid, str) and pid.strip():
+                try:
+                    parsed_ids.append(uuid.UUID(pid.strip()))
+                except ValueError:
+                    pass
+        if not parsed_ids:
+            return []
+        query = select(Facility).where(Facility.public_id.in_(parsed_ids))
+        return await self._fetch_all(query, flush=flush)
+
+
     

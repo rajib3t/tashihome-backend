@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional, TypedDict
 
 from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from app.models.property_room_type_model import PropertyRoomType
 from app.repositories.base_repository import BaseRepository
@@ -135,3 +136,25 @@ class PropertyRoomTypeRepository(BaseRepository[PropertyRoomType]):
         await self.db.delete(property_room_type)
         if commit:
             await self.db.commit()
+
+    async def create_many(
+        self,
+        items: list[PropertyRoomType],
+        commit: bool = True,
+    ) -> list[PropertyRoomType]:
+        if not items:
+            return []
+        self.db.add_all(items)
+        if commit:
+            await self.db.commit()
+        return items
+
+    async def delete_by_property_id(
+        self,
+        property_id: int,
+        commit: bool = True,
+    ) -> None:
+        await self.db.execute(delete(PropertyRoomType).where(PropertyRoomType.property_id == property_id))
+        if commit:
+            await self.db.commit()
+

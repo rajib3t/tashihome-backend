@@ -57,6 +57,21 @@ class PropertyFoodOptionService:
     ) -> None:
         await self.property_food_option_repository.delete(property_food_option, commit=commit)
 
+    async def create_many(
+        self,
+        items: list[PropertyFoodOption],
+        commit: bool = True,
+    ) -> list[PropertyFoodOption]:
+        return await self.property_food_option_repository.create_many(items, commit=commit)
+
+    async def delete_by_property_id(
+        self,
+        property_id: int,
+        commit: bool = True,
+    ) -> None:
+        await self.property_food_option_repository.delete_by_property_id(property_id, commit=commit)
+
+
     async def list(
         self,
         page: int = 1,

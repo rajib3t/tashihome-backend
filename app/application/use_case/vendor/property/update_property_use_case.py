@@ -156,7 +156,12 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
 
         existing_property.updated_by = self.current_user.id
         updated_property = await self.property_service.update(existing_property)
+        db = getattr(getattr(self.property_service, "property_repository", None), "db", None)
+        updated_property = await self.property_service.update(existing_property, commit=False if db is not None else True)
         await self._sync_child_records(updated_property.id, data)
+
+        if db is not None and hasattr(db, "commit"):
+            await db.commit()
 
         full_property = await self.property_service.get_by_public_id(
             updated_property.public_id,
@@ -180,22 +185,46 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             amenity_ids = [a.id for a in data.amenities if getattr(a, "id", None)]
 
         if amenity_ids is not None:
-            existing_amenities = await self.property_amenity_service.get_by_property_id(property_id, flush=True)
-            for item in existing_amenities:
-                await self.property_amenity_service.delete(item, commit=True)
-            for amenity_id in amenity_ids:
-                amenity = await self.amenity_service.get_by_public_id(amenity_id, flush=True)
-                if not amenity:
-                    raise AppException(
-                        status_code=404,
-                        message="Amenity not found.",
-                        field="amenities",
-                        error_code="AMENITY_NOT_FOUND",
-                    )
-                await self.property_amenity_service.create(
-                    PropertyAmenity(property_id=property_id, amenity_id=amenity.id),
-                    commit=True,
-                )
+            existing_amenities = await self.property_amenity_service.get_by_property_id(property_id, with_relations={"amenity": True}, flush=False)
+            existing_amenity_ids = {
+                str(getattr(item.amenity, "public_id", None) or getattr(item, "amenity_id", None))
+                for item in existing_amenities
+            }
+            incoming_amenity_ids = {str(aid).strip() for aid in amenity_ids if str(aid).strip()}
+
+            if existing_amenity_ids != incoming_amenity_ids:
+                if hasattr(self.property_amenity_service, "delete_by_property_id"):
+                    await self.property_amenity_service.delete_by_property_id(property_id, commit=False)
+                else:
+                    for item in existing_amenities:
+                        await self.property_amenity_service.delete(item, commit=False)
+
+                amenities_map = {}
+                if hasattr(self.amenity_service, "get_by_public_ids"):
+                    found = await self.amenity_service.get_by_public_ids(list(incoming_amenity_ids), flush=True)
+                    for a in found:
+                        amenities_map[str(a.public_id)] = a
+
+                amenity_records = []
+                for aid in incoming_amenity_ids:
+                    amenity = amenities_map.get(aid)
+                    if not amenity:
+                        amenity = await self.amenity_service.get_by_public_id(aid, flush=True)
+                    if not amenity:
+                        raise AppException(
+                            status_code=404,
+                            message="Amenity not found.",
+                            field="amenities",
+                            error_code="AMENITY_NOT_FOUND",
+                        )
+                    amenity_records.append(PropertyAmenity(property_id=property_id, amenity_id=amenity.id))
+
+                if amenity_records:
+                    if hasattr(self.property_amenity_service, "create_many"):
+                        await self.property_amenity_service.create_many(amenity_records, commit=False)
+                    else:
+                        for item in amenity_records:
+                            await self.property_amenity_service.create(item, commit=False)
 
         facility_ids = data.facility_ids
         if facility_ids is None:
@@ -205,50 +234,88 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                 facility_ids = [f.id for f in data.facilities if getattr(f, "id", None)]
 
         if facility_ids is not None:
-            existing_facilities = await self.property_facility_service.get_by_property_id(property_id, flush=True)
-            for item in existing_facilities:
-                await self.property_facility_service.delete(item, commit=True)
-            for facility_id in facility_ids:
-                facility = await self.facility_service.get_by_public_id(facility_id, flush=True)
-                if not facility:
-                    raise AppException(
-                        status_code=404,
-                        message="Facility not found.",
-                        field="facility",
-                        error_code="FACILITY_NOT_FOUND",
-                    )
-                await self.property_facility_service.create(
-                    PropertyFacility(property_id=property_id, facility_id=facility.id),
-                    commit=True,
-                )
+            existing_facilities = await self.property_facility_service.get_by_property_id(property_id, with_relations={"facility": True}, flush=False)
+            existing_facility_ids = {
+                str(getattr(item.facility, "public_id", None) or getattr(item, "facility_id", None))
+                for item in existing_facilities
+            }
+            incoming_facility_ids = {str(fid).strip() for fid in facility_ids if str(fid).strip()}
+
+            if existing_facility_ids != incoming_facility_ids:
+                if hasattr(self.property_facility_service, "delete_by_property_id"):
+                    await self.property_facility_service.delete_by_property_id(property_id, commit=False)
+                else:
+                    for item in existing_facilities:
+                        await self.property_facility_service.delete(item, commit=False)
+
+                facilities_map = {}
+                if hasattr(self.facility_service, "get_by_public_ids"):
+                    found = await self.facility_service.get_by_public_ids(list(incoming_facility_ids), flush=True)
+                    for f in found:
+                        facilities_map[str(f.public_id)] = f
+
+                facility_records = []
+                for fid in incoming_facility_ids:
+                    facility = facilities_map.get(fid)
+                    if not facility:
+                        facility = await self.facility_service.get_by_public_id(fid, flush=True)
+                    if not facility:
+                        raise AppException(
+                            status_code=404,
+                            message="Facility not found.",
+                            field="facility",
+                            error_code="FACILITY_NOT_FOUND",
+                        )
+                    facility_records.append(PropertyFacility(property_id=property_id, facility_id=facility.id))
+
+                if facility_records:
+                    if hasattr(self.property_facility_service, "create_many"):
+                        await self.property_facility_service.create_many(facility_records, commit=False)
+                    else:
+                        for item in facility_records:
+                            await self.property_facility_service.create(item, commit=False)
 
         food_option_names = data.food_option_ids
         if food_option_names is None and data.food_options is not None:
             food_option_names = [fo.name for fo in data.food_options if getattr(fo, "name", None)]
 
         if food_option_names is not None:
-            existing_food_options = await self.property_food_option_service.get_by_property_id(property_id, flush=True)
-            for item in existing_food_options:
-                await self.property_food_option_service.delete(item, commit=True)
-            for food_name in food_option_names:
-                await self.property_food_option_service.create(
+            existing_food_options = await self.property_food_option_service.get_by_property_id(property_id, flush=False)
+            existing_food_names = {item.name for item in existing_food_options}
+            incoming_food_names = {str(fn).strip() for fn in food_option_names if str(fn).strip()}
+
+            if existing_food_names != incoming_food_names:
+                if hasattr(self.property_food_option_service, "delete_by_property_id"):
+                    await self.property_food_option_service.delete_by_property_id(property_id, commit=False)
+                else:
+                    for item in existing_food_options:
+                        await self.property_food_option_service.delete(item, commit=False)
+
+                food_records = [
                     PropertyFoodOption(
                         property_id=property_id,
                         name=food_name,
                         is_included=True,
                         status=PropertyFoodOptionStatus.ACTIVE,
-                    ),
-                    commit=True,
-                )
+                    )
+                    for food_name in incoming_food_names
+                ]
+                if food_records:
+                    if hasattr(self.property_food_option_service, "create_many"):
+                        await self.property_food_option_service.create_many(food_records, commit=False)
+                    else:
+                        for item in food_records:
+                            await self.property_food_option_service.create(item, commit=False)
 
         room_types_data = None
         if data.room_types is not None:
             room_types_data = []
             for rt in data.room_types:
+                rt_room_type = getattr(rt, "room_type", None)
                 rt_id = (
                     getattr(rt, "room_type_id", None)
-                    or (rt.room_type.get("id") or rt.room_type.get("public_id") if isinstance(getattr(rt, "room_type", None), dict) else None)
-                    or (getattr(rt.room_type, "id", None) or getattr(rt.room_type, "public_id", None) if getattr(rt, "room_type", None) else None)
+                    or (rt_room_type.get("id") or rt_room_type.get("public_id") if isinstance(rt_room_type, dict) else None)
+                    or (getattr(rt_room_type, "id", None) or getattr(rt_room_type, "public_id", None) if rt_room_type else None)
                     or getattr(rt, "id", None)
                 )
                 if rt_id:
@@ -288,10 +355,21 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             ]
 
         if room_types_data is not None:
-            existing_room_types = await self.property_room_type_service.get_by_property_id(property_id, flush=True)
-            for item in existing_room_types:
-                await self.property_room_type_service.delete(item, commit=True)
+            existing_room_types = await self.property_room_type_service.get_by_property_id(property_id, flush=False)
+            if hasattr(self.property_room_type_service, "delete_by_property_id"):
+                await self.property_room_type_service.delete_by_property_id(property_id, commit=False)
+            else:
+                for item in existing_room_types:
+                    await self.property_room_type_service.delete(item, commit=False)
 
+            rt_id_strs = [str(item["rt_id"]).strip() for item in room_types_data if str(item["rt_id"]).strip()]
+            room_types_map = {}
+            if hasattr(self.room_type_service, "get_by_public_ids"):
+                found_rts = await self.room_type_service.get_by_public_ids(rt_id_strs, flush=True)
+                for rt in found_rts:
+                    room_types_map[str(rt.public_id)] = rt
+
+            rt_records = []
             for item in room_types_data:
                 rt_id = item["rt_id"]
                 units = item["units"]
@@ -307,6 +385,9 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                         error_code="TOTAL_UNITS_INVALID",
                     )
                 room_type = await self.room_type_service.get_by_public_id(rt_id, flush=True)
+                room_type = room_types_map.get(str(rt_id))
+                if not room_type:
+                    room_type = await self.room_type_service.get_by_public_id(rt_id, flush=True)
                 if not room_type:
                     prop_rt = await self.property_room_type_service.get_by_public_id(rt_id, with_relations={"room_type": True}, flush=True)
                     if prop_rt and prop_rt.room_type:
@@ -356,7 +437,7 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                         )
                     )
 
-                await self.property_room_type_service.create(
+                rt_records.append(
                     PropertyRoomType(
                         property_id=property_id,
                         room_type_id=room_type.id,
@@ -364,7 +445,14 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                         price_per_night=price_per_night,
                         sale_per_night=sale_per_night,
                         pricing_tiers=tier_objects,
-                    ),
-                    commit=True,
+                    )
                 )
+
+            if rt_records:
+                if hasattr(self.property_room_type_service, "create_many"):
+                    await self.property_room_type_service.create_many(rt_records, commit=False)
+                else:
+                    for r in rt_records:
+                        await self.property_room_type_service.create(r, commit=False)
+
 

@@ -38,6 +38,15 @@ class StorageService:
             self.client_params["endpoint_url"] = settings.S3_ENDPOINT_URL
         if settings.S3_USE_SSL is not None:
             self.client_params["use_ssl"] = settings.S3_USE_SSL
+        self._sync_client = None
+
+    def _get_sync_client(self):
+        if self._sync_client is None and boto3 is not None:
+            params = {k: v for k, v in self.client_params.items() if k != "use_ssl"}
+            if "endpoint_url" in self.client_params:
+                params["endpoint_url"] = self.client_params["endpoint_url"]
+            self._sync_client = boto3.client("s3", **params)
+        return self._sync_client
 
     async def upload_bytes(
         self,
@@ -86,19 +95,23 @@ class StorageService:
             await client.delete_object(Bucket=target_bucket, Key=key)
         return True
 
-    async def generate_presigned_url(self, key: str, expires_in: int = 3600, method: str = "get_object") -> str:
+    async def generate_presigned_url(self, key: Optional[str], expires_in: int = 3600, method: str = "get_object") -> Optional[str]:
         """Generate a presigned URL using synchronous boto3 (safe to call from async code)."""
+        if not key or not str(key).strip():
+            return None
+        key_str = str(key).strip()
+        if key_str.startswith("http://") or key_str.startswith("https://"):
+            return key_str
         if boto3 is None:
-            return f"https://{self.bucket}.s3.amazonaws.com/{key}"
-        params = {k: v for k, v in self.client_params.items() if k != "use_ssl"}
-        if "endpoint_url" in self.client_params:
-            params["endpoint_url"] = self.client_params["endpoint_url"]
+            return f"https://{self.bucket}.s3.amazonaws.com/{key_str}"
 
-        client = boto3.client("s3", **params)
+        client = self._get_sync_client()
+        if client is None:
+            return key_str
         try:
             url = client.generate_presigned_url(
                 ClientMethod=method,
-                Params={"Bucket": self.bucket, "Key": key},
+                Params={"Bucket": self.bucket, "Key": key_str},
                 ExpiresIn=expires_in,
             )
             return url

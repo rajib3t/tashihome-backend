@@ -59,3 +59,10 @@ class FacilityService:
 
     async def get_all(self) -> list[Facility]:
         return await self.facility_repository.get_all()
+
+    async def get_by_public_ids(
+        self,
+        public_ids: list[str],
+        flush: bool = False,
+    ) -> list[Facility]:
+        return await self.facility_repository.get_by_public_ids(public_ids, flush=flush)
