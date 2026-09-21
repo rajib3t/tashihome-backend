@@ -24,6 +24,14 @@ class FacilityService:
     ) -> Optional[Facility]:
         return await self.facility_repository.get_by_name(name, flush=flush)
 
+    async def get_by_name_and_vendor(
+        self,
+        name: str,
+        vendor_id: Optional[int] = None,
+        flush: bool = False,
+    ) -> Optional[Facility]:
+        return await self.facility_repository.get_by_name_and_vendor(name, vendor_id=vendor_id, flush=flush)
+
     async def get_by_id(
         self,
         facility_id: int,
@@ -45,16 +53,31 @@ class FacilityService:
     ) -> Facility:
         return await self.facility_repository.update(facility, commit=commit)
 
+    async def delete(
+        self,
+        facility: Facility,
+        commit: bool = True,
+    ) -> None:
+        await self.facility_repository.delete(facility, commit=commit)
+
     async def list(
         self,
         page: int = 1,
         page_size: int = 20,
         search: Optional[str] = None,
         filters: Optional[list[dict[str, str]]] = None,
+        vendor_id: Optional[int] = None,
+        scope: str = "all",
         flush: bool = False,
     ) -> Page[Facility]:
         return await self.facility_repository.list(
-            page=page, page_size=page_size, search=search, filters=filters, flush=flush
+            page=page,
+            page_size=page_size,
+            search=search,
+            filters=filters,
+            vendor_id=vendor_id,
+            scope=scope,
+            flush=flush,
         )
 
     async def get_all(self) -> list[Facility]:

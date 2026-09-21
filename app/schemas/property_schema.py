@@ -329,6 +329,10 @@ class PropertyBase(BaseModel):
     average_rating: Optional[float] = 0.0
     total_reviews: Optional[int] = 0
     rating_summary: Optional[PropertyRatingSummarySchema] = None
+    completed_steps: Optional[list[str]] = None
+    current_step: Optional[str] = None
+    percent_complete: Optional[int] = None
+    is_complete: Optional[bool] = None
     model_config = ConfigDict(from_attributes=True)
 
 

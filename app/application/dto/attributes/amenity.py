@@ -9,13 +9,13 @@ from pydantic.dataclasses import dataclass
 class AmenityDTO:
     name: str
     icon: Optional[Union[str, UploadFile]] = None
+    vendor_id: Optional[str] = None
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, value):
         from app.utils.validation import validate_name_field
         return validate_name_field(value, "name", 50, "AMENITY_NAME")
-
 
 
 @dataclass(config=ConfigDict(extra="forbid"))
@@ -32,4 +32,6 @@ class AmenityQueryDTO:
     sort_order: str = "desc"
     name: Optional[str] = None
     status: Optional[str] = None
+    vendor_id: Optional[str] = None
+    scope: Optional[str] = None
     filters: Optional[list[AmenityFilterDTO]] = None

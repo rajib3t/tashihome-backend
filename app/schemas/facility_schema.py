@@ -14,12 +14,24 @@ class FacilityBase(BaseModel):
 
 class FacilitySchema(FacilityBase):
     id: str | None = Field(
-            default=None,
-            validation_alias=AliasChoices("public_id", "id"),
-            serialization_alias="id",
-        )
-        
-    
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    is_global: bool = True
+    vendor_id: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("vendor_public_id", "vendor_id"),
+        serialization_alias="vendor_id",
+    )
+
+    @field_validator("vendor_id", mode="before")
+    @classmethod
+    def validate_vendor_id(cls, value):
+        if value is None:
+            return None
+        return str(value)
+
     @field_validator("id", mode="before")
     @classmethod
     def validate_public_id(cls, value):
@@ -35,3 +47,8 @@ class FacilityResponseSchema(BaseResponse):
 
 class FacilityListResponseSchema(PaginationResponse):
     data: list[FacilitySchema]
+
+
+FacilitySchema.model_rebuild()
+FacilityResponseSchema.model_rebuild()
+FacilityListResponseSchema.model_rebuild()

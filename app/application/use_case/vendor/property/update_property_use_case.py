@@ -19,6 +19,7 @@ from app.services.property_facility_service import PropertyFacilityService
 from app.services.property_food_option_service import PropertyFoodOptionService
 from app.services.property_room_type_service import PropertyRoomTypeService
 from app.services.property_service import PropertyService
+from app.services.property_steps_service import PropertyStepsService
 from app.services.room_type_service import RoomTypeService
 from app.services.storage_service import StorageService
 from app.utils.slug import generate_slug
@@ -177,6 +178,17 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             },
             flush=True,
         ) or updated_property
+
+        completed = PropertyStepsService.compute_steps(full_property)
+        if set(completed) != set(getattr(full_property, "completed_steps", []) or []):
+            if hasattr(self.property_service, "update_steps"):
+                await self.property_service.update_steps(
+                    property_id=full_property.id,
+                    completed_steps=completed,
+                    commit=True,
+                )
+            full_property.completed_steps = completed
+
         return await self.serialize_property(full_property)
 
     async def _sync_child_records(self, property_id: int, data: PropertyUpdateDTO) -> None:

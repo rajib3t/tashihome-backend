@@ -145,6 +145,10 @@ class PropertySerializerMixin:
             "average_rating": rating_data.get("average_rating", 0.0),
             "total_reviews": rating_data.get("total_reviews", 0),
             "rating_summary": rating_data,
+            "completed_steps": getattr(property_data, "completed_steps", []) or [],
+            "current_step": getattr(property_data, "current_step", None),
+            "percent_complete": round(len(getattr(property_data, "completed_steps", []) or []) / 7 * 100),
+            "is_complete": len(getattr(property_data, "completed_steps", []) or []) == 7,
         }
 
     async def serialize_property_list_item(
@@ -194,6 +198,10 @@ class PropertySerializerMixin:
             "average_rating": rating_data.get("average_rating", 0.0),
             "total_reviews": rating_data.get("total_reviews", 0),
             "rating_summary": rating_data,
+            "completed_steps": getattr(property_data, "completed_steps", []) or [],
+            "current_step": getattr(property_data, "current_step", None),
+            "percent_complete": round(len(getattr(property_data, "completed_steps", []) or []) / 7 * 100),
+            "is_complete": len(getattr(property_data, "completed_steps", []) or []) == 7,
         }
 
 

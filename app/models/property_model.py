@@ -16,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -85,6 +86,8 @@ class Property(Base):
     is_featured = Column(Boolean, nullable=True, default=False)
     type = Column(Enum(PropertyType), nullable=True, index=True, comment="Type of property, e.g., hotel, apartment, villa, etc.")
     status = Column(Enum(PropertyStatus), default=PropertyStatus.DRAFT, nullable=False, index=True)
+    completed_steps = Column(ARRAY(String), nullable=True, default=list, server_default="{}")
+    current_step = Column(String(50), nullable=True)
 
     created_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     updated_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

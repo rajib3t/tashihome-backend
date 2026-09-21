@@ -3,14 +3,18 @@ import uuid
 
 from app.core.database import Base
 
-from sqlalchemy import UUID, BigInteger, Column, DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import UUID, BigInteger, Column, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import relationship
+
 class RoomTypeStatus(str, enum.Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
 
 class RoomType(Base):
     __tablename__ = "room_types"
+    __table_args__ = (
+        UniqueConstraint("vendor_id", "name", name="uq_room_type_vendor_name"),
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     public_id = Column(
@@ -20,9 +24,10 @@ class RoomType(Base):
         nullable=False,
         index=True,
     )
-    name = Column(String(255), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=False, index=True)
     capacity = Column(Integer, nullable=False)
     status = Column(Enum(RoomTypeStatus), default=RoomTypeStatus.ACTIVE, nullable=False, index=True)
+    vendor_id = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     created_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
     updated_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
     property_room_types = relationship("PropertyRoomType", back_populates="room_type", cascade="all, delete-orphan")
@@ -34,3 +39,26 @@ class RoomType(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+    vendor = relationship("User", foreign_keys=[vendor_id])
+
+    @property
+    def is_global(self):
+        return self.vendor_id is None
+
+    @property
+    def vendor_public_id(self):
+        if "vendor" in self.__dict__:
+            v = self.__dict__["vendor"]
+            if v and getattr(v, "public_id", None):
+                return str(v.public_id)
+        try:
+            from sqlalchemy.orm import inspect
+            insp = inspect(self)
+            if insp is not None and "vendor" not in insp.unloaded:
+                v = getattr(self, "vendor", None)
+                if v and getattr(v, "public_id", None):
+                    return str(v.public_id)
+        except Exception:
+            pass
+        return str(self.vendor_id) if self.vendor_id is not None else None

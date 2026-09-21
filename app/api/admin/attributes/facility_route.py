@@ -46,11 +46,13 @@ class FacilityController(BaseController):
         self,
         name: str = Form(...),
         icon : Optional[UploadFile] = File(None),
+        vendor_id: Optional[str] = Form(None),
         use_case : CreateFacilityUseCase = Depends(get_create_facility_use_case)
         ):
         payload = FacilityDTO(
             name=name,
             icon=icon,
+            vendor_id=vendor_id,
         )
         
         attribute = await use_case.execute(payload)
@@ -66,11 +68,13 @@ class FacilityController(BaseController):
         facility_id: str,
         name: str = Form(...),
         icon: Optional[UploadFile] = File(None),
+        vendor_id: Optional[str] = Form(None),
         use_case: UpdateFacilityUseCase = Depends(get_update_facility_use_case),
     ):
         payload = FacilityDTO(
             name=name,
             icon=icon,
+            vendor_id=vendor_id,
         )
         attribute = await use_case.execute(facility_id, payload)
 

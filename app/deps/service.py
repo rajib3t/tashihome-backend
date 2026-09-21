@@ -412,3 +412,9 @@ async def get_vendor_agreement_service(
     )
 
 
+def get_property_steps_service():
+    from app.services.property_steps_service import PropertyStepsService
+    return PropertyStepsService()
+
+
+

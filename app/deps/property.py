@@ -312,3 +312,29 @@ async def get_vendor_delete_property_asset_use_case(
         storage_service=storage_service,
         current_user=current_user,
     )
+
+
+async def get_vendor_property_setup_steps_use_case(
+    property_service: PropertyService = Depends(get_property_service),
+    current_user: CurrentUser = Depends(require_vendor),
+):
+    from app.application.use_case.vendor.property.get_property_setup_steps_use_case import GetPropertySetupStepsUseCase
+    from app.services.property_steps_service import PropertyStepsService
+    return GetPropertySetupStepsUseCase(
+        property_service=property_service,
+        steps_service=PropertyStepsService(),
+        current_user=current_user,
+    )
+
+
+async def get_admin_property_setup_steps_use_case(
+    property_service: PropertyService = Depends(get_property_service),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
+):
+    from app.application.use_case.vendor.property.get_property_setup_steps_use_case import GetPropertySetupStepsUseCase
+    from app.services.property_steps_service import PropertyStepsService
+    return GetPropertySetupStepsUseCase(
+        property_service=property_service,
+        steps_service=PropertyStepsService(),
+        current_user=current_user,
+    )

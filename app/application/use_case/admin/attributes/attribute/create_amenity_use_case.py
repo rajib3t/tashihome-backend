@@ -1,3 +1,6 @@
+import copy
+from typing import Optional
+
 from app.application.dto.attributes.amenity import AmenityDTO
 from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
@@ -5,7 +8,7 @@ from app.deps.auth import CurrentUser
 from app.models.amenity_model import Amenity
 from app.services.amenity_service import AmenityService
 from app.services.storage_service import StorageService
-import copy
+from app.services.user_service import UserService
 
 
 class CreateAmenityUseCase(BaseUseCase):
@@ -22,11 +25,13 @@ class CreateAmenityUseCase(BaseUseCase):
         storage_service: StorageService,
         verify_csrf: bool,
         current_user: CurrentUser,
+        user_service: Optional[UserService] = None,
     ):
         self.amenity_service = amenity_service
         self.storage_service = storage_service
         self.verify_csrf = verify_csrf
         self.current_user = current_user
+        self.user_service = user_service
 
     async def execute(self, amenity_dto: AmenityDTO) -> Amenity:
         payload = {
@@ -34,11 +39,42 @@ class CreateAmenityUseCase(BaseUseCase):
             "icon": amenity_dto.icon,
         }
 
-        if await self.amenity_service.get_by_name(payload["name"].lower()):
+        target_vendor_id = None
+        target_vendor = None
+        if amenity_dto.vendor_id and str(amenity_dto.vendor_id).strip():
+            raw_vid = str(amenity_dto.vendor_id).strip()
+            if self.user_service:
+                target_vendor = await self.user_service.get_user_by_public_id(raw_vid, flush=True)
+                if not target_vendor and raw_vid.isdigit():
+                    target_vendor = await self.user_service.get_user_by_id(int(raw_vid), flush=True)
+                if not target_vendor:
+                    raise AppException(
+                        status_code=404,
+                        message="Vendor not found.",
+                        error_code="VENDOR_NOT_FOUND",
+                        field="vendor_id",
+                    )
+                target_vendor_id = target_vendor.id
+            elif raw_vid.isdigit():
+                target_vendor_id = int(raw_vid)
+            else:
+                target_vendor_id = raw_vid
+
+        if await self.amenity_service.get_by_name_and_vendor(payload["name"].lower(), vendor_id=None):
             raise AppException(
                 status_code=409,
-                message="Amenity already exists",
-                error_code="AMENITY_ALREADY_EXISTS",
+                message="An amenity with this name already exists as a global attribute.",
+                error_code="AMENITY_ALREADY_EXISTS_GLOBAL",
+                field="name",
+            )
+
+        if target_vendor_id is not None and await self.amenity_service.get_by_name_and_vendor(
+            payload["name"].lower(), vendor_id=target_vendor_id
+        ):
+            raise AppException(
+                status_code=409,
+                message="This vendor already has an amenity with this name.",
+                error_code="AMENITY_ALREADY_EXISTS_VENDOR",
                 field="name",
             )
 
@@ -50,14 +86,11 @@ class CreateAmenityUseCase(BaseUseCase):
         amenity_obj = Amenity(
             name=payload["name"],
             icon_url=payload["icon"],
+            vendor_id=target_vendor_id,
             created_by=self.current_user.id,
             updated_by=self.current_user.id,
         )
-        amenity = await self.amenity_service.create(amenity_obj, commit=True)
+        if target_vendor:
+            amenity_obj.vendor = target_vendor
 
-        if amenity.icon_url:
-            display_amenity = copy.copy(amenity)
-            display_amenity.icon_url = amenity.icon_url
-            return display_amenity
-
-        return amenity
+        return await self.amenity_service.create(amenity_obj, commit=True)

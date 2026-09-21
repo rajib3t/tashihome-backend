@@ -14,6 +14,7 @@ from app.application.use_case.admin.properties.property_use_case import (
 from app.application.use_case.admin.properties.create_property_use_case import CreatePropertyUseCase
 from app.application.use_case.admin.properties.update_property_use_case import UpdatePropertyUseCase
 from app.application.use_case.admin.properties.upload_property_assets_use_case import UploadPropertyAssetsUseCase
+from app.application.use_case.vendor.property.get_property_setup_steps_use_case import GetPropertySetupStepsUseCase
 from app.deps.property import (
     get_create_property_use_case,
     get_list_properties_use_case,
@@ -21,9 +22,11 @@ from app.deps.property import (
     get_upload_property_assets_use_case,
     get_update_property_status_use_case,
     get_update_property_use_case,
+    get_admin_property_setup_steps_use_case,
 )
 from app.schemas.property_schema import PropertyListResponseSchema, PropertyResponseSchema
 from app.schemas.property_asset_schema import PropertyAssetResponseSchema
+from app.schemas.property_setup_steps_schema import PropertySetupStepsResponseSchema
 from app.utils.exception_decorate import handle_api_exceptions
 
 
@@ -40,6 +43,7 @@ class PropertyController(BaseController):
             ("get", "", self._get_properties, {"response_model": PropertyListResponseSchema}),
             ("post", "/", self._create_property, {"response_model": PropertyResponseSchema, "status_code": 201}),
             ("get", "/{property_id}", self._get_property, {"response_model": PropertyResponseSchema}),
+            ("get", "/{property_id}/setup-steps", self._get_setup_steps, {"response_model": PropertySetupStepsResponseSchema}),
             ("put", "/{property_id}", self._update_property, {"response_model": PropertyResponseSchema}),
             ("patch", "/{property_id}/{status}", self._update_property_status, {"response_model": PropertyResponseSchema}),
             ("post", "/{property_id}/media", self._upload_property_media, {"response_model": PropertyResponseSchema, "status_code": 201}),
@@ -98,6 +102,18 @@ class PropertyController(BaseController):
         return self.build_response(
             message="Property updated successfully.",
             data=updated_property,
+        )
+
+    @handle_api_exceptions
+    async def _get_setup_steps(
+        self,
+        property_id: str,
+        use_case: GetPropertySetupStepsUseCase = Depends(get_admin_property_setup_steps_use_case),
+    ):
+        steps_data = await use_case.execute(property_id)
+        return self.build_response(
+            message="Property setup steps retrieved successfully.",
+            data=steps_data,
         )
 
     @handle_api_exceptions

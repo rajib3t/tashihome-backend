@@ -6,6 +6,7 @@ from app.models.amenity_model import Amenity, AmenityStatus
 from app.repositories.base_repository import Page
 from app.services.amenity_service import AmenityService
 from app.services.storage_service import StorageService
+from app.services.user_service import UserService
 import copy
 
 
@@ -15,10 +16,12 @@ class ListAmenitiesUseCase(BaseUseCase):
         amenity_service: AmenityService,
         storage_service: StorageService,
         current_user: CurrentUser,
+        user_service: UserService | None = None,
     ):
         self.amenity_service = amenity_service
         self.storage_service = storage_service
         self.current_user = current_user
+        self.user_service = user_service
 
     async def execute(self, request_dto: AmenityQueryDTO) -> Page[Amenity]:
         filters = list(request_dto.filters or [])
@@ -41,21 +44,40 @@ class ListAmenitiesUseCase(BaseUseCase):
             filters.append({"name": "status", "value": AmenityStatus.ACTIVE})
         elif normalized_status == "inactive":
             filters.append({"name": "status", "value": AmenityStatus.INACTIVE})
+
+        target_vendor_id: int | None = None
+        if request_dto.vendor_id and str(request_dto.vendor_id).strip():
+            raw_vid = str(request_dto.vendor_id).strip()
+            if self.user_service:
+                target_vendor = await self.user_service.get_user_by_public_id(raw_vid, flush=True)
+                if not target_vendor and raw_vid.isdigit():
+                    target_vendor = await self.user_service.get_user_by_id(int(raw_vid), flush=True)
+                if not target_vendor:
+                    raise AppException(
+                        status_code=404,
+                        message="Vendor not found.",
+                        error_code="VENDOR_NOT_FOUND",
+                        field="vendor_id",
+                    )
+                target_vendor_id = target_vendor.id
+            elif raw_vid.isdigit():
+                target_vendor_id = int(raw_vid)
+
+        scope = request_dto.scope
+        if not scope:
+            if target_vendor_id is not None:
+                scope = "vendor_combined"
+            else:
+                scope = "all"
+
         amenities_page = await self.amenity_service.list(
             page=request_dto.page,
             page_size=request_dto.size,
             search=request_dto.name,
             filters=filters,
+            vendor_id=target_vendor_id,
+            scope=scope,
             flush=True,
         )
-
-        updated_items = []
-        for amenity in amenities_page.items:
-            display_amenity = copy.copy(amenity)
-            if amenity.icon_url:
-                display_amenity.icon_url = amenity.icon_url
-            updated_items.append(display_amenity)
-
-        amenities_page.items = updated_items
 
         return amenities_page

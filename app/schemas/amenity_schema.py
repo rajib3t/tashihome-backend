@@ -18,6 +18,19 @@ class AmenitySchema(AmenityBase):
         validation_alias=AliasChoices("public_id", "id"),
         serialization_alias="id",
     )
+    is_global: bool = True
+    vendor_id: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("vendor_public_id", "vendor_id"),
+        serialization_alias="vendor_id",
+    )
+
+    @field_validator("vendor_id", mode="before")
+    @classmethod
+    def validate_vendor_id(cls, value):
+        if value is None:
+            return None
+        return str(value)
 
     @field_validator("id", mode="before")
     @classmethod
@@ -35,3 +48,8 @@ class AmenityResponseSchema(BaseResponse):
 
 class AmenityListResponseSchema(PaginationResponse):
     data: list[AmenitySchema]
+
+
+AmenitySchema.model_rebuild()
+AmenityResponseSchema.model_rebuild()
+AmenityListResponseSchema.model_rebuild()

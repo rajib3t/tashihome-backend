@@ -156,6 +156,25 @@ class PropertyRepository(BaseRepository[Property]):
         await self.db.refresh(property_)
         return property_
 
+    async def update_steps(
+        self,
+        property_id: int,
+        completed_steps: list[str],
+        current_step: Optional[str] = None,
+        commit: bool = True,
+    ) -> Optional[Property]:
+        prop = await self.get_by_id(property_id)
+        if not prop:
+            return None
+        prop.completed_steps = completed_steps
+        if current_step is not None:
+            prop.current_step = current_step
+        self.db.add(prop)
+        if commit:
+            await self.db.commit()
+            await self.db.refresh(prop)
+        return prop
+
     async def delete(
         self,
         property_: Property,

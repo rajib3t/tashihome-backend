@@ -47,9 +47,10 @@ class AmenityController(BaseController):
         self,
         name: str = Form(...),
         icon: Optional[UploadFile] = File(None),
+        vendor_id: Optional[str] = Form(None),
         use_case: CreateAmenityUseCase = Depends(get_create_amenity_use_case),
     ):
-        payload = AmenityDTO(name=name, icon=icon)
+        payload = AmenityDTO(name=name, icon=icon, vendor_id=vendor_id)
         amenity = await use_case.execute(payload)
         return self.build_response(
             message="Amenity created successfully.",
@@ -62,9 +63,10 @@ class AmenityController(BaseController):
         amenity_id: str,
         name: str = Form(...),
         icon: Optional[UploadFile] = File(None),
+        vendor_id: Optional[str] = Form(None),
         use_case: UpdateAmenityUseCase = Depends(get_update_amenity_use_case),
     ):
-        payload = AmenityDTO(name=name, icon=icon)
+        payload = AmenityDTO(name=name, icon=icon, vendor_id=vendor_id)
         amenity = await use_case.execute(amenity_id, payload)
         return self.build_response(
             message="Amenity updated successfully.",

@@ -191,3 +191,17 @@ class PropertyService:
             with_relations=with_relations,
             flush=flush,
         )
+
+    async def update_steps(
+        self,
+        property_id: int,
+        completed_steps: list[str],
+        current_step: Optional[str] = None,
+        commit: bool = True,
+    ) -> Optional[Property]:
+        return await self.property_repository.update_steps(
+            property_id=property_id,
+            completed_steps=completed_steps,
+            current_step=current_step,
+            commit=commit,
+        )

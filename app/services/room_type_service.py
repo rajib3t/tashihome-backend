@@ -23,6 +23,14 @@ class RoomTypeService:
     ) -> Optional[RoomType]:
         return await self.room_type_repository.get_by_name(name, flush=flush)
 
+    async def get_by_name_and_vendor(
+        self,
+        name: str,
+        vendor_id: Optional[int] = None,
+        flush: bool = False,
+    ) -> Optional[RoomType]:
+        return await self.room_type_repository.get_by_name_and_vendor(name, vendor_id=vendor_id, flush=flush)
+
     async def get_by_id(
         self,
         room_type_id: int,
@@ -44,16 +52,31 @@ class RoomTypeService:
     ) -> RoomType:
         return await self.room_type_repository.update(room_type, commit=commit)
 
+    async def delete(
+        self,
+        room_type: RoomType,
+        commit: bool = True,
+    ) -> None:
+        await self.room_type_repository.delete(room_type, commit=commit)
+
     async def list(
         self,
         page: int = 1,
         page_size: int = 20,
         search: Optional[str] = None,
         filters: Optional[list[dict[str, str]]] = None,
+        vendor_id: Optional[int] = None,
+        scope: str = "all",
         flush: bool = False,
     ) -> Page[RoomType]:
         return await self.room_type_repository.list(
-            page=page, page_size=page_size, search=search, filters=filters, flush=flush
+            page=page,
+            page_size=page_size,
+            search=search,
+            filters=filters,
+            vendor_id=vendor_id,
+            scope=scope,
+            flush=flush,
         )
 
     async def get_by_public_ids(

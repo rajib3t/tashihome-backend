@@ -7,6 +7,7 @@ from app.models.property_asset_model import PropertyAsset, PropertyAssetType, Pr
 from app.models.property_model import Property
 from app.services.property_asset_service import PropertyAssetService
 from app.services.property_service import PropertyService
+from app.services.property_steps_service import PropertyStepsService
 from app.services.storage_service import StorageService
 
 
@@ -122,6 +123,17 @@ class VendorUploadPropertyAssetsUseCase(PropertySerializerMixin, BaseUseCase):
             },
             flush=True,
         ) or property_
+
+        completed = PropertyStepsService.compute_steps(full_property)
+        if set(completed) != set(getattr(full_property, "completed_steps", []) or []):
+            if hasattr(self.property_service, "update_steps"):
+                await self.property_service.update_steps(
+                    property_id=full_property.id,
+                    completed_steps=completed,
+                    commit=True,
+                )
+            full_property.completed_steps = completed
+
         return await self.serialize_property(full_property)
 
 
@@ -193,5 +205,16 @@ class VendorDeletePropertyAssetUseCase(PropertySerializerMixin, BaseUseCase):
             },
             flush=True,
         )
+
+        completed = PropertyStepsService.compute_steps(full_property)
+        if set(completed) != set(getattr(full_property, "completed_steps", []) or []):
+            if hasattr(self.property_service, "update_steps"):
+                await self.property_service.update_steps(
+                    property_id=full_property.id,
+                    completed_steps=completed,
+                    commit=True,
+                )
+            full_property.completed_steps = completed
+
         return await self.serialize_property(full_property)
 

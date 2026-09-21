@@ -10,15 +10,18 @@ from app.application.use_case.vendor.property.upload_property_assets_use_case im
     VendorUploadPropertyAssetsUseCase,
     VendorDeletePropertyAssetUseCase,
 )
+from app.application.use_case.vendor.property.get_property_setup_steps_use_case import GetPropertySetupStepsUseCase
 from app.deps.property import (
     get_vendor_property_list_use_case,
     get_vendor_create_property_use_case,
     get_vendor_update_property_use_case,
     get_vendor_get_property_use_case,
+    get_vendor_property_setup_steps_use_case,
     get_vendor_upload_property_assets_use_case,
     get_vendor_delete_property_asset_use_case,
 )
 from app.schemas.property_schema import PropertyListResponseSchema, PropertyResponseSchema
+from app.schemas.property_setup_steps_schema import PropertySetupStepsResponseSchema
 from app.utils.exception_decorate import handle_api_exceptions
 
 
@@ -36,6 +39,7 @@ class PropertyController(BaseController):
             ("post", "/", self._create_property, {"response_model": PropertyResponseSchema, "status_code": 201}),
             ("get", "/{property_id}", self._get_property, {"response_model": PropertyResponseSchema}),
             ("put", "/{property_id}", self._update_property, {"response_model": PropertyResponseSchema}),
+            ("get", "/{property_id}/setup-steps", self._get_setup_steps, {"response_model": PropertySetupStepsResponseSchema}),
             ("post", "/{property_id}/media", self._upload_property_media, {"response_model": PropertyResponseSchema, "status_code": 201}),
             ("delete", "/{property_id}/assets/{asset_id}", self._delete_property_asset, {"response_model": PropertyResponseSchema}),
         ]
@@ -91,6 +95,18 @@ class PropertyController(BaseController):
         return self.build_response(
             message="Property updated successfully.",
             data=updated_property,
+        )
+
+    @handle_api_exceptions
+    async def _get_setup_steps(
+        self,
+        property_id: str,
+        use_case: GetPropertySetupStepsUseCase = Depends(get_vendor_property_setup_steps_use_case),
+    ):
+        steps_data = await use_case.execute(property_id)
+        return self.build_response(
+            message="Property setup steps retrieved successfully.",
+            data=steps_data,
         )
 
     @handle_api_exceptions
