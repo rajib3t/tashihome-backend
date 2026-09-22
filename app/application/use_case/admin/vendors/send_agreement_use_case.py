@@ -63,7 +63,10 @@ class SendVendorAgreementUseCase(BaseUseCase):
             custom_notes=data.custom_notes,
             created_by_id=self.current_user.id,
             commit=True,
+            template_id=getattr(data, "template_id", None),
+            version=getattr(data, "version", "1.0"),
         )
 
         return agreement
+
 

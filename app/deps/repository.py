@@ -232,3 +232,8 @@ async def get_vendor_agreement_repository(
     return VendorAgreementRepository(db)
 
 
+async def get_agreement_template_repository(
+    db: AsyncSession = Depends(get_db),
+):
+    from app.repositories.agreement_template_repository import AgreementTemplateRepository
+    return AgreementTemplateRepository(db)

@@ -77,3 +77,47 @@ async def get_my_vendor_agreement_use_case(
     return GetMyVendorAgreementUseCase(agreement_service=agreement_service)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Agreement Template Use Cases
+# ──────────────────────────────────────────────────────────────────────────────
+
+from app.deps.service import get_agreement_template_service  # noqa: E402
+from app.services.agreement_template_service import AgreementTemplateService  # noqa: E402
+
+
+async def get_create_template_use_case(
+    template_service: AgreementTemplateService = Depends(get_agreement_template_service),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
+):
+    from app.application.use_case.admin.agreement_templates.create_template_use_case import CreateAgreementTemplateUseCase
+    return CreateAgreementTemplateUseCase(template_service=template_service, current_user=current_user)
+
+
+async def get_update_template_use_case(
+    template_service: AgreementTemplateService = Depends(get_agreement_template_service),
+):
+    from app.application.use_case.admin.agreement_templates.update_template_use_case import UpdateAgreementTemplateUseCase
+    return UpdateAgreementTemplateUseCase(template_service=template_service)
+
+
+async def get_delete_template_use_case(
+    template_service: AgreementTemplateService = Depends(get_agreement_template_service),
+):
+    from app.application.use_case.admin.agreement_templates.delete_template_use_case import DeleteAgreementTemplateUseCase
+    return DeleteAgreementTemplateUseCase(template_service=template_service)
+
+
+async def get_list_templates_use_case(
+    template_service: AgreementTemplateService = Depends(get_agreement_template_service),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
+):
+    from app.application.use_case.admin.agreement_templates.list_templates_use_case import ListAgreementTemplatesUseCase
+    return ListAgreementTemplatesUseCase(template_service=template_service)
+
+
+async def get_set_default_template_use_case(
+    template_service: AgreementTemplateService = Depends(get_agreement_template_service),
+    current_user: CurrentUser = Depends(require_admin_or_staff),
+):
+    from app.application.use_case.admin.agreement_templates.set_default_template_use_case import SetDefaultTemplateUseCase
+    return SetDefaultTemplateUseCase(template_service=template_service)

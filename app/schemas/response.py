@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 
 class BaseResponse(BaseModel):
@@ -9,7 +10,8 @@ class PaginationMeta(BaseModel):
     total: int
     page: int
     size: int
+    total_pages: Optional[int] = None
 
 class PaginationResponse(BaseResponse):
-    meta: PaginationMeta
+    meta: Optional[PaginationMeta] = None
     

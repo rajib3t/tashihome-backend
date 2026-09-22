@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
-from app.schemas.response import BaseResponse
+from app.schemas.response import BaseResponse, PaginationResponse
 
 
 class AgreementClauseSchema(BaseModel):
@@ -33,12 +33,42 @@ AVAILABLE_SIGNATURE_FONTS = [
 ]
 
 
+class AgreementVendorCompanyData(BaseModel):
+    name: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AgreementVendorData(BaseModel):
+    id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[AgreementVendorCompanyData] = None
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return str(value)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class VendorAgreementData(BaseModel):
     id: str | None = Field(
         default=None,
         validation_alias=AliasChoices("public_id", "id"),
         serialization_alias="id",
     )
+    template_id: Optional[str | int] = None
     title: str
     version: str
     status: str
@@ -66,6 +96,7 @@ class VendorAgreementData(BaseModel):
     is_second_party_signed: Optional[bool] = None
     is_bilateral_signed: Optional[bool] = None
     created_at: Optional[datetime] = None
+    vendor: Optional[AgreementVendorData] = None
 
     @field_validator("id", mode="before")
     @classmethod
@@ -124,7 +155,7 @@ class VendorAgreementResponseSchema(BaseResponse):
     data: VendorAgreementData
 
 
-class VendorAgreementListResponseSchema(BaseResponse):
+class VendorAgreementListResponseSchema(PaginationResponse):
     data: List[VendorAgreementData]
 
 

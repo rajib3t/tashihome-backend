@@ -123,6 +123,14 @@ class VendorAgreement(Base):
         index=True,
     )
 
+    template_id = Column(
+        BigInteger,
+        ForeignKey("agreement_templates.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+
     @property
     def is_first_party_signed(self) -> bool:
         return self.first_party_signed_at is not None
@@ -155,4 +163,6 @@ class VendorAgreement(Base):
     vendor = relationship("User", foreign_keys=[vendor_id], back_populates="agreements")
     host_request = relationship("HostRequest", foreign_keys=[host_request_id], back_populates="agreements")
     creator = relationship("User", foreign_keys=[created_by])
+    template = relationship("AgreementTemplate", foreign_keys=[template_id], back_populates="agreements")
+
 

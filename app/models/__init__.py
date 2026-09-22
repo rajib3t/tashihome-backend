@@ -48,6 +48,8 @@ from .host_request_message_model import HostRequestMessage
 from .public_stat_model import PublicStat
 from .notification_model import Notification, NotificationType
 from .vendor_agreement_model import VendorAgreement, AgreementStatus, AgreementType
+from .agreement_template_model import AgreementTemplate, AgreementTemplateType, AgreementTemplateStatus
+
 
 
 __all__ = [
@@ -120,4 +122,7 @@ __all__ = [
     "VendorAgreement",
     "AgreementStatus",
     "AgreementType",
+    "AgreementTemplate",
+    "AgreementTemplateType",
+    "AgreementTemplateStatus",
 ]

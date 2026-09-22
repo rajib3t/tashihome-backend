@@ -97,6 +97,48 @@ class VendorAgreementRepository(BaseRepository[VendorAgreement]):
         result = await self.db.execute(query)
         return result.scalars().first()
 
+    async def get_pending_by_vendor_id(
+        self,
+        vendor_id: int,
+        flush: bool = False,
+    ) -> Optional[VendorAgreement]:
+        """Return the active pending agreement for this vendor, if any (SENT, VIEWED, PARTIALLY_SIGNED)."""
+        if flush:
+            await self.db.flush()
+        query = (
+            select(VendorAgreement)
+            .where(
+                VendorAgreement.vendor_id == vendor_id,
+                VendorAgreement.status.in_([
+                    AgreementStatus.SENT,
+                    AgreementStatus.VIEWED,
+                    AgreementStatus.PARTIALLY_SIGNED,
+                ]),
+            )
+            .options(*AGREEMENT_RELATIONS)
+            .order_by(VendorAgreement.created_at.desc())
+        )
+        result = await self.db.execute(query)
+        return result.scalars().first()
+
+    async def get_all_by_vendor_id(
+        self,
+        vendor_id: int,
+        flush: bool = False,
+    ) -> list[VendorAgreement]:
+        """Return all historical and active agreements for a vendor ordered newest to oldest."""
+        if flush:
+            await self.db.flush()
+        query = (
+            select(VendorAgreement)
+            .where(VendorAgreement.vendor_id == vendor_id)
+            .options(*AGREEMENT_RELATIONS)
+            .order_by(VendorAgreement.created_at.desc())
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+
     async def list_agreements(
         self,
         params: AgreementQueryDTO,

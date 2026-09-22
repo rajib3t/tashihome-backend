@@ -26,6 +26,7 @@ class AgreementCompletedHandler:
             return
 
         signer_name = payload.get("signer_name") or "Host Partner"
+        company_name = payload.get("company_name") or f"{signer_name}'s Homestay"
         token = payload.get("token") or ""
         public_id = payload.get("public_id") or ""
         signed_at_str = payload.get("signed_at") or ""
@@ -41,6 +42,8 @@ class AgreementCompletedHandler:
             app_name = "TashiHome"
             tagline = "Authentic Homestays"
             logo_url = None
+            legal_name = "TashiHome Technologies Pvt. Ltd."
+            legal_address = "Gangtok, Sikkim, India"
             storage_service = get_storage_service()
 
             if database.async_session is not None:
@@ -49,13 +52,19 @@ class AgreementCompletedHandler:
                         setting_service = SettingService(SettingRepository(session))
 
                         app_name_setting = await setting_service.get_by_key("app_name")
-                        logo_setting = await setting_service.get_by_key("app_logo")
+                        logo_setting = await setting_service.get_by_key("agreement_logo") or await setting_service.get_by_key("app_logo")
                         tagline_setting = await setting_service.get_by_key("app_tagline")
+                        legal_name_setting = await setting_service.get_by_key("agreement_company_legal_name") or await setting_service.get_by_key("legal_name")
+                        legal_address_setting = await setting_service.get_by_key("agreement_company_address") or await setting_service.get_by_key("contact_address")
 
                         if app_name_setting and app_name_setting.value:
                             app_name = app_name_setting.value
                         if tagline_setting and tagline_setting.value:
                             tagline = tagline_setting.value
+                        if legal_name_setting and legal_name_setting.value:
+                            legal_name = legal_name_setting.value
+                        if legal_address_setting and legal_address_setting.value:
+                            legal_address = legal_address_setting.value
                         if logo_setting and logo_setting.value:
                             logo_url = await storage_service.get_display_url(logo_setting.value)
                 except Exception as db_err:
@@ -64,9 +73,13 @@ class AgreementCompletedHandler:
             template_data = {
                 "app_name": app_name,
                 "tagline": tagline,
-                "logo_url": logo_url,
+                "logo_url": logo_url or "",
+                "logo_display": "block" if logo_url else "none",
                 "year": current_year,
                 "host_name": signer_name,
+                "company_name": company_name,
+                "legal_name": legal_name,
+                "legal_address": legal_address,
                 "agreement_ref": f"AGMT-{str(public_id)[:8].upper()}" if public_id else "AGMT-EXECUTED",
                 "signed_date": signed_at_str,
                 "agreement_view_url": agreement_view_url,
@@ -74,6 +87,7 @@ class AgreementCompletedHandler:
                 "dashboard_url": dashboard_url,
                 "support_email": getattr(settings, "SUPPORT_EMAIL", f"partner@{app_name.lower().replace(' ', '')}.in"),
             }
+
 
             email_template_service = await get_email_template_service()
             html_content = await email_template_service.render_template(

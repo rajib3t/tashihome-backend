@@ -66,8 +66,10 @@ class VendorController(BaseController):
             ("post", "/{vendor_id}/password-reset", self._send_password_reset_link, {"response_model": None, "status_code": 200}),
             ("post", "/{vendor_id}/convert", self._convert_user_to_host, {"response_model": VendorResponseSchema}),
             ("post", "/{vendor_id}/agreements/send", self._send_vendor_agreement, {"response_model": VendorAgreementResponseSchema, "status_code": 201}),
+            ("get", "/{vendor_id}/agreements/status", self._get_vendor_agreement_status, {"response_model": None}),
             ("get", "/{vendor_id}/agreements", self._list_vendor_agreements, {"response_model": VendorAgreementListResponseSchema}),
         ]
+
 
         for method, path, handler, route_kwargs in routes:
             self.router.add_api_route(path, handler, methods=[method.upper()], **route_kwargs)
@@ -197,6 +199,18 @@ class VendorController(BaseController):
         )
 
     @handle_api_exceptions
+    async def _get_vendor_agreement_status(
+        self,
+        vendor_id: str,
+        agreement_service: VendorAgreementService = Depends(get_vendor_agreement_service),
+    ):
+        status = await agreement_service.get_vendor_agreement_summary(vendor_id)
+        return self.build_response(
+            message="Vendor agreement status retrieved successfully.",
+            data=status,
+        )
+
+    @handle_api_exceptions
     async def _list_vendor_agreements(
         self,
         vendor_id: str,
@@ -210,6 +224,7 @@ class VendorController(BaseController):
             data=page.items,
             meta=self.pagination_meta(page),
         )
+
 
 
 controller = VendorController()

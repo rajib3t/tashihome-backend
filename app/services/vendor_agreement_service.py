@@ -43,6 +43,7 @@ class VendorAgreementService:
         pdf_service: AgreementPdfService,
         setting_service: Optional[SettingService] = None,
         event_bus: Optional[EventBus] = None,
+        template_service=None,  # AgreementTemplateService — injected optionally to avoid circular import
     ):
         self.repository = repository
         self.email_service = email_service
@@ -51,6 +52,8 @@ class VendorAgreementService:
         self.pdf_service = pdf_service
         self.setting_service = setting_service
         self.event_bus = event_bus
+        self.template_service = template_service
+
 
     def _generate_token(self) -> str:
         return secrets.token_urlsafe(32)
@@ -183,6 +186,8 @@ class VendorAgreementService:
         custom_notes: Optional[str] = None,
         created_by_id: Optional[int] = None,
         commit: bool = False,
+        template_id: Optional[str] = None,
+        version: Optional[str] = "1.0",
     ) -> VendorAgreement:
         """Create a new vendor agreement session, persist it, and dispatch the invitation email."""
         operator_info = await self.get_operator_info()
@@ -218,25 +223,77 @@ class VendorAgreementService:
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(days=valid_days)
 
-        # Dynamic setting-driven template clauses
-        terms_clauses = await self.get_agreement_template_clauses()
+        # ── Resolve template clauses ────────────────────────────────────────
+        # Priority: template_service (with template_id or default) → settings JSON → hardcoded defaults
+        pdf_template_key: Optional[str] = None
+        resolved_template_id: Optional[int] = None
+
+        if self.template_service:
+            terms_clauses, pdf_template_key = await self.template_service.get_clauses_for_agreement(
+                template_id=template_id
+            )
+            # Try to resolve the DB integer id from the template public_id for FK storage
+            if template_id:
+                try:
+                    from uuid import UUID
+                    tmpl = await self.template_service.repository.get_by_public_id(UUID(template_id))
+                    if tmpl:
+                        resolved_template_id = tmpl.id
+                except Exception:
+                    pass
+            elif pdf_template_key or terms_clauses:
+                # Was resolved from the default template — get its id
+                default_tmpl = await self.template_service.repository.get_default()
+                if default_tmpl:
+                    resolved_template_id = default_tmpl.id
+        else:
+            terms_clauses = await self.get_agreement_template_clauses()
+
         if custom_notes:
             terms_clauses.append({
                 "heading": "Special Terms & Annexures",
                 "body": custom_notes,
             })
 
+        # ── Duplicate Prevention & Auto-Voiding ─────────────────────────────
+        # Automatically void/cancel any previous pending invitations (SENT, VIEWED, PARTIALLY_SIGNED)
+        # so that there is never more than ONE active pending invitation for this vendor at any time.
+        existing_agreements = await self.repository.get_all_by_vendor_id(vendor.id)
+        for prev in existing_agreements:
+            if prev.status in (AgreementStatus.SENT, AgreementStatus.VIEWED, AgreementStatus.PARTIALLY_SIGNED):
+                prev.status = AgreementStatus.CANCELLED
+                await self.repository.update(prev, commit=False)
+                logger.info(
+                    "Auto-cancelled pending agreement %s for vendor %s to avoid duplicate (superseded by v%s)",
+                    prev.public_id,
+                    vendor.id,
+                    version or "1.0",
+                )
+
+        # If vendor already has an executed SIGNED agreement, ensure version does not collide
+        signed_versions = {
+            a.version for a in existing_agreements if a.status == AgreementStatus.SIGNED and a.version
+        }
+        if version in signed_versions:
+            try:
+                cur_num = float(str(version).replace("v", "").replace("V", ""))
+                version = f"{int(cur_num) + 1}.0"
+            except Exception:
+                version = f"{version}.1"
+
         app_name = operator_info.get("app_name", "TashiHome")
         doc_title = operator_info.get("title", "Host Partnership Agreement")
         legal_name = operator_info.get("legal_name") or f"{app_name} Technologies Pvt. Ltd."
+
 
         agreement = VendorAgreement(
             vendor_id=vendor.id,
             host_request_id=host_request_id,
             agreement_type=AgreementType.HOST_ONBOARDING,
             title=f"{doc_title} - {vendor.full_name or 'Host'}",
-            version="1.0",
+            version=version or "1.0",
             status=AgreementStatus.SENT,
+
             token=token,
             commission_percentage=comm_pct,
             expires_at=expires_at,
@@ -249,7 +306,13 @@ class VendorAgreementService:
             first_party_signature_data=f"Digitally Executed by {legal_name}",
             first_party_signed_at=now,
             first_party_signer_ip="127.0.0.1",
+            template_id=resolved_template_id,
         )
+
+        # If PDF-upload template was used, store the pdf_template_key so host can view original
+        if pdf_template_key:
+            agreement.pdf_file_url = pdf_template_key  # will be overwritten after signing if needed
+
         agreement.vendor = vendor
 
         saved = await self.repository.create(agreement, commit=commit)
@@ -268,6 +331,7 @@ class VendorAgreementService:
     async def get_by_token(self, token: str) -> VendorAgreement:
         """Fetch agreement by token for public signing; transition to VIEWED on first access."""
         agreement = await self.repository.get_by_token(token)
+
         if not agreement:
             raise AppException(
                 status_code=404,
@@ -741,16 +805,23 @@ class VendorAgreementService:
             host_name = signer_name or agreement.signer_name or (vendor.full_name if vendor else "Host Partner")
             agreement_view_url = f"{self._get_dashboard_url()}/agreements"
             common_data = self._build_email_common_data(operator_info)
+            company = getattr(vendor, "company", None) if vendor else None
+            company_name = (
+                getattr(company, "name", None)
+                or (f"{vendor.full_name}'s Homestay" if vendor and getattr(vendor, "full_name", None) else None)
+                or f"{host_name}'s Homestay"
+            )
             template_data = {
                 **common_data,
                 "host_name": host_name,
-                "company_name": (getattr(vendor, "company", None).name if vendor and getattr(vendor, "company", None) else "Homestay"),
+                "company_name": company_name,
                 "agreement_ref": f"AGMT-{str(agreement.public_id)[:8].upper()}",
                 "signed_date": (agreement.signed_at.strftime("%d %b %Y, %H:%M:%S UTC") if agreement.signed_at and hasattr(agreement.signed_at, "strftime") else "Recently"),
                 "pdf_download_url": agreement_view_url,
                 "agreement_view_url": agreement_view_url,
                 "dashboard_url": self._get_dashboard_url(),
             }
+
             html_content = await self.email_template_service.render_template(
                 "host_agreement_completed",
                 template_data,
@@ -776,5 +847,76 @@ class VendorAgreementService:
             )
         except Exception as exc:
             logger.warning("Direct completed email dispatch failed: %s", exc)
+
+    async def get_vendor_agreement_summary(self, vendor_id: int | str) -> Dict[str, Any]:
+        """Fetch agreement summary for a vendor (pending, signed, history, suggested next version)."""
+        from app.models.user_model import User
+        from uuid import UUID
+        from sqlalchemy import select
+
+        user = None
+        if isinstance(vendor_id, str) and len(vendor_id) == 36:
+            try:
+                res = await self.repository.db.execute(select(User).where(User.public_id == UUID(vendor_id)))
+                user = res.scalars().first()
+            except Exception:
+                user = None
+        elif str(vendor_id).isdigit():
+            res = await self.repository.db.execute(select(User).where(User.id == int(vendor_id)))
+            user = res.scalars().first()
+
+        if not user:
+            return {
+                "has_agreements": False,
+                "has_pending": False,
+                "pending_agreement": None,
+                "has_signed": False,
+                "signed_agreement": None,
+                "suggested_next_version": "1.0",
+                "total_agreements": 0,
+            }
+
+        all_agmts = await self.repository.get_all_by_vendor_id(user.id)
+        pending = next(
+            (a for a in all_agmts if a.status in (AgreementStatus.SENT, AgreementStatus.VIEWED, AgreementStatus.PARTIALLY_SIGNED)),
+            None,
+        )
+        signed = next((a for a in all_agmts if a.status == AgreementStatus.SIGNED), None)
+
+        versions = []
+        for a in all_agmts:
+            if a.version:
+                try:
+                    v_num = float(str(a.version).replace("v", "").replace("V", ""))
+                    versions.append(v_num)
+                except Exception:
+                    pass
+
+        max_ver = max(versions) if versions else 0.0
+        suggested_ver = f"{int(max_ver) + 1}.0" if max_ver >= 1.0 else "1.0"
+
+        return {
+            "has_agreements": len(all_agmts) > 0,
+            "has_pending": pending is not None,
+            "pending_agreement": {
+                "id": str(pending.public_id),
+                "status": pending.status.value,
+                "version": pending.version,
+                "sent_at": pending.sent_at.isoformat() if pending.sent_at else None,
+                "expires_at": pending.expires_at.isoformat() if pending.expires_at else None,
+                "commission_percentage": pending.commission_percentage,
+            } if pending else None,
+            "has_signed": signed is not None,
+            "signed_agreement": {
+                "id": str(signed.public_id),
+                "status": signed.status.value,
+                "version": signed.version,
+                "signed_at": signed.signed_at.isoformat() if signed.signed_at else None,
+                "commission_percentage": signed.commission_percentage,
+            } if signed else None,
+            "suggested_next_version": suggested_ver,
+            "total_agreements": len(all_agmts),
+        }
+
 
 
