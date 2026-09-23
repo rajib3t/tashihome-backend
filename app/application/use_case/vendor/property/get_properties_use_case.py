@@ -133,6 +133,18 @@ class GetVendorPropertyUseCase(BaseUseCase):
                 "property_room_types": [
                     {
                         "id": str(item.public_id) if getattr(item, "public_id", None) is not None else None,
+                        "total_units": item.total_units if getattr(item, "total_units", None) is not None else 1,
+                        "price_per_night": float(item.price_per_night) if getattr(item, "price_per_night", None) is not None else None,
+                        "sale_per_night": float(item.sale_per_night) if getattr(item, "sale_per_night", None) is not None else None,
+                        "pricing_tiers": [
+                            {
+                                "id": str(tier.public_id),
+                                "occupancy": tier.occupancy,
+                                "price_per_night": float(tier.price_per_night),
+                                "sale_per_night": float(tier.sale_per_night or 0),
+                            }
+                            for tier in (getattr(item, "pricing_tiers", None) or [])
+                        ],
                         "room_type": (
                             {
                                 "id": str(item.room_type.public_id),
