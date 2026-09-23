@@ -404,7 +404,7 @@ async def get_vendor_agreement_service(
     from app.deps.event_bus import get_event_bus
     from app.services.vendor_agreement_service import VendorAgreementService
     from app.services.agreement_template_service import AgreementTemplateService
-    event_bus = await get_event_bus()
+    event_bus = get_event_bus()
     template_service = AgreementTemplateService(
         repository=template_repository,
         storage_service=storage_service,

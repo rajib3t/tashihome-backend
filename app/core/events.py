@@ -180,5 +180,17 @@ class RedisEventSubscriber:
         except Exception as exc:
             logger.error("Failed to ACK message %s: %s", message_id, exc)
 
-    async def close(self) -> None:
+    async def stop(self) -> None:
+        """
+        Signal the listen loop to exit gracefully on the next iteration.
+
+        Call this before cancelling the subscriber task to allow the loop to
+        finish processing any in-flight message and ACK it before stopping,
+        rather than leaving it as an unacknowledged pending entry in the stream.
+        """
         self._running = False
+
+    async def close(self) -> None:
+        """Alias for stop(); called from the listen() finally block."""
+        self._running = False
+        logger.info("Event subscriber %s closed", self.consumer_name)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional, Any, Generic, TypeVar, Sequence
+from typing import ClassVar, Optional, Any, Generic, TypeVar, Sequence
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,15 +35,64 @@ class BaseRepository(Generic[ModelT]):
     Base repository providing shared query helpers for async SQLAlchemy sessions.
 
     Conventions used across subclasses:
-      - Write methods (create/update/delete) own `commit()` — they end the
+      - Write methods (create/update/delete) own ``commit()`` — they end the
         transaction and persist changes.
       - Read methods (get_*) never commit. If they need to see uncommitted
-        pending changes in the current session, they `flush()` instead,
+        pending changes in the current session, they ``flush()`` instead,
         which pushes SQL to the DB without ending the transaction.
     """
 
+    # Maximum length of any user-provided search / filter string.
+    # Requests exceeding this are silently clamped to prevent wildcard-amplification DoS.
+    MAX_SEARCH_LEN: ClassVar[int] = 200
+
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    # ── Security helpers ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _escape_like(value: str) -> str:
+        """
+        Escape SQL LIKE/ILIKE metacharacters in user-provided search strings.
+
+        SQLAlchemy's ilike() parameterises the value correctly (no SQL injection),
+        but it does NOT escape the user's own '%' and '_' characters, which become
+        unintended wildcards. This helper ensures literal matching.
+
+        Usage:
+            query.where(Column.ilike(f"%{self._escape_like(term)}%"))
+        """
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+    @staticmethod
+    def _safe_sort_column(
+        model: Any,
+        sort_by: str,
+        allowed: frozenset,
+        default: str = "created_at",
+    ) -> Any:
+        """
+        Return a validated SQLAlchemy column for ORDER BY.
+
+        Prevents schema enumeration / information disclosure: an attacker
+        supplying sort_by='payments' (a relationship) or sort_by='__mapper__'
+        would otherwise cause AttributeError stack-traces that leak ORM internals.
+
+        Args:
+            model:   The SQLAlchemy model class.
+            sort_by: The caller-supplied sort field name.
+            allowed: A frozenset of permitted column names.
+            default: Fallback column name when sort_by is not in ``allowed``.
+
+        Returns:
+            A SQLAlchemy column attribute (safe to call .asc() / .desc() on).
+        """
+        if sort_by not in allowed:
+            sort_by = default
+        return getattr(model, sort_by)
+
+    # ── Query helpers ─────────────────────────────────────────────────────────
 
     def _apply_relations(
         self,
@@ -73,15 +122,18 @@ class BaseRepository(Generic[ModelT]):
         """
         Apply a case-insensitive substring search across one or more columns.
 
-        `search_fields` are the model columns to match against (e.g.
+        ``search_fields`` are the model columns to match against (e.g.
         [User.name, User.email]). Terms match if any field contains
-        `search` (OR'd together). Empty/whitespace-only search terms and
-        an empty `search_fields` list are both treated as "no filter".
+        ``search`` (OR'd together). Empty/whitespace-only search terms and
+        an empty ``search_fields`` list are both treated as "no filter".
+
+        User-supplied wildcards are escaped to prevent query-amplification DoS.
         """
         if not search or not search_fields:
             return query
 
-        term = f"%{search.strip()}%"
+        stripped = search.strip()[: self.MAX_SEARCH_LEN]
+        term = f"%{self._escape_like(stripped)}%"
         conditions = [field.ilike(term) for field in search_fields]
 
         return query.where(or_(*conditions))
@@ -98,7 +150,7 @@ class BaseRepository(Generic[ModelT]):
         Each filter item is expected to look like:
             {"name": "code", "value": "IN"}
 
-        Only fields present in `allowed_fields` are applied.
+        Only fields present in ``allowed_fields`` are applied.
         """
         if not filters or not allowed_fields:
             return query
@@ -134,7 +186,7 @@ class BaseRepository(Generic[ModelT]):
         """
         Execute a query and return a single result (or None).
 
-        `flush` should only be set True when the caller needs pending,
+        ``flush`` should only be set True when the caller needs pending,
         uncommitted changes in this session reflected in the query results.
         It never ends the transaction, unlike commit().
         """
@@ -161,12 +213,14 @@ class BaseRepository(Generic[ModelT]):
         """
         Paginate a SELECT query.
 
-        Runs a COUNT(*) over the query's current filters/joins (via a
-        subquery, so ordering/columns on `query` don't interfere), then
-        applies LIMIT/OFFSET to fetch just the requested page of rows.
+        Runs a COUNT(*) over the query's current filters/joins, then applies
+        LIMIT/OFFSET to fetch just the requested page of rows.
 
-        `page` is 1-indexed. Invalid values are clamped (page >= 1,
-        page_size >= 1).
+        The count query strips ORDER BY and eager-load OPTIONS before wrapping
+        as a subquery. This lets the database planner use index-only COUNT
+        paths instead of materialising the full sort+join result set.
+
+        ``page`` is 1-indexed. Invalid values are clamped (page >= 1, page_size >= 1).
         """
         page = max(page, 1)
         page_size = max(page_size, 1)
@@ -174,7 +228,9 @@ class BaseRepository(Generic[ModelT]):
         if flush:
             await self.db.flush()
 
-        count_query = select(func.count()).select_from(query.subquery())
+        # Strip ORDER BY and eager-load options so the COUNT subquery is lean.
+        count_base = query.order_by(None).options()
+        count_query = select(func.count()).select_from(count_base.subquery())
         total = (await self.db.execute(count_query)).scalar_one()
 
         paged_query = query.limit(page_size).offset((page - 1) * page_size)

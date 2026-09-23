@@ -77,6 +77,11 @@ def _extract_token_from_environ(environ: dict, auth: Optional[dict] = None) -> O
     return None
 
 
+# Module-level singleton — avoids re-instantiating TokenManager (and any key-loading
+# it performs) on every single socket connection handshake.
+_token_manager = TokenManager()
+
+
 @sio.event
 async def connect(sid: str, environ: dict, auth: Optional[dict] = None):
     """Handshake authentication for incoming socket connections."""
@@ -86,8 +91,7 @@ async def connect(sid: str, environ: dict, auth: Optional[dict] = None):
         raise socketio.exceptions.ConnectionRefusedError("authentication_required")
 
     try:
-        token_manager = TokenManager()
-        payload = await token_manager.decode_token(token)
+        payload = await _token_manager.decode_token(token)
     except Exception as exc:
         logger.warning("Socket connection refused [%s]: invalid/expired token (%s)", sid, exc)
         raise socketio.exceptions.ConnectionRefusedError("invalid_token")
@@ -107,9 +111,13 @@ async def connect(sid: str, environ: dict, auth: Optional[dict] = None):
         logger.warning("Socket connection refused [%s]: invalid user UUID in sub", sid)
         raise socketio.exceptions.ConnectionRefusedError("invalid_user_uuid")
 
-    # Validate user exists and is active in database
+    # Validate user exists and is active in database.
+    # If the DB session factory is not yet initialised (app still starting up),
+    # refuse the connection cleanly rather than racing to call db.connect() again.
     if db.async_session is None:
-        db.connect()
+        logger.warning("Socket connection refused [%s]: database not yet initialised", sid)
+        raise socketio.exceptions.ConnectionRefusedError("server_not_ready")
+
     async with db.async_session() as session:
         result = await session.execute(select(User).where(User.public_id == user_uuid))
         user = result.scalar_one_or_none()

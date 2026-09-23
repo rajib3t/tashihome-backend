@@ -178,7 +178,12 @@ class VendorAgreementRepository(BaseRepository[VendorAgreement]):
         total = (await self.db.execute(count_query)).scalar_one()
 
         # Sorting
-        sort_col = getattr(VendorAgreement, params.sort_by, VendorAgreement.created_at)
+        # Allowlisted sort to prevent schema enumeration
+        sort_col = self._safe_sort_column(
+            VendorAgreement,
+            params.sort_by,
+            frozenset({"created_at", "updated_at", "status", "signed_at", "expires_at"}),
+        )
         if params.sort_order.lower() == "asc":
             query = query.order_by(sort_col.asc())
         else:

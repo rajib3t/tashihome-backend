@@ -77,7 +77,8 @@ class AgreementTemplateRepository(BaseRepository[AgreementTemplate]):
             query = query.where(AgreementTemplate.status != AgreementTemplateStatus.ARCHIVED)
 
         if search:
-            term = f"%{search.strip()}%"
+            safe_term = self._escape_like(search.strip()[: self.MAX_SEARCH_LEN])
+            term = f"%{safe_term}%"
             query = query.where(
                 or_(
                     AgreementTemplate.name.ilike(term),
@@ -88,7 +89,12 @@ class AgreementTemplateRepository(BaseRepository[AgreementTemplate]):
         count_query = select(func.count()).select_from(query.subquery())
         total = (await self.db.execute(count_query)).scalar_one()
 
-        sort_col = getattr(AgreementTemplate, sort_by, AgreementTemplate.created_at)
+        # Allowlisted sort to prevent schema enumeration
+        sort_col = self._safe_sort_column(
+            AgreementTemplate,
+            sort_by,
+            frozenset({"created_at", "updated_at", "name", "status", "is_default"}),
+        )
         if sort_order.lower() == "asc":
             query = query.order_by(sort_col.asc())
         else:

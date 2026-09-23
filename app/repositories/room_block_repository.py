@@ -227,7 +227,11 @@ class RoomBlockRepository(BaseRepository[RoomBlock]):
                 )
             )
 
-        sort_column = getattr(RoomBlock, sort_by, RoomBlock.created_at)
+        sort_column = self._safe_sort_column(
+            RoomBlock,
+            sort_by,
+            frozenset({"created_at", "updated_at", "block_start_date", "block_end_date", "units_blocked"}),
+        )
         query = query.order_by(
             sort_column.asc() if sort_order.lower() == "asc" else sort_column.desc()
         )
@@ -270,7 +274,11 @@ class RoomBlockRepository(BaseRepository[RoomBlock]):
                 )
             )
 
-        sort_column = getattr(RoomBlock, sort_by, RoomBlock.created_at)
+        sort_column = self._safe_sort_column(
+            RoomBlock,
+            sort_by,
+            frozenset({"created_at", "updated_at", "block_start_date", "block_end_date", "units_blocked"}),
+        )
         query = query.order_by(
             sort_column.asc() if sort_order.lower() == "asc" else sort_column.desc()
         )

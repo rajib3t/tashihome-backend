@@ -24,6 +24,10 @@ IDEMPOTENCY_HEADER_NAMES: Tuple[str, ...] = (
     "x-idempotency-key",
 )
 
+# Module-level singleton — avoids re-instantiating TokenManager on every request
+# that carries an Idempotency-Key header.
+_token_manager = TokenManager()
+
 
 def extract_idempotency_key(request: Request) -> Optional[str]:
     """Extract and sanitize Idempotency-Key or X-Idempotency-Key from headers."""
@@ -49,8 +53,7 @@ async def extract_user_scope(request: Request) -> str:
 
     if token:
         try:
-            token_manager = TokenManager()
-            payload = await token_manager.decode_token(token)
+            payload = await _token_manager.decode_token(token)
             sub = payload.get("sub")
             if sub:
                 return f"user:{sub}"
@@ -269,8 +272,30 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         if not idempotency_key:
             return await call_next(request)
 
+        # ── OOM guard ────────────────────────────────────────────────────────
+        # Skip idempotency for multipart file uploads — buffering the entire
+        # body into memory would cause OOM under concurrent large uploads.
+        content_type = request.headers.get("content-type", "")
+        if "multipart/form-data" in content_type:
+            return await call_next(request)
+
+        # Skip if Content-Length exceeds our safe buffering limit.
+        max_body = getattr(settings, "IDEMPOTENCY_MAX_BODY_BYTES", 512 * 1024)  # default 512 KB
+        content_length_header = request.headers.get("content-length")
+        if content_length_header:
+            try:
+                if int(content_length_header) > max_body:
+                    return await call_next(request)
+            except ValueError:
+                pass
+        # ─────────────────────────────────────────────────────────────────────
+
         # Read the entire request body bytes for fingerprinting
         body_bytes = await request.body()
+
+        # Guard against bodies that lacked a Content-Length header but are still large
+        if len(body_bytes) > max_body:
+            return await call_next(request)
 
         # Re-populate the request receive channel so downstream handlers can read body
         async def receive() -> Message:

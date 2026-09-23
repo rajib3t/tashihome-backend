@@ -1,6 +1,7 @@
 from fastapi import Depends
 
 from app.core.events import RedisEventBus
+from app.deps.event_bus import get_event_bus
 
 from app.application.use_case.user.booking.cancel_booking_use_case import CancelBookingUseCase
 from app.application.use_case.user.booking.check_availability_use_case import CheckAvailabilityUseCase
@@ -97,12 +98,13 @@ async def get_create_booking_payment_use_case(
     booking_service: BookingService = Depends(get_booking_service),
     payment_service: PaymentService = Depends(get_payment_service),
     current_user: CurrentUser = Depends(get_current_user),
+    event_bus: RedisEventBus = Depends(get_event_bus),
 ) -> CreateBookingPaymentUseCase:
     return CreateBookingPaymentUseCase(
         booking_service=booking_service,
         payment_service=payment_service,
         current_user=current_user,
-        event_bus=RedisEventBus(),
+        event_bus=event_bus,
     )
 
 
@@ -152,13 +154,14 @@ async def get_verify_razorpay_payment_use_case(
     razorpay_service: RazorpayService = Depends(get_razorpay_service),
     current_user: CurrentUser = Depends(get_current_user),
     notification_service: NotificationService = Depends(get_notification_service),
+    event_bus: RedisEventBus = Depends(get_event_bus),
 ) -> VerifyRazorpayPaymentUseCase:
     return VerifyRazorpayPaymentUseCase(
         booking_service=booking_service,
         payment_service=payment_service,
         razorpay_service=razorpay_service,
         current_user=current_user,
-        event_bus=RedisEventBus(),
+        event_bus=event_bus,
         notification_service=notification_service,
     )
 

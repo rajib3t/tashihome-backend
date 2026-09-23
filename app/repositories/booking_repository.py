@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import date
 from datetime import datetime
 from datetime import timezone
-from typing import Optional, Sequence, TypedDict
+from typing import ClassVar, Optional, Sequence, TypedDict
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select, text
@@ -24,6 +24,18 @@ class BookingWithRelations(TypedDict, total=False):
 
 
 class BookingRepository(BaseRepository[Booking]):
+    # Allowlist of columns that callers may sort by.
+    # Prevents schema enumeration via unvalidated getattr() access.
+    _ALLOWED_SORT_FIELDS: ClassVar[frozenset] = frozenset({
+        "created_at",
+        "updated_at",
+        "check_in_date",
+        "check_out_date",
+        "total_amount",
+        "status",
+        "payment_status",
+    })
+
     @property
     def _relation_map(self):
         return {
@@ -190,7 +202,7 @@ class BookingRepository(BaseRepository[Booking]):
             )
 
         # Sorting
-        sort_column = getattr(Booking, sort_by, Booking.created_at)
+        sort_column = self._safe_sort_column(Booking, sort_by, self._ALLOWED_SORT_FIELDS)
         if sort_order.lower() == "asc":
             query = query.order_by(sort_column.asc())
         else:
@@ -345,7 +357,7 @@ class BookingRepository(BaseRepository[Booking]):
                 )
             )
 
-        sort_column = getattr(Booking, sort_by, Booking.created_at)
+        sort_column = self._safe_sort_column(Booking, sort_by, self._ALLOWED_SORT_FIELDS)
         query = query.order_by(
             sort_column.asc() if sort_order.lower() == "asc" else sort_column.desc()
         )
@@ -394,7 +406,7 @@ class BookingRepository(BaseRepository[Booking]):
                 )
             )
 
-        sort_column = getattr(Booking, sort_by, Booking.created_at)
+        sort_column = self._safe_sort_column(Booking, sort_by, self._ALLOWED_SORT_FIELDS)
         query = query.order_by(
             sort_column.asc() if sort_order.lower() == "asc" else sort_column.desc()
         )

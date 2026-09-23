@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional, TypedDict
 
-from sqlalchemy import select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import selectinload
 
 from app.models.property_amenity_model import PropertyAmenity
@@ -280,28 +280,32 @@ class PropertyRepository(BaseRepository[Property]):
 
         # 1b. Specific Address filter
         if address and address.strip():
-            query = query.where(Property.address.ilike(f"%{address.strip()}%"))
+            safe_addr = self._escape_like(address.strip()[: self.MAX_SEARCH_LEN])
+            query = query.where(Property.address.ilike(f"%{safe_addr}%"))
 
         # 2. City filter (slug or name)
         if city_slug and city_slug.strip():
             query = query.where(func.lower(City.slug) == city_slug.strip().lower())
         elif city_name and city_name.strip():
             c_term = city_name.strip().lower()
-            query = query.where(or_(func.lower(City.slug) == c_term, City.name.ilike(f"%{city_name.strip()}%")))
+            safe_city = self._escape_like(city_name.strip()[: self.MAX_SEARCH_LEN])
+            query = query.where(or_(func.lower(City.slug) == c_term, City.name.ilike(f"%{safe_city}%")))
 
         # 3. Location filter (slug or name)
         if location_slug and location_slug.strip():
             query = query.where(func.lower(Location.slug) == location_slug.strip().lower())
         elif location_name and location_name.strip():
             l_term = location_name.strip().lower()
-            query = query.where(or_(func.lower(Location.slug) == l_term, Location.name.ilike(f"%{location_name.strip()}%")))
+            safe_loc = self._escape_like(location_name.strip()[: self.MAX_SEARCH_LEN])
+            query = query.where(or_(func.lower(Location.slug) == l_term, Location.name.ilike(f"%{safe_loc}%")))
 
         # 4. Country filter (slug or name)
         if country_slug and country_slug.strip():
             query = query.where(func.lower(Country.slug) == country_slug.strip().lower())
         elif country_name and country_name.strip():
             co_term = country_name.strip().lower()
-            query = query.where(or_(func.lower(Country.slug) == co_term, Country.name.ilike(f"%{country_name.strip()}%")))
+            safe_country = self._escape_like(country_name.strip()[: self.MAX_SEARCH_LEN])
+            query = query.where(or_(func.lower(Country.slug) == co_term, Country.name.ilike(f"%{safe_country}%")))
 
         # 5. ID filters (city_id, location_id, country_id - supports integer ID, public UUID, or slug)
         if city_id is not None:
@@ -344,41 +348,59 @@ class PropertyRepository(BaseRepository[Property]):
         if max_price is not None:
             query = query.where(effective_price <= max_price)
 
-        # 9. Amenities filter
+        # 9. Amenities filter — requires property to have ALL listed amenities.
+        # Uses a single GROUP BY / HAVING COUNT(DISTINCT) instead of N nested IN subqueries
+        # to avoid query plan degradation with many IDs.
         if amenity_ids:
-            for a_id in amenity_ids:
-                if str(a_id).isdigit():
-                    query = query.where(
-                        Property.id.in_(
-                            select(PropertyAmenity.property_id).where(PropertyAmenity.amenity_id == int(a_id))
-                        )
-                    )
-                else:
-                    query = query.where(
-                        Property.id.in_(
-                            select(PropertyAmenity.property_id)
-                            .join(Amenity, PropertyAmenity.amenity_id == Amenity.id)
-                            .where(Amenity.public_id == a_id)
-                        )
-                    )
+            int_ids = [int(a) for a in amenity_ids if str(a).isdigit()]
+            uuid_ids = [a for a in amenity_ids if not str(a).isdigit()]
 
-        # 10. Facilities filter
+            if int_ids:
+                amenity_int_sub = (
+                    select(PropertyAmenity.property_id)
+                    .where(PropertyAmenity.amenity_id.in_(int_ids))
+                    .group_by(PropertyAmenity.property_id)
+                    .having(func.count(distinct(PropertyAmenity.amenity_id)) == len(int_ids))
+                    .scalar_subquery()
+                )
+                query = query.where(Property.id.in_(amenity_int_sub))
+
+            if uuid_ids:
+                amenity_uuid_sub = (
+                    select(PropertyAmenity.property_id)
+                    .join(Amenity, PropertyAmenity.amenity_id == Amenity.id)
+                    .where(Amenity.public_id.in_(uuid_ids))
+                    .group_by(PropertyAmenity.property_id)
+                    .having(func.count(distinct(PropertyAmenity.amenity_id)) == len(uuid_ids))
+                    .scalar_subquery()
+                )
+                query = query.where(Property.id.in_(amenity_uuid_sub))
+
+        # 10. Facilities filter — same set-based approach as amenities above.
         if facility_ids:
-            for f_id in facility_ids:
-                if str(f_id).isdigit():
-                    query = query.where(
-                        Property.id.in_(
-                            select(PropertyFacility.property_id).where(PropertyFacility.facility_id == int(f_id))
-                        )
-                    )
-                else:
-                    query = query.where(
-                        Property.id.in_(
-                            select(PropertyFacility.property_id)
-                            .join(Facility, PropertyFacility.facility_id == Facility.id)
-                            .where(Facility.public_id == f_id)
-                        )
-                    )
+            int_ids = [int(f) for f in facility_ids if str(f).isdigit()]
+            uuid_ids = [f for f in facility_ids if not str(f).isdigit()]
+
+            if int_ids:
+                facility_int_sub = (
+                    select(PropertyFacility.property_id)
+                    .where(PropertyFacility.facility_id.in_(int_ids))
+                    .group_by(PropertyFacility.property_id)
+                    .having(func.count(distinct(PropertyFacility.facility_id)) == len(int_ids))
+                    .scalar_subquery()
+                )
+                query = query.where(Property.id.in_(facility_int_sub))
+
+            if uuid_ids:
+                facility_uuid_sub = (
+                    select(PropertyFacility.property_id)
+                    .join(Facility, PropertyFacility.facility_id == Facility.id)
+                    .where(Facility.public_id.in_(uuid_ids))
+                    .group_by(PropertyFacility.property_id)
+                    .having(func.count(distinct(PropertyFacility.facility_id)) == len(uuid_ids))
+                    .scalar_subquery()
+                )
+                query = query.where(Property.id.in_(facility_uuid_sub))
 
         # 11. Guests / Capacity filter
         if guests is not None and guests > 0:

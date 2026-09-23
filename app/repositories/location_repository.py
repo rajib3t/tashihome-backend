@@ -158,7 +158,11 @@ class LocationRepository(BaseRepository[Location]):
         with_relations: Optional[WithRelations] = None,
         flush: bool = False,
     ) -> Page[Location]:
-        sort_col = getattr(Location, sort_by, Location.created_at)
+        sort_col = self._safe_sort_column(
+            Location,
+            sort_by,
+            frozenset({"created_at", "updated_at", "name", "slug", "status"}),
+        )
         if str(sort_order).lower() == "asc":
             query = select(Location).order_by(sort_col.asc())
         else:
@@ -177,7 +181,9 @@ class LocationRepository(BaseRepository[Location]):
                     remaining_filters.append(f)
 
         if name_filter:
-            query = query.where(Location.name.ilike(f"%{str(name_filter).strip()}%"))
+            # Escape LIKE metacharacters to prevent wildcard abuse / incorrect matching
+            safe_name = self._escape_like(str(name_filter).strip()[: self.MAX_SEARCH_LEN])
+            query = query.where(Location.name.ilike(f"%{safe_name}%"))
 
         query = self._apply_search(query, search, search_fields=[Location.name, Location.slug, Location.city_id])
         query = self._apply_dynamic_filters(query, remaining_filters, self._filter_map)

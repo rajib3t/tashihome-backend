@@ -77,7 +77,8 @@ class HostRequestRepository(BaseRepository[HostRequest]):
             query = query.where(HostRequest.status == status.strip().lower())
 
         if city and city.strip():
-            query = query.where(HostRequest.city.ilike(f"%{city.strip()}%"))
+            safe_city = self._escape_like(city.strip()[: self.MAX_SEARCH_LEN])
+            query = query.where(HostRequest.city.ilike(f"%{safe_city}%"))
 
         if email and email.strip():
             query = query.where(func.lower(HostRequest.email) == email.strip().lower())
@@ -92,8 +93,12 @@ class HostRequestRepository(BaseRepository[HostRequest]):
         }
         query = self._apply_dynamic_filters(query, filters, allowed_fields)
 
-        # Sorting
-        sort_column = getattr(HostRequest, sort_by, HostRequest.created_at)
+        # Sorting — allowlisted to prevent schema enumeration
+        sort_column = self._safe_sort_column(
+            HostRequest,
+            sort_by,
+            frozenset({"created_at", "updated_at", "full_name", "email", "city", "status"}),
+        )
         if sort_order.lower() == "asc":
             query = query.order_by(sort_column.asc())
         else:
