@@ -106,6 +106,24 @@ class TokenManager:
         to_encode.update({"iat": datetime.now(timezone.utc), "exp": expire, "type": TokenType.PASSWORD_RESET})
         return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
 
+    async def generate_agreement_signing_token(
+        self,
+        agreement_public_id: str,
+        vendor_public_id: str,
+        expires_at: datetime,
+    ) -> str:
+        to_encode = await self._normalize_claims({
+            "sub": str(vendor_public_id),
+            "agreement_id": str(agreement_public_id),
+        })
+        to_encode.update({
+            "iat": datetime.now(timezone.utc),
+            "exp": expires_at,
+            "type": TokenType.AGREEMENT_SIGNING,
+        })
+        return await asyncio.get_event_loop().run_in_executor(None, self._encode_jwt, to_encode)
+
+
     async def decode_token(self, token: str) -> dict:
         try:
             return await asyncio.get_event_loop().run_in_executor(None, self._decode_jwt, token)

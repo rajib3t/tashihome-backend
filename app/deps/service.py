@@ -400,6 +400,7 @@ async def get_vendor_agreement_service(
     pdf_service=Depends(get_agreement_pdf_service),
     setting_service: SettingService = Depends(get_setting_service),
     template_repository=Depends(get_agreement_template_repository),
+    token_service=Depends(get_token_service),
 ):
     from app.deps.event_bus import get_event_bus
     from app.services.vendor_agreement_service import VendorAgreementService
@@ -418,7 +419,9 @@ async def get_vendor_agreement_service(
         setting_service=setting_service,
         event_bus=event_bus,
         template_service=template_service,
+        token_service=token_service,
     )
+
 
 
 

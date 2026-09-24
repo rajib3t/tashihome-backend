@@ -901,8 +901,8 @@ def test_agreement_email_dispatched_via_event_bus():
             phone="+919876543210",
         )
 
-        repo.create.side_effect = lambda ag, commit=True: ag
-        repo.update.side_effect = lambda ag: ag
+        repo.create.side_effect = lambda ag, *args, **kwargs: ag
+        repo.update.side_effect = lambda ag, *args, **kwargs: ag
 
         # 1. Create and send agreement -> should publish AgreementInvitationSentEvent
         created = await service.create_and_send_agreement(vendor=vendor)
@@ -978,7 +978,7 @@ def test_bilateral_signatures_and_countersign():
         agmt.vendor = mock_vendor
         repo.get_by_token.return_value = agmt
         repo.get_by_public_id.return_value = agmt
-        repo.update.side_effect = lambda a: a
+        repo.update.side_effect = lambda a, *args, **kwargs: a
 
         # Host signs first -> status should transition to PARTIALLY_SIGNED
         sign_dto = SignAgreementDTO(
@@ -1179,6 +1179,200 @@ def test_sign_agreement_with_font_selection():
             assert result.signature_type == "typed"
 
     asyncio.run(run_test())
+
+
+def test_jwt_agreement_signing_token_generation():
+    """Verify that agreement invitation generates a signed JWT token with proper claims."""
+    async def run_test():
+        repo = AsyncMock()
+        email_service = AsyncMock()
+        template_service = AsyncMock()
+        template_service.render_template.return_value = "<html>Invitation</html>"
+        storage_service = AsyncMock()
+        pdf_service = MagicMock()
+        token_service = AsyncMock()
+
+        service = VendorAgreementService(
+            repository=repo,
+            email_service=email_service,
+            email_template_service=template_service,
+            storage_service=storage_service,
+            pdf_service=pdf_service,
+            token_service=token_service,
+        )
+
+        mock_vendor = MagicMock()
+        mock_vendor.id = 55
+        mock_vendor.public_id = uuid.uuid4()
+        mock_vendor.email = "vendor55@test.com"
+        mock_vendor.full_name = "Tenzing Norbu"
+        mock_vendor.company = MagicMock(name="Tenzing Homestay")
+
+        repo.get_all_by_vendor_id.return_value = []
+        repo.create.side_effect = lambda agmt, commit=False: agmt
+
+        agreement = await service.create_and_send_agreement(
+            vendor=mock_vendor,
+            valid_days=5,
+        )
+
+        assert agreement.token is not None
+        # Verify decoding the JWT
+        payload = await service.token_manager.decode_token(agreement.token)
+        assert payload["type"] == "agreement_signing_token"
+        assert payload["sub"] == str(mock_vendor.public_id)
+        assert payload["agreement_id"] == str(agreement.public_id)
+        assert "exp" in payload
+        assert token_service.create.called
+
+    asyncio.run(run_test())
+
+
+def test_revoked_token_cannot_be_used_again():
+    """Verify that a revoked agreement token is rejected on both get_by_token and sign_agreement."""
+    async def run_test():
+        repo = AsyncMock()
+        token_service = AsyncMock()
+        storage_service = AsyncMock()
+        email_service = AsyncMock()
+        template_service = AsyncMock()
+        pdf_service = MagicMock()
+
+        service = VendorAgreementService(
+            repository=repo,
+            email_service=email_service,
+            email_template_service=template_service,
+            storage_service=storage_service,
+            pdf_service=pdf_service,
+            token_service=token_service,
+        )
+
+        mock_vendor = MagicMock()
+        mock_vendor.id = 77
+        mock_vendor.public_id = uuid.uuid4()
+
+        agmt_id = uuid.uuid4()
+        jwt_token = await service.token_manager.generate_agreement_signing_token(
+            agreement_public_id=str(agmt_id),
+            vendor_public_id=str(mock_vendor.public_id),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=2),
+        )
+
+        # Mock token record as already revoked
+        mock_token_record = MagicMock()
+        mock_token_record.is_revoked = True
+        token_service.get_by_token.return_value = mock_token_record
+
+        # 1. get_by_token should reject revoked token
+        import pytest
+        with pytest.raises(AppException) as exc_get:
+            await service.get_by_token(jwt_token)
+        assert exc_get.value.status_code == 400
+        assert exc_get.value.error_code == "TOKEN_REVOKED"
+
+        # 2. sign_agreement should reject revoked token
+        sign_dto = SignAgreementDTO(
+            signer_name="Tenzing",
+            signature_type="typed",
+            signature_data="Tenzing",
+            terms_accepted=True,
+            consent_acknowledged=True,
+        )
+        with pytest.raises(AppException) as exc_sign:
+            await service.sign_agreement(token=jwt_token, sign_dto=sign_dto)
+        assert exc_sign.value.status_code == 400
+        assert exc_sign.value.error_code == "TOKEN_REVOKED"
+
+    asyncio.run(run_test())
+
+
+def test_resend_agreement_revokes_old_token():
+    """Verify that resending an agreement revokes the previous token and generates a new JWT."""
+    async def run_test():
+        repo = AsyncMock()
+        token_service = AsyncMock()
+        storage_service = AsyncMock()
+        email_service = AsyncMock()
+        template_service = AsyncMock()
+        template_service.render_template.return_value = "<html>Resent</html>"
+        pdf_service = MagicMock()
+
+        service = VendorAgreementService(
+            repository=repo,
+            email_service=email_service,
+            email_template_service=template_service,
+            storage_service=storage_service,
+            pdf_service=pdf_service,
+            token_service=token_service,
+        )
+
+        old_token_record = MagicMock()
+        old_token_record.is_revoked = False
+        token_service.get_by_token.return_value = old_token_record
+
+        mock_vendor = MagicMock()
+        mock_vendor.id = 88
+        mock_vendor.public_id = uuid.uuid4()
+        mock_vendor.email = "host88@test.com"
+        mock_vendor.full_name = "Host 88"
+
+        mock_agmt = MagicMock()
+        mock_agmt.public_id = uuid.uuid4()
+        mock_agmt.token = "old-token-string"
+        mock_agmt.status = AgreementStatus.VIEWED
+        mock_agmt.vendor = mock_vendor
+
+        repo.get_by_public_id.return_value = mock_agmt
+
+        updated_agmt = await service.resend_agreement(agreement_id=mock_agmt.public_id)
+
+        # Old token was revoked
+        assert token_service.revoke_token.called
+        # Agreement token was renewed with JWT
+        assert updated_agmt.token != "old-token-string"
+        payload = await service.token_manager.decode_token(updated_agmt.token)
+        assert payload["type"] == "agreement_signing_token"
+
+    asyncio.run(run_test())
+
+
+def test_get_download_url_generates_on_demand_when_s3_key_missing():
+    """Verify that get_download_url generates and uploads PDF on-demand if signed agreement has no pdf_file_url."""
+    async def run_test():
+        repo = AsyncMock()
+        storage_service = AsyncMock()
+        storage_service.generate_presigned_url.return_value = "https://s3.example.com/generated_contract.pdf"
+        pdf_service = MagicMock()
+        pdf_service.generate_signed_agreement_pdf.return_value = b"%PDF-1.4 Generated On Demand"
+
+        service = VendorAgreementService(
+            repository=repo,
+            email_service=AsyncMock(),
+            email_template_service=AsyncMock(),
+            storage_service=storage_service,
+            pdf_service=pdf_service,
+        )
+
+        mock_vendor = MagicMock()
+        mock_vendor.email = "host@test.com"
+        mock_vendor.full_name = "Host Name"
+
+        mock_agmt = MagicMock()
+        mock_agmt.public_id = uuid.uuid4()
+        mock_agmt.status = AgreementStatus.SIGNED
+        mock_agmt.pdf_file_url = None
+        mock_agmt.signer_name = "Host Name"
+        mock_agmt.vendor = mock_vendor
+        mock_agmt.terms_snapshot = None
+
+        url = await service.get_download_url(mock_agmt)
+
+        assert url == "https://s3.example.com/generated_contract.pdf"
+        assert storage_service.upload_bytes.called
+        assert mock_agmt.pdf_file_url is not None
+
+    asyncio.run(run_test())
+
 
 
 

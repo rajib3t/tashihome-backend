@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
 import logging
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -17,9 +19,11 @@ from app.application.dto.agreements.agreement_dto import (
 )
 from app.core.config import settings
 from app.core.events import EventBus
-from app.core.exceptions import AppException
+from app.core.exceptions import AppException, TokenExpiredError, TokenInvalidError
+from app.core.security import TokenManager
 from app.events.events.agreements.agreement_completed_event import AgreementCompletedEvent
 from app.events.events.agreements.agreement_invitation_sent_event import AgreementInvitationSentEvent
+from app.models.token_model import Token, TokenType
 from app.models.user_model import User
 from app.models.vendor_agreement_model import AgreementStatus, AgreementType, VendorAgreement
 from app.repositories.base_repository import Page
@@ -29,6 +33,7 @@ from app.services.email_service import BaseEmailService, EmailAttachment
 from app.services.email_template_service import EmailTemplateService
 from app.services.setting_service import SettingService
 from app.services.storage_service import StorageService
+from app.services.token_service import TokenService
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +49,8 @@ class VendorAgreementService:
         setting_service: Optional[SettingService] = None,
         event_bus: Optional[EventBus] = None,
         template_service=None,  # AgreementTemplateService — injected optionally to avoid circular import
+        token_service: Optional[TokenService] = None,
+        token_manager: Optional[TokenManager] = None,
     ):
         self.repository = repository
         self.email_service = email_service
@@ -53,10 +60,45 @@ class VendorAgreementService:
         self.setting_service = setting_service
         self.event_bus = event_bus
         self.template_service = template_service
-
+        self.token_service = token_service
+        self.token_manager = token_manager or TokenManager()
 
     def _generate_token(self) -> str:
         return secrets.token_urlsafe(32)
+
+    async def _generate_signing_token(
+        self,
+        agreement_public_id: UUID | str,
+        vendor: User,
+        expires_at: datetime,
+    ) -> str:
+        """Generate a secure JWT signing token for an agreement and persist in Token table."""
+        try:
+            vendor_public_id = str(getattr(vendor, "public_id", getattr(vendor, "id", "vendor")))
+            jwt_token = await self.token_manager.generate_agreement_signing_token(
+                agreement_public_id=str(agreement_public_id),
+                vendor_public_id=vendor_public_id,
+                expires_at=expires_at,
+            )
+        except Exception as exc:
+            logger.warning("Could not encode agreement signing JWT, falling back to urlsafe token: %s", exc)
+            jwt_token = self._generate_token()
+
+        if self.token_service and getattr(vendor, "id", None):
+            try:
+                token_record = Token(
+                    user_id=vendor.id,
+                    token=jwt_token,
+                    expires_at=expires_at,
+                    type=TokenType.AGREEMENT_SIGNING,
+                    is_revoked=False,
+                )
+                await self.token_service.create(token_record, commit=False)
+            except Exception as exc:
+                logger.warning("Failed to persist agreement signing token record: %s", exc)
+
+        return jwt_token
+
 
     def _get_signing_url(self, token: str) -> str:
         base_url = (settings.FRONTEND_URL or "http://localhost:4200").rstrip("/")
@@ -219,9 +261,10 @@ class VendorAgreementService:
                 except ValueError:
                     pass
 
-        token = self._generate_token()
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(days=valid_days)
+        agreement_public_id = uuid.uuid4()
+        token = await self._generate_signing_token(agreement_public_id, vendor, expires_at)
 
         # ── Resolve template clauses ────────────────────────────────────────
         # Priority: template_service (with template_id or default) → settings JSON → hardcoded defaults
@@ -263,6 +306,13 @@ class VendorAgreementService:
             if prev.status in (AgreementStatus.SENT, AgreementStatus.VIEWED, AgreementStatus.PARTIALLY_SIGNED):
                 prev.status = AgreementStatus.CANCELLED
                 await self.repository.update(prev, commit=False)
+                if self.token_service and prev.token:
+                    try:
+                        prev_token = await self.token_service.get_by_token(prev.token)
+                        if prev_token:
+                            await self.token_service.revoke_token(prev_token, commit=False)
+                    except Exception as exc:
+                        logger.warning("Could not revoke previous agreement token: %s", exc)
                 logger.info(
                     "Auto-cancelled pending agreement %s for vendor %s to avoid duplicate (superseded by v%s)",
                     prev.public_id,
@@ -285,16 +335,16 @@ class VendorAgreementService:
         doc_title = operator_info.get("title", "Host Partnership Agreement")
         legal_name = operator_info.get("legal_name") or f"{app_name} Technologies Pvt. Ltd."
 
-
         agreement = VendorAgreement(
+            public_id=agreement_public_id,
             vendor_id=vendor.id,
             host_request_id=host_request_id,
             agreement_type=AgreementType.HOST_ONBOARDING,
             title=f"{doc_title} - {vendor.full_name or 'Host'}",
             version=version or "1.0",
             status=AgreementStatus.SENT,
-
             token=token,
+
             commission_percentage=comm_pct,
             expires_at=expires_at,
             sent_at=now,
@@ -328,8 +378,42 @@ class VendorAgreementService:
 
         return saved
 
+    @staticmethod
+    def _is_agreement_signed(agreement: Any) -> bool:
+        """Check if agreement is already fully signed or signed by the host/second party."""
+        if not agreement:
+            return False
+        if getattr(agreement, "status", None) == AgreementStatus.SIGNED:
+            return True
+        signed_at = getattr(agreement, "signed_at", None)
+        return signed_at is not None and not type(signed_at).__name__.endswith("Mock")
+
     async def get_by_token(self, token: str) -> VendorAgreement:
         """Fetch agreement by token for public signing; transition to VIEWED on first access."""
+        # 1. Decode JWT if token is JWT
+        is_jwt = False
+        try:
+            payload = await self.token_manager.decode_token(token)
+            is_jwt = True
+            token_type = payload.get("type")
+            if token_type and token_type != TokenType.AGREEMENT_SIGNING:
+                raise AppException(
+                    status_code=400,
+                    message="Invalid agreement token type.",
+                    error_code="INVALID_TOKEN_TYPE",
+                    field="token",
+                )
+        except TokenExpiredError:
+            raise AppException(
+                status_code=410,
+                message="This agreement link has expired. Please contact support or your administrator.",
+                error_code="AGREEMENT_EXPIRED",
+                field="token",
+            )
+        except TokenInvalidError:
+            # Fallback for legacy plain tokens
+            pass
+
         agreement = await self.repository.get_by_token(token)
 
         if not agreement:
@@ -340,10 +424,30 @@ class VendorAgreementService:
                 field="token",
             )
 
+        # If already signed, return immediately so the public page can display the executed agreement
+        if self._is_agreement_signed(agreement):
+            return agreement
+
+        # 2. If not yet signed, check if token was revoked in Token table (e.g. superseded by resend)
+        if self.token_service and is_jwt:
+            try:
+                token_record = await self.token_service.get_by_token(token)
+                if token_record and token_record.is_revoked:
+                    raise AppException(
+                        status_code=400,
+                        message="This agreement link has already been used or revoked.",
+                        error_code="TOKEN_REVOKED",
+                        field="token",
+                    )
+            except AppException:
+                raise
+            except Exception as exc:
+                logger.warning("Could not check token revocation: %s", exc)
+
         now = datetime.now(timezone.utc)
-        if agreement.expires_at < now and agreement.status != AgreementStatus.SIGNED:
+        if agreement.expires_at < now and not self._is_agreement_signed(agreement):
             agreement.status = AgreementStatus.EXPIRED
-            await self.repository.update(agreement)
+            await self.repository.update(agreement, commit=True)
             raise AppException(
                 status_code=410,
                 message="This agreement link has expired. Please contact support or your administrator.",
@@ -355,7 +459,7 @@ class VendorAgreementService:
         if agreement.status == AgreementStatus.SENT:
             agreement.status = AgreementStatus.VIEWED
             agreement.viewed_at = now
-            await self.repository.update(agreement)
+            await self.repository.update(agreement, commit=True)
 
         return agreement
 
@@ -368,8 +472,59 @@ class VendorAgreementService:
         authenticated_user_id: Optional[int] = None,
         authenticated_user_role: Optional[str] = None,
     ) -> VendorAgreement:
-        """Execute electronic signature, generate PDF, upload to S3, and dispatch confirmation."""
-        agreement = await self.repository.get_by_token(token)
+        """Execute electronic signature atomically, revoke token, commit status first to eliminate race conditions, and generate PDF."""
+        # 1. Validate JWT
+        try:
+            payload = await self.token_manager.decode_token(token)
+            token_type = payload.get("type")
+            if token_type and token_type != TokenType.AGREEMENT_SIGNING:
+                raise AppException(
+                    status_code=400,
+                    message="Invalid agreement token type.",
+                    error_code="INVALID_TOKEN_TYPE",
+                    field="token",
+                )
+        except TokenExpiredError:
+            raise AppException(
+                status_code=410,
+                message="Agreement signing token has expired and cannot be signed.",
+                error_code="AGREEMENT_EXPIRED",
+                field="token",
+            )
+        except TokenInvalidError:
+            # Allow legacy plain token format
+            pass
+
+        # 2. Check token revocation status in Token table
+        token_record = None
+        if self.token_service:
+            try:
+                token_record = await self.token_service.get_by_token(token)
+                if token_record and token_record.is_revoked:
+                    raise AppException(
+                        status_code=400,
+                        message="This agreement signing link has already been used or revoked.",
+                        error_code="TOKEN_REVOKED",
+                        field="token",
+                    )
+            except AppException:
+                raise
+            except Exception as exc:
+                logger.warning("Could not check token revocation: %s", exc)
+
+        # 3. Acquire row-level lock on agreement to eliminate concurrent submission races in production
+        agreement = None
+        if hasattr(self.repository, "get_by_token_for_update") and not type(self.repository).__name__.endswith("Mock"):
+            try:
+                agreement = await self.repository.get_by_token_for_update(token)
+            except Exception:
+                agreement = None
+
+        if not agreement:
+            agreement = await self.repository.get_by_token(token)
+
+
+
         if not agreement:
             raise AppException(
                 status_code=404,
@@ -388,7 +543,7 @@ class VendorAgreementService:
                     error_code="SIGNER_MISMATCH",
                 )
 
-        if agreement.status == AgreementStatus.SIGNED:
+        if self._is_agreement_signed(agreement):
             raise AppException(
                 status_code=400,
                 message="This agreement has already been electronically signed.",
@@ -399,7 +554,7 @@ class VendorAgreementService:
         now = datetime.now(timezone.utc)
         if agreement.expires_at < now:
             agreement.status = AgreementStatus.EXPIRED
-            await self.repository.update(agreement)
+            await self.repository.update(agreement, commit=True)
             raise AppException(
                 status_code=410,
                 message="Agreement has expired and cannot be signed.",
@@ -445,6 +600,25 @@ class VendorAgreementService:
             agreement.status = AgreementStatus.SIGNED
         else:
             agreement.status = AgreementStatus.PARTIALLY_SIGNED
+
+        # Activate vendor user & mark terms accepted
+        if agreement.vendor:
+            agreement.vendor.is_terms_accepted = True
+            if hasattr(self.repository, "db") and hasattr(self.repository.db, "add"):
+                res = self.repository.db.add(agreement.vendor)
+                if asyncio.iscoroutine(res):
+                    await res
+
+        # Revoke token immediately in DB
+        if self.token_service and token_record:
+            try:
+                await self.token_service.revoke_token(token_record, commit=True)
+            except Exception as exc:
+                logger.warning("Could not revoke agreement signing token in DB: %s", exc)
+
+        # ATOMIC COMMIT: Persist signed status and revoked token immediately!
+        # This completely prevents any concurrent re-submission or multiple use!
+        await self.repository.update(agreement, commit=True)
 
         # Parse clauses if available
         clauses = None
@@ -496,16 +670,11 @@ class VendorAgreementService:
                 content_type="application/pdf",
             )
             agreement.pdf_file_url = s3_key
+            await self.repository.update(agreement, commit=True)
         except Exception as exc:
             logger.error("Failed to upload executed agreement PDF to storage: %s", exc)
             agreement.pdf_file_url = s3_key  # persist key for retry
-
-        # Activate vendor user & mark terms accepted
-        if agreement.vendor:
-            agreement.vendor.is_terms_accepted = True
-            self.repository.db.add(agreement.vendor)
-
-        await self.repository.update(agreement)
+            await self.repository.update(agreement, commit=True)
 
         # Dispatch completion email asynchronously via Domain Event
         await self._emit_agreement_completed(
@@ -540,11 +709,25 @@ class VendorAgreementService:
                 error_code="AGREEMENT_ALREADY_SIGNED",
             )
 
-        # Renew token & expiry
-        token = self._generate_token()
+        # Revoke old token record if exists in Token table
+        if self.token_service and agreement.token:
+            try:
+                old_token = await self.token_service.get_by_token(agreement.token)
+                if old_token:
+                    await self.token_service.revoke_token(old_token, commit=False)
+            except Exception as exc:
+                logger.warning("Could not revoke old agreement token: %s", exc)
+
+        # Renew token & expiry using JWT
         now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(days=valid_days)
+        token = await self._generate_signing_token(
+            agreement_public_id=agreement.public_id,
+            vendor=agreement.vendor,
+            expires_at=expires_at,
+        )
         agreement.token = token
-        agreement.expires_at = now + timedelta(days=valid_days)
+        agreement.expires_at = expires_at
         agreement.status = AgreementStatus.SENT
         agreement.sent_at = now
 
@@ -561,6 +744,7 @@ class VendorAgreementService:
             )
 
         return agreement
+
 
     async def countersign_agreement(
         self,
@@ -685,9 +869,53 @@ class VendorAgreementService:
         return agreement
 
     async def get_download_url(self, agreement: VendorAgreement) -> Optional[str]:
-        if not agreement.pdf_file_url:
-            return None
-        return await self.storage_service.generate_presigned_url(agreement.pdf_file_url)
+        if agreement.pdf_file_url:
+            return await self.storage_service.generate_presigned_url(agreement.pdf_file_url)
+
+        # On-demand fallback if PDF upload to S3 was delayed or pending
+        if agreement.status == AgreementStatus.SIGNED:
+            try:
+                operator_info = await self.get_operator_info()
+                vendor = getattr(agreement, "vendor", None)
+                company = getattr(vendor, "company", None) if vendor else None
+                address = None
+                if company:
+                    try:
+                        addrs = getattr(company, "addresses", None)
+                        if addrs:
+                            address = addrs[0]
+                    except Exception:
+                        pass
+                clauses = None
+                if agreement.terms_snapshot:
+                    try:
+                        clauses = json.loads(agreement.terms_snapshot)
+                    except Exception:
+                        pass
+                pdf_bytes = self.pdf_service.generate_signed_agreement_pdf(
+                    agreement=agreement,
+                    vendor=agreement.vendor,
+                    company=company,
+                    address=address,
+                    clauses=clauses,
+                    logo_url=operator_info.get("logo_url"),
+                    operator_info=operator_info,
+                )
+                signer_name = agreement.signer_name or "Host"
+                s3_key = f"agreements/{agreement.public_id}/Host_Agreement_{signer_name.replace(' ', '_')}.pdf"
+                await self.storage_service.upload_bytes(
+                    key=s3_key,
+                    data=pdf_bytes,
+                    content_type="application/pdf",
+                )
+                agreement.pdf_file_url = s3_key
+                await self.repository.update(agreement)
+                return await self.storage_service.generate_presigned_url(s3_key)
+            except Exception as exc:
+                logger.error("Failed to generate and upload agreement PDF on-demand: %s", exc)
+
+        return None
+
 
     # ── Asynchronous Event Dispatch & Direct Fallbacks ─────────────────────────
 

@@ -123,6 +123,9 @@ DEFAULT_HOST_CLAUSES = [
 ]
 
 
+_LOGO_CACHE: dict[str, bytes] = {}
+
+
 def _fetch_logo(
     url_or_path: Optional[str] = None,
     image_bytes: Optional[bytes] = None,
@@ -132,21 +135,26 @@ def _fetch_logo(
     """Fetch/load logo image from URL, local path, or raw bytes and return scaled ReportLab Image."""
     data = image_bytes
     if not data and url_or_path:
-        try:
-            if url_or_path.startswith("http://") or url_or_path.startswith("https://"):
-                req = urllib.request.Request(
-                    url_or_path,
-                    headers={"User-Agent": "TashiHome-AgreementService/1.0"},
-                )
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    data = resp.read()
-            elif url_or_path.startswith("file://") or url_or_path.startswith("/"):
-                path = url_or_path[7:] if url_or_path.startswith("file://") else url_or_path
-                with open(path, "rb") as f:
-                    data = f.read()
-        except Exception as exc:
-            logger.warning("Could not fetch agreement logo from %s: %s", url_or_path, exc)
-            return None
+        if url_or_path in _LOGO_CACHE:
+            data = _LOGO_CACHE[url_or_path]
+        else:
+            try:
+                if url_or_path.startswith("http://") or url_or_path.startswith("https://"):
+                    req = urllib.request.Request(
+                        url_or_path,
+                        headers={"User-Agent": "TashiHome-AgreementService/1.0"},
+                    )
+                    with urllib.request.urlopen(req, timeout=4) as resp:
+                        data = resp.read()
+                        _LOGO_CACHE[url_or_path] = data
+                elif url_or_path.startswith("file://") or url_or_path.startswith("/"):
+                    path = url_or_path[7:] if url_or_path.startswith("file://") else url_or_path
+                    with open(path, "rb") as f:
+                        data = f.read()
+                        _LOGO_CACHE[url_or_path] = data
+            except Exception as exc:
+                logger.warning("Could not fetch agreement logo from %s: %s", url_or_path, exc)
+                return None
 
     if not data:
         return None

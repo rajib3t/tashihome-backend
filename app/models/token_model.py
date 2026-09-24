@@ -12,6 +12,8 @@ class TokenType(str, enum.Enum):
     PASSWORD_RESET = "password_reset_token"
     EMAIL_VERIFICATION = "email_verification_token"
     ACCOUNT_ACTIVATION = "account_activation_token"
+    AGREEMENT_SIGNING = "agreement_signing_token"
+
 
 class Token(Base):
     __tablename__ = "tokens"

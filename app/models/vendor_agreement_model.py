@@ -85,7 +85,7 @@ class VendorAgreement(Base):
         index=True,
     )
 
-    token = Column(String(255), unique=True, nullable=False, index=True)
+    token = Column(String(1000), unique=True, nullable=False, index=True)
     commission_percentage = Column(Numeric(5, 2), default=10.0, nullable=False)
 
     expires_at = Column(DateTime(timezone=True), nullable=False)

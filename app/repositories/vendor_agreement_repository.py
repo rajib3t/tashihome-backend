@@ -25,7 +25,7 @@ class VendorAgreementRepository(BaseRepository[VendorAgreement]):
     async def create(
         self,
         agreement: VendorAgreement,
-        commit: bool = False,
+        commit: bool = True,
     ) -> VendorAgreement:
         self.db.add(agreement)
         if commit:
@@ -80,6 +80,23 @@ class VendorAgreementRepository(BaseRepository[VendorAgreement]):
         )
         result = await self.db.execute(query)
         return result.scalars().first()
+
+    async def get_by_token_for_update(
+        self,
+        token: str,
+        flush: bool = False,
+    ) -> Optional[VendorAgreement]:
+        if flush:
+            await self.db.flush()
+        query = (
+            select(VendorAgreement)
+            .where(VendorAgreement.token == token)
+            .options(*AGREEMENT_RELATIONS)
+            .with_for_update()
+        )
+        result = await self.db.execute(query)
+        return result.scalars().first()
+
 
     async def get_latest_by_vendor_id(
         self,
@@ -206,7 +223,7 @@ class VendorAgreementRepository(BaseRepository[VendorAgreement]):
     async def update(
         self,
         agreement: VendorAgreement,
-        commit: bool = False,
+        commit: bool = True,
     ) -> VendorAgreement:
         self.db.add(agreement)
         if commit:
@@ -219,7 +236,7 @@ class VendorAgreementRepository(BaseRepository[VendorAgreement]):
     async def delete(
         self,
         agreement: VendorAgreement,
-        commit: bool = False,
+        commit: bool = True,
     ) -> None:
         await self.db.delete(agreement)
         if commit:
