@@ -67,6 +67,13 @@ class AuthController(BaseController):
                 }
             ),
             (
+                "get", "/activate-account/{token}", self._active_account,
+                {
+                    "response_model": ActiveAccountResponse,
+                    "response_model_by_alias": False,
+                }
+            ),
+            (
                 "get", "/check-active-account/{token}", self._get_check_active_account,
                 {
                     "response_model": ActiveAccountResponse,

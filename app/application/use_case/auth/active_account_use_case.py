@@ -14,7 +14,7 @@ from app.services.user_service import UserService
 from app.deps.service import get_email_service
 from app.services.email_service import BrevoEmailService
 import asyncio
-
+from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
@@ -79,6 +79,7 @@ class ActiveAccountUseCase:
             )
 
         user = await self.user_service.get_user_by_id(token_obj.user_id)
+        logger.info("Fetched user for activation: %s", user.email if user else "None")
         if not user:
             raise AppException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -87,13 +88,24 @@ class ActiveAccountUseCase:
                 error_code="USER_NOT_FOUND",
             )
 
-        if user.status == UserStatus.ACTIVE:
-            raise AppException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                message="User is already verified",
-                error_code="USER_ALREADY_VERIFIED",
-                field="email",
-            )
+        is_already_active = user.status in (UserStatus.ACTIVE, UserStatus.ACTIVE.value, "active")
+        if is_already_active:
+            logger.info("User %s is already verified", user.email)
+            if not token_obj.is_revoked:
+                await self.token_service.revoke_token(token_obj, commit=True)
+            status_value = user.status.value if hasattr(user.status, "value") else str(user.status)
+            role_value = user.role.value if hasattr(user.role, "value") else str(user.role)
+            return {
+                "status": status_value,
+                "user": {
+                    "id": str(user.public_id),
+                    "name": user.full_name,
+                    "full_name": user.full_name,
+                    "email": user.email,
+                    "status": status_value,
+                    "role": role_value,
+                },
+            }
 
         session = self.user_service.user_repository.db
         tx = session.begin_nested() if session.in_transaction() else session.begin()
@@ -102,9 +114,13 @@ class ActiveAccountUseCase:
                 await self.token_service.revoke_token(token_obj, commit=False)
                 user.status = UserStatus.ACTIVE
                 await self.user_service.update(user, commit=False)
+            await session.commit()
+            await session.refresh(user)
         except AppException:
+            await session.rollback()
             raise
         except Exception as e:
+            await session.rollback()
             logger.error("Failed to activate account: %s", e, exc_info=True)
             raise AppException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -181,6 +197,26 @@ class GetActiveAccountUseCase:
                 field="token",
             )
 
+        token_obj = await self.token_service.get_by_token(token, flush=True)
+        if not token_obj:
+            raise AppException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Token not found.",
+                field="token",
+                error_code="TOKEN_NOT_FOUND",
+            )
+
+        expires_at = token_obj.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Account activation token has expired",
+                error_code="EXPIRED_ACCOUNT_ACTIVATION_TOKEN",
+                field="token",
+            )
+
         user = await self.user_service.get_user_by_public_id(public_id)
         if not user:
             raise AppException(
@@ -190,20 +226,11 @@ class GetActiveAccountUseCase:
                 error_code="USER_NOT_FOUND",
             )
 
-        is_active = user.status in (UserStatus.ACTIVE, UserStatus.ACTIVE.value, "active")
-        if not is_active:
-            raise AppException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                message="Account is not active.",
-                error_code="USER_NOT_ACTIVE",
-                field="status",
-            )
-
         status_value = user.status.value if hasattr(user.status, "value") else str(user.status)
         role_value = user.role.value if hasattr(user.role, "value") else str(user.role)
 
         return {
-            
+            "status": status_value,
             "user": {
                 "id": str(user.public_id),
                 "name": user.full_name,

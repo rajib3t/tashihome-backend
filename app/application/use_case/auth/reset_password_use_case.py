@@ -111,9 +111,13 @@ class ResetPasswordUseCase:
                 await self.token_service.revoke_token(token, commit=False)
                 user.password = hashed_password
                 await self.user_service.update(user, commit=False)
+            await session.commit()
+            await session.refresh(user)
         except AppException:
+            await session.rollback()
             raise
         except Exception as e:
+            await session.rollback()
             logger.error("Failed to reset password: %s", e, exc_info=True)
             raise AppException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
