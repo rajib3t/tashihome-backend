@@ -128,6 +128,9 @@ class ConvertUserToVendorUseCase(BaseUseCase):
         except Exception as exc:
             logger.warning("Failed to publish CreateVendorEvent for user %s: %s", user.id, exc)
 
+        if session.in_transaction():
+            await session.commit()
+
         refreshed = await self.user_service.get_user_by_id(
             user.id,
             with_relations={"company": True},

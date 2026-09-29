@@ -123,7 +123,10 @@ class AdminOnboardHostUseCase(BaseUseCase):
             except Exception as exc:
                 logger.warning("Failed to generate and send onboarding agreement for user %s: %s", user.id, exc)
 
-        # 6. Return freshly queried response
+        # 6. Commit and return freshly queried response
+        if session.in_transaction():
+            await session.commit()
+
         refreshed = await self.user_service.get_user_by_id(
             user.id,
             with_relations={"company": True},
