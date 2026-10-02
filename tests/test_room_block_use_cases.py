@@ -21,6 +21,8 @@ from app.models.property_model import Property
 from app.models.property_room_type_model import PropertyRoomType
 from app.models.room_block_model import RoomBlock
 from app.models.room_type_model import RoomType
+from app.repositories.room_block_repository import RoomBlockRepository
+from app.services.room_block_service import RoomBlockService
 
 
 class TestRoomBlockUseCases(unittest.TestCase):
@@ -337,6 +339,89 @@ class TestRoomBlockUseCases(unittest.TestCase):
             self.assertFalse(result["is_available"])
             self.assertEqual(result["available_units"], 0)
             self.assertEqual(result["blocked_units"], 1)
+
+        asyncio.run(run_test())
+
+    def test_room_block_adjacent_dates_no_overlap_capacity(self):
+        """
+        Scenario:
+        Property has room type with 3 units total.
+        Existing room block: 03/10/2026 to 04/10/2026 (3 units).
+        New room block request: 04/10/2026 to 05/10/2026 (2 units).
+        Because block 1 ends on 04/10/2026 and block 2 starts on 04/10/2026,
+        they do not overlap and the new request must succeed.
+        """
+        async def run_test():
+            room_block_repo = AsyncMock()
+            prop_repo = AsyncMock()
+            prop_rt_repo = AsyncMock()
+            booking_repo = AsyncMock()
+
+            # Property has 3 units
+            prop_rt_mock = MagicMock()
+            prop_rt_mock.total_units = 3
+            prop_rt_repo.get_by_property_and_room_type.return_value = prop_rt_mock
+
+            # No active bookings
+            booking_repo.count_booked_units.return_value = 0
+
+            # Adjacent block (ending 04/10/2026) does not overlap [04/10/2026, 05/10/2026)
+            room_block_repo.count_blocked_units.return_value = 0
+
+            service = RoomBlockService(
+                room_block_repository=room_block_repo,
+                property_repository=prop_repo,
+                property_room_type_repository=prop_rt_repo,
+                booking_repository=booking_repo,
+            )
+
+            # Should not raise any exception
+            await service.validate_and_check_capacity(
+                property_id=1,
+                room_type_id=5,
+                block_start_date=date(2026, 10, 4),
+                block_end_date=date(2026, 10, 5),
+                units_to_block=2,
+            )
+
+            room_block_repo.count_blocked_units.assert_called_once_with(
+                property_id=1,
+                room_type_id=5,
+                check_in_date=date(2026, 10, 4),
+                check_out_date=date(2026, 10, 5),
+                exclude_block_id=None,
+            )
+
+        asyncio.run(run_test())
+
+    def test_count_blocked_units_uses_strict_inequality_on_end_date(self):
+        """
+        Verify that RoomBlockRepository.count_blocked_units generates SQL
+        with `block_end_date > check_in_date` (strict inequality), ensuring
+        that checkout/checkin dates touching do not count as an overlap.
+        """
+        async def run_test():
+            mock_db = AsyncMock()
+            mock_result = MagicMock()
+            mock_result.scalar_one.return_value = 0
+            mock_db.execute.return_value = mock_result
+
+            repo = RoomBlockRepository(db=mock_db)
+
+            await repo.count_blocked_units(
+                property_id=1,
+                room_type_id=5,
+                check_in_date=date(2026, 10, 4),
+                check_out_date=date(2026, 10, 5),
+            )
+
+            mock_db.execute.assert_called_once()
+            called_query = mock_db.execute.call_args[0][0]
+            query_str = str(called_query)
+
+            # Check strict inequality: block_end_date > check_in_date
+            self.assertIn("room_blocks.block_end_date >", query_str)
+            self.assertNotIn("room_blocks.block_end_date >=", query_str)
 
         asyncio.run(run_test())
 

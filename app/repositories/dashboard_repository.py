@@ -284,7 +284,7 @@ class DashboardRepository:
         ).where(
             and_(
                 RoomBlock.block_start_date <= today,
-                RoomBlock.block_end_date >= today,
+                RoomBlock.block_end_date > today,
             )
         )
         blocked_units_today = (await self.db.execute(blocked_units_query)).scalar_one()
@@ -680,7 +680,7 @@ class DashboardRepository:
             func.coalesce(
                 func.sum(
                     case(
-                        (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date >= today), 1),
+                        (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date > today), 1),
                         else_=0,
                     )
                 ),
@@ -698,7 +698,7 @@ class DashboardRepository:
             func.coalesce(
                 func.sum(
                     case(
-                        (RoomBlock.block_end_date < today, 1),
+                        (RoomBlock.block_end_date <= today, 1),
                         else_=0,
                     )
                 ),
@@ -707,7 +707,7 @@ class DashboardRepository:
             func.coalesce(
                 func.sum(
                     case(
-                        (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date >= today), RoomBlock.units_blocked),
+                        (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date > today), RoomBlock.units_blocked),
                         else_=0,
                     )
                 ),
@@ -993,7 +993,7 @@ class DashboardRepository:
             .where(
                 Property.vendor_id == vendor_id,
                 RoomBlock.block_start_date <= today,
-                RoomBlock.block_end_date >= today,
+                RoomBlock.block_end_date > today,
             )
         )
         blocked_units_today = (await self.db.execute(blocked_units_query)).scalar_one()
@@ -1371,7 +1371,7 @@ class DashboardRepository:
                 func.coalesce(
                     func.sum(
                         case(
-                            (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date >= today), 1),
+                            (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date > today), 1),
                             else_=0,
                         )
                     ),
@@ -1389,7 +1389,7 @@ class DashboardRepository:
                 func.coalesce(
                     func.sum(
                         case(
-                            (RoomBlock.block_end_date < today, 1),
+                            (RoomBlock.block_end_date <= today, 1),
                             else_=0,
                         )
                     ),
@@ -1398,7 +1398,7 @@ class DashboardRepository:
                 func.coalesce(
                     func.sum(
                         case(
-                            (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date >= today), RoomBlock.units_blocked),
+                            (and_(RoomBlock.block_start_date <= today, RoomBlock.block_end_date > today), RoomBlock.units_blocked),
                             else_=0,
                         )
                     ),

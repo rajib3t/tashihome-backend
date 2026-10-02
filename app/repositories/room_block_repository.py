@@ -166,14 +166,13 @@ class RoomBlockRepository(BaseRepository[RoomBlock]):
         Count blocked units overlapping with the requested date range.
         Condition: block_start_date < check_out_date AND block_end_date > check_in_date.
         """
-        # Treat block end date as inclusive when checking overlap with a
-        # booking range [check_in_date, check_out_date). Overlap if
-        # block_start_date < check_out_date AND block_end_date >= check_in_date.
+        # Half-open interval overlap [check_in_date, check_out_date):
+        # block_start_date < check_out_date AND block_end_date > check_in_date.
         query = select(func.coalesce(func.sum(RoomBlock.units_blocked), 0)).where(
             and_(
                 RoomBlock.property_id == property_id,
                 RoomBlock.block_start_date < check_out_date,
-                RoomBlock.block_end_date >= check_in_date,
+                RoomBlock.block_end_date > check_in_date,
             )
         )
 
