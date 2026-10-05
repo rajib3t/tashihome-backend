@@ -121,7 +121,7 @@ class PropertyDTO:
         if value is None:
             return value
         from app.utils.validation import validate_description
-        return validate_description(value, required=False, max_length=100)
+        return validate_description(value, required=False, max_words=150, max_length=2000)
 
     @field_validator("vendor", "type", "city", "location", "address")
     @classmethod

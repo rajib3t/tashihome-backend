@@ -59,7 +59,8 @@ def validate_name_field(value: str, field_name: str = "name", max_length: int = 
 def validate_description(
     value: Optional[str],
     required: bool = False,
-    max_length: int = 512,
+    max_length: Optional[int] = 512,
+    max_words: Optional[int] = None,
     field_name: str = "description",
     error_code_prefix: str = "DESCRIPTION",
 ) -> Optional[str]:
@@ -74,7 +75,8 @@ def validate_description(
     Args:
         value: The description text to validate
         required: Whether description is required
-        max_length: Maximum allowed length (default 512)
+        max_length: Maximum allowed characters (default 512)
+        max_words: Maximum allowed words (optional)
         field_name: Field name for error reporting (default "description")
         error_code_prefix: Error code prefix (default "DESCRIPTION")
         
@@ -82,7 +84,7 @@ def validate_description(
         Sanitized description text
         
     Raises:
-        AppException: If description contains dangerous content
+        AppException: If description contains dangerous content or exceeds limits
     """
     field_label = field_name.replace("_", " ").capitalize()
 
@@ -108,7 +110,17 @@ def validate_description(
             )
         return None
 
-    if len(value) > max_length:
+    if max_words is not None:
+        words = value.split()
+        if len(words) > max_words:
+            raise AppException(
+                status_code=422,
+                message=f"{field_label} must not exceed {max_words} words.",
+                field=field_name,
+                error_code=f"{error_code_prefix}_TOO_MANY_WORDS",
+            )
+
+    if max_length is not None and len(value) > max_length:
         raise AppException(
             status_code=422,
             message=f"{field_label} must not exceed {max_length} characters.",
