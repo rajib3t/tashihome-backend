@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from app.schemas.setting_schema import SettingSchema
 from app.services.setting_service import SettingService
 from app.services.storage_service import StorageService
@@ -33,7 +33,7 @@ class GetSettingUseCase:
     def __init__(
         self,
         setting_service: SettingService,
-        storage_service: StorageService,
+        storage_service: Optional[StorageService] = None,
     ):
         self.setting_service = setting_service
         self.storage_service = storage_service
@@ -57,12 +57,7 @@ class GetSettingUseCase:
 
             value = setting.value
 
-            if setting.key in self.FILE_SETTING_KEYS:
-                if value and str(value).strip():
-                    value = await self.storage_service.get_display_url(value)
-                else:
-                    value = None
-            elif setting.key == "is_enabled_coming_soon":
+            if setting.key == "is_enabled_coming_soon":
                 value = str(value).lower()
 
             response.append(

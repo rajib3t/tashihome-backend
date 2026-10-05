@@ -10,6 +10,7 @@ from app.deps.auth import CurrentUser
 from app.schemas.setting_schema import SettingSchema
 from app.services.setting_service import SettingNotFoundError, SettingService
 from app.services.storage_service import StorageService
+from app.application.use_case.admin.settings.get_setting_use_case import GetSettingUseCase
 
 
 class UpdateSettingUseCase(BaseUseCase):
@@ -158,52 +159,10 @@ class UpdateSettingUseCase(BaseUseCase):
         return await self._build_settings_response()
 
     async def _build_settings_response(self) -> List[SettingSchema]:
-        settings = await self.setting_service.get_all()
-        response: List[SettingSchema] = []
-        setting_map = {setting.key: setting.value for setting in settings}
-        coming_soon_enabled = False
-
-        coming_soon_flag = setting_map.get("is_enabled_coming_soon")
-        if isinstance(coming_soon_flag, str):
-            coming_soon_enabled = coming_soon_flag.lower() == "true"
-
-        for setting in settings:
-            if not coming_soon_enabled and setting.key in self.COMING_SOON_KEYS:
-                continue
-
-            value = setting.value
-
-            if setting.key in {
-                "app_logo",
-                "white_logo",
-                "app_favicon",
-                "meta_image",
-                "og_image",
-                "coming_background_image",
-                "coming_soon_video",
-            }:
-                if value and str(value).strip():
-                    value = await self.storage_service.get_display_url(value)
-                else:
-                    value = None
-            elif setting.key == "is_enabled_coming_soon":
-                value = str(value).lower()
-
-            response.append(
-                SettingSchema(
-                    name=setting.key,
-                    value=value,
-                )
-            )
-
-        resp_keys = {s.name for s in response}
-        if "og_image" in resp_keys and "meta_image" not in resp_keys:
-            og_item = next(s for s in response if s.name == "og_image")
-            response.append(SettingSchema(name="meta_image", value=og_item.value))
-        elif "meta_image" in resp_keys and "og_image" not in resp_keys:
-            meta_item = next(s for s in response if s.name == "meta_image")
-            response.append(SettingSchema(name="og_image", value=meta_item.value))
-
-        return response
+        get_use_case = GetSettingUseCase(
+            setting_service=self.setting_service,
+            storage_service=self.storage_service,
+        )
+        return await get_use_case.execute(is_admin=True)
 
     

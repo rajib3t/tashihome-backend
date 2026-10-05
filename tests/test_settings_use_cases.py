@@ -95,9 +95,9 @@ async def test_get_settings_coming_soon_filtering(mock_setting_service, mock_sto
     # coming_soon_message should be filtered when is_enabled_coming_soon is false
     assert "coming_soon_message" not in result_keys
 
-    # Check that logo URL was resolved
+    # Check that logo URL is returned as stored key without get_display_url
     logo_item = next(item for item in result if item.name == "app_logo")
-    assert logo_item.value == "https://cdn.tashihomes.in/settings/logo.png"
+    assert logo_item.value == "settings/logo.png"
 
 
 @pytest.mark.asyncio
@@ -175,10 +175,10 @@ async def test_update_settings_preserves_existing_files_when_no_new_file(mock_se
         current_user=mock_admin,
     )
 
-    # Mock empty UploadFile (as sent when no file is chosen in browser)
-    empty_upload = MagicMock()
-    empty_upload.filename = ""
-    empty_upload.read = AsyncMock(return_value=b"")
+    import io
+    from starlette.datastructures import UploadFile
+    # Empty UploadFile (as sent when no file is chosen in browser)
+    empty_upload = UploadFile(filename="", file=io.BytesIO(b""))
 
     dto = SettingUpdateDTO(
         app_name="Updated Homestays",
@@ -240,7 +240,7 @@ async def test_get_settings_og_image_resolution(mock_setting_service, mock_stora
     result_map = {item.name: item.value for item in result}
     assert "og_image" in result_map
     assert "meta_image" in result_map
-    assert result_map["og_image"] == "https://cdn.tashihomes.in/settings/og_banner.png"
-    assert result_map["meta_image"] == "https://cdn.tashihomes.in/settings/og_banner.png"
+    assert result_map["og_image"] == "settings/og_banner.png"
+    assert result_map["meta_image"] == "settings/og_banner.png"
 
 
