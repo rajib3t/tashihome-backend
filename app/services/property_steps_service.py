@@ -24,15 +24,32 @@ class PropertyStepsService:
         completed = []
 
         # 1. basic_info: name, type, description, address, city_id, location_id
+        has_addresses = False
+        if hasattr(property_obj, "__dict__"):
+            if "addresses" in property_obj.__dict__:
+                has_addresses = bool(property_obj.__dict__["addresses"])
+            elif "address_details" in property_obj.__dict__:
+                has_addresses = bool(property_obj.__dict__["address_details"])
+        if not has_addresses:
+            try:
+                if hasattr(property_obj, "addresses") and not isinstance(type(property_obj).addresses, property):
+                    has_addresses = bool(getattr(property_obj, "addresses", None))
+                elif hasattr(property_obj, "address_details"):
+                    has_addresses = bool(getattr(property_obj, "address_details", None))
+            except Exception:
+                has_addresses = False
+
+        has_address = bool(getattr(property_obj, "address", None) or has_addresses)
         if all([
             property_obj.name,
             property_obj.type,
             property_obj.description,
-            property_obj.address,
+            has_address,
             property_obj.city_id,
             property_obj.location_id,
         ]):
             completed.append("basic_info")
+
 
         # 2. pricing: price_per_night > 0
         if property_obj.price_per_night and property_obj.price_per_night > 0:

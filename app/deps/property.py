@@ -22,6 +22,7 @@ from app.application.use_case.admin.properties.upload_property_assets_use_case i
 from app.application.use_case.admin.properties.create_property_use_case import CreatePropertyUseCase
 from app.deps.auth import CurrentUser, require_admin, require_admin_or_staff, require_vendor
 from app.deps.service import (
+    get_address_service,
     get_amenity_service,
     get_city_service,
     get_facility_service,
@@ -37,12 +38,14 @@ from app.deps.service import (
     get_room_type_service,
     get_user_service,
 )
+from app.services.address_service import AddressService
 from app.services.amenity_service import AmenityService
 from app.services.facility_service import FacilityService
 from app.services.city_service import CityService
 from app.services.room_type_service import RoomTypeService
 from app.services.location_service import LocationService
 from app.services.property_service import PropertyService
+
 from app.services.review_service import ReviewService
 from app.services.storage_service import StorageService
 from app.services.property_amenity_service import PropertyAmenityService
@@ -85,6 +88,7 @@ async def get_create_property_use_case(
     property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
     storage_service: StorageService = Depends(get_storage_service),
     current_user: CurrentUser = Depends(require_admin_or_staff),
+    address_service: AddressService = Depends(get_address_service),
 ) -> CreatePropertyUseCase:
     return CreatePropertyUseCase(
         property_service=property_service,
@@ -100,6 +104,7 @@ async def get_create_property_use_case(
         property_room_type_service=property_room_type_service,
         storage_service=storage_service,
         current_user=current_user,
+        address_service=address_service,
     )
 
 
@@ -116,6 +121,7 @@ async def get_update_property_use_case(
     property_room_type_service: PropertyRoomTypeService = Depends(get_property_room_type_service),
     storage_service: StorageService = Depends(get_storage_service),
     current_user: CurrentUser = Depends(require_admin_or_staff),
+    address_service: AddressService = Depends(get_address_service),
 ) -> UpdatePropertyUseCase:
     return UpdatePropertyUseCase(
         property_service=property_service,
@@ -130,7 +136,9 @@ async def get_update_property_use_case(
         property_room_type_service=property_room_type_service,
         storage_service=storage_service,
         current_user=current_user,
+        address_service=address_service,
     )
+
 
 
 async def get_update_property_status_use_case(
@@ -221,6 +229,7 @@ async def get_vendor_create_property_use_case(
     storage_service: StorageService = Depends(get_storage_service),
     _csrf=Depends(verify_csrf),
     current_user: CurrentUser = Depends(require_vendor),
+    address_service: AddressService = Depends(get_address_service),
 ) -> VendorCreatePropertyUseCase:
     return VendorCreatePropertyUseCase(
         property_service=property_service,
@@ -235,6 +244,7 @@ async def get_vendor_create_property_use_case(
         property_room_type_service=property_room_type_service,
         storage_service=storage_service,
         current_user=current_user,
+        address_service=address_service,
     )
 
 
@@ -252,6 +262,7 @@ async def get_vendor_update_property_use_case(
     storage_service: StorageService = Depends(get_storage_service),
     _csrf=Depends(verify_csrf),
     current_user: CurrentUser = Depends(require_vendor),
+    address_service: AddressService = Depends(get_address_service),
 ) -> VendorUpdatePropertyUseCase:
     return VendorUpdatePropertyUseCase(
         property_service=property_service,
@@ -266,7 +277,9 @@ async def get_vendor_update_property_use_case(
         property_room_type_service=property_room_type_service,
         storage_service=storage_service,
         current_user=current_user,
+        address_service=address_service,
     )
+
 
 
 async def get_vendor_get_property_use_case(

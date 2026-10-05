@@ -51,3 +51,10 @@ class Address(Base):
         back_populates="addresses",
         overlaps="addresses,user",
     )
+
+    property = relationship(
+        "Property",
+        primaryjoin="and_(foreign(Address.owner_id)==Property.id, Address.owner_type=='property')",
+        back_populates="addresses",
+        overlaps="addresses,user,company",
+    )

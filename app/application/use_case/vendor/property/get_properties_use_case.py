@@ -1,6 +1,7 @@
 from typing import Optional
 
 from app.application.dto.properties.property import PropertyQueryDTO
+from app.application.use_case.admin.properties.property_serializer_mixin import PropertySerializerMixin
 from app.application.use_case.base_use_case import BaseUseCase
 from app.core.exceptions import AppException
 from app.deps.auth import CurrentUser
@@ -13,7 +14,7 @@ from app.services.storage_service import StorageService
 
 
 
-class GetVendorPropertyUseCase(BaseUseCase):
+class GetVendorPropertyUseCase(PropertySerializerMixin, BaseUseCase):
 
     def __init__(
         self,
@@ -68,6 +69,7 @@ class GetVendorPropertyUseCase(BaseUseCase):
                 "city": True,
                 "location": True,
                 "vendor": False,
+                "addresses": True,
                 "property_room_types": True,
                 "property_amenities": True,
                 "property_facilities": True,
@@ -99,6 +101,7 @@ class GetVendorPropertyUseCase(BaseUseCase):
                 "total_reviews": 0,
                 "rating_distribution": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0},
             }
+            manual_address_data, geo_data = self._serialize_address_and_geo(property_data)
             return {
                 "internal_id": property_data.id,
                 "id": str(property_data.public_id),
@@ -127,6 +130,9 @@ class GetVendorPropertyUseCase(BaseUseCase):
                 "price_per_night": float(property_data.price_per_night) if property_data.price_per_night is not None else None,
                 "sale_per_night": float(property_data.sale_per_night) if property_data.sale_per_night is not None else None,
                 "address": property_data.address,
+                "address_details": manual_address_data,
+                "manual_address": manual_address_data,
+                "geolocation": geo_data,
                 "latitude": float(property_data.latitude) if property_data.latitude is not None else None,
                 "longitude": float(property_data.longitude) if property_data.longitude is not None else None,
                 "description": property_data.description,

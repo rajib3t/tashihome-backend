@@ -132,3 +132,18 @@ class Property(Base):
     )
     bookings = relationship("Booking", back_populates="property")
     reviews = relationship("Review", back_populates="property", cascade="all, delete-orphan")
+    addresses = relationship(
+        "Address",
+        primaryjoin="and_(Property.id==foreign(Address.owner_id), Address.owner_type=='property')",
+        back_populates="property",
+        cascade="all, delete-orphan",
+        overlaps="addresses,user,company",
+        lazy="selectin",
+    )
+
+    @property
+    def address_details(self):
+        if "addresses" in self.__dict__ and self.__dict__["addresses"]:
+            return self.__dict__["addresses"][0]
+        return None
+

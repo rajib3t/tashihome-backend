@@ -237,6 +237,7 @@ class UpdatePropertyUseCase(BaseUseCase):
                 "vendor": True,
                 "city": True,
                 "location": True,
+                "addresses": True,
                 "property_room_types": True,
                 "property_amenities": True,
                 "property_facilities": True,

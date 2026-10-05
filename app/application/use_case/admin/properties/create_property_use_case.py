@@ -6,6 +6,7 @@ from app.models.property_facility_model import PropertyFacility
 from app.models.property_food_option_model import PropertyFoodOption, PropertyFoodOptionStatus
 from app.models.property_room_type_model import PropertyRoomType
 from app.models.property_room_type_price_model import PropertyRoomTypePrice
+from app.services.address_service import AddressService
 from app.services.city_service import CityService
 from app.services.amenity_service import AmenityService
 from app.services.facility_service import FacilityService
@@ -18,7 +19,7 @@ from app.services.location_service import LocationService
 from app.services.property_service import PropertyService
 from app.services.storage_service import StorageService
 from app.deps.auth import CurrentUser
-from app.application.dto.properties.property import PropertyDTO
+from app.application.dto.properties.property import PropertyDTO, extract_property_address_and_geo
 from typing import Optional
 from app.core.exceptions import AppException
 from app.services.user_service import UserService
@@ -41,6 +42,7 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         property_room_type_service: PropertyRoomTypeService,
         storage_service: StorageService,
         current_user: CurrentUser,
+        address_service: Optional[AddressService] = None,
     ):
         self.property_service = property_service
         self.user_service = user_service
@@ -55,6 +57,8 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         self.property_room_type_service = property_room_type_service
         self.storage_service = storage_service
         self.current_user = current_user
+        self.address_service = address_service
+
 
     async def execute(self, property_dto: PropertyDTO) -> Optional[dict]:
         # Validate and resolve IDs
@@ -127,6 +131,7 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                 error_code="LOCATION_NOT_FOUND",
             )
 
+        addr_str, manual_dict, lat, lon = extract_property_address_and_geo(property_dto)
         payload = Property(
             name=property_dto.name,
             slug=property_dto.slug,
@@ -135,9 +140,9 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             description=property_dto.description,
             city_id=city.id,
             type=property_dto.type,
-            address=property_dto.address,
-            latitude=property_dto.latitude,
-            longitude=property_dto.longitude,
+            address=addr_str,
+            latitude=lat,
+            longitude=lon,
             price_per_night=property_dto.price_per_night or property_dto.price or 0,
             sale_per_night=property_dto.sale_per_night or property_dto.sale_price,
             is_featured=property_dto.is_featured,
@@ -145,11 +150,21 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             updated_by=self.current_user.id,
         )
 
-        created_property = await self.property_service.create(payload, commit=True)
         db = getattr(getattr(self.property_service, "property_repository", None), "db", None)
         created_property = await self.property_service.create(payload, commit=False if db is not None else True)
         if db is not None and hasattr(db, "flush"):
             await db.flush()
+
+        if manual_dict and self.address_service:
+            synced_addr = await self.address_service.sync_property_address(
+                property_id=created_property.id,
+                address_line1=manual_dict["address_line1"],
+                address_line2=manual_dict.get("address_line2"),
+                postal_code=manual_dict["postal_code"],
+                country=manual_dict.get("country", "India"),
+                commit=False if db is not None else True,
+            )
+            created_property.addresses = [synced_addr]
 
         await self._sync_child_records(created_property.id, property_dto)
 
@@ -162,6 +177,7 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                 "vendor": True,
                 "city": True,
                 "location": True,
+                "addresses": True,
                 "property_room_types": True,
                 "property_amenities": True,
                 "property_facilities": True,
@@ -170,7 +186,12 @@ class CreatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             },
             flush=True,
         ) or created_property
+
+        if not getattr(full_property, "addresses", None) and getattr(created_property, "addresses", None):
+            full_property.addresses = created_property.addresses
+
         return await self.serialize_property(full_property)
+
 
     
 

@@ -1,7 +1,6 @@
 from app.schemas.response import PaginationResponse
 from app.schemas.response import BaseResponse
-from app.schemas.property_schema import PropertyCitySchema
-from app.schemas.property_schema import PropertyLocationSchema
+from app.schemas.property_schema import PropertyAddressSchema, PropertyCitySchema, PropertyGeolocationSchema, PropertyLocationSchema
 from app.schemas.review_schema import PropertyRatingSummarySchema
 
 from typing import Optional
@@ -48,10 +47,16 @@ class PublicPropertyBase(BaseModel):
     price_per_night: Optional[float] = None
     sale_per_night: Optional[float] = None
     address: Optional[str] = None
+    address_details: Optional[PropertyAddressSchema] = None
+    manual_address: Optional[PropertyAddressSchema] = None
+    geolocation: Optional[PropertyGeolocationSchema] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     feature_image: Optional[PropertyAssetSchema] = None
     average_rating: Optional[float] = 0.0
     total_reviews: Optional[int] = 0
     rating_summary: Optional[PropertyRatingSummarySchema] = None
+
 
 
 class PropertyRoomTypePriceSchema(BaseModel):
@@ -246,6 +251,9 @@ class PublicPropertyDetailResponse(PublicPropertyBase):
     price_per_night: Optional[float] = None
     sale_per_night: Optional[float] = None
     address: Optional[str] = None
+    address_details: Optional[PropertyAddressSchema] = None
+    manual_address: Optional[PropertyAddressSchema] = None
+    geolocation: Optional[PropertyGeolocationSchema] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     description: Optional[str] = None

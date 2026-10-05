@@ -1,6 +1,6 @@
 from typing import Optional
 
-from app.application.dto.properties.property import PropertyUpdateDTO
+from app.application.dto.properties.property import PropertyUpdateDTO, extract_property_address_and_geo
 from app.application.use_case.base_use_case import BaseUseCase
 from app.application.use_case.admin.properties.property_serializer_mixin import PropertySerializerMixin
 from app.core.exceptions import AppException
@@ -10,6 +10,7 @@ from app.models.property_facility_model import PropertyFacility
 from app.models.property_food_option_model import PropertyFoodOption, PropertyFoodOptionStatus
 from app.models.property_room_type_model import PropertyRoomType
 from app.models.property_room_type_price_model import PropertyRoomTypePrice
+from app.services.address_service import AddressService
 from app.services.amenity_service import AmenityService
 from app.services.city_service import CityService
 from app.services.facility_service import FacilityService
@@ -40,6 +41,7 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         property_room_type_service: PropertyRoomTypeService,
         storage_service: StorageService,
         current_user: CurrentUser,
+        address_service: Optional[AddressService] = None,
     ):
         self.property_service = property_service
         self.city_service = city_service
@@ -53,6 +55,8 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         self.property_room_type_service = property_room_type_service
         self.storage_service = storage_service
         self.current_user = current_user
+        self.address_service = address_service
+
 
     async def execute(self, property_id: str, data: PropertyUpdateDTO) -> dict:
         existing_property = await self.property_service.get_by_public_id(property_id, flush=False)
@@ -126,8 +130,26 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                 )
             existing_property.city_id = city.id
 
-        if data.address is not None:
-            existing_property.address = data.address.strip()
+        # Geolocation restriction: hosts can only provide manual address
+        geo = getattr(data, "geolocation", None)
+        has_geo = (
+            data.latitude is not None
+            or data.longitude is not None
+            or (isinstance(geo, dict) and bool(geo))
+            or (geo is not None and not isinstance(geo, dict))
+        )
+        if has_geo:
+            raise AppException(
+                status_code=403,
+                message="Hosts can only provide manual address. Geolocation coordinates can only be updated by administrators.",
+                field="latitude",
+                error_code="GEOLOCATION_ADMIN_ONLY",
+            )
+
+        addr_str, manual_dict, _, _ = extract_property_address_and_geo(data)
+        if addr_str is not None:
+            existing_property.address = addr_str
+
         if data.price_per_night is not None:
             existing_property.price_per_night = data.price_per_night
         if data.price is not None:
@@ -146,19 +168,26 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             )
         if data.currency is not None:
             existing_property.currency = data.currency.upper()
-        if data.latitude is not None:
-            existing_property.latitude = data.latitude
-        if data.longitude is not None:
-            existing_property.longitude = data.longitude
         if data.type is not None:
             existing_property.type = data.type
 
         # is_featured and status are admin-only fields; vendors cannot change them
 
         existing_property.updated_by = self.current_user.id
-        updated_property = await self.property_service.update(existing_property)
         db = getattr(getattr(self.property_service, "property_repository", None), "db", None)
         updated_property = await self.property_service.update(existing_property, commit=False if db is not None else True)
+
+        if manual_dict and self.address_service:
+            synced_addr = await self.address_service.sync_property_address(
+                property_id=updated_property.id,
+                address_line1=manual_dict["address_line1"],
+                address_line2=manual_dict.get("address_line2"),
+                postal_code=manual_dict["postal_code"],
+                country=manual_dict.get("country", "India"),
+                commit=False if db is not None else True,
+            )
+            updated_property.addresses = [synced_addr]
+
         await self._sync_child_records(updated_property.id, data)
 
         if db is not None and hasattr(db, "commit"):
@@ -170,6 +199,7 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                 "vendor": True,
                 "city": True,
                 "location": True,
+                "addresses": True,
                 "property_room_types": True,
                 "property_amenities": True,
                 "property_facilities": True,
@@ -178,6 +208,10 @@ class VendorUpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             },
             flush=True,
         ) or updated_property
+
+        if not getattr(full_property, "addresses", None) and getattr(updated_property, "addresses", None):
+            full_property.addresses = updated_property.addresses
+
 
         completed = PropertyStepsService.compute_steps(full_property)
         if set(completed) != set(getattr(full_property, "completed_steps", []) or []):

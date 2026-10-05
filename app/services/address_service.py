@@ -31,6 +31,17 @@ class AddressService:
             owner_type='user',
             flush=flush,
         )
+
+    async def get_property_address_by_owner_id(
+        self,
+        owner_id: int,
+        flush: bool = False,
+    ) -> Optional[Address]:
+        return await self.address_repository.get_address_by_owner_id(
+            owner_id=owner_id,
+            owner_type="property",
+            flush=flush,
+        )
   
     async def create_address(
         self,
@@ -59,3 +70,31 @@ class AddressService:
         commit: bool = True,
     ) -> Address:
         return await self.persist_company_address(address=address, commit=commit)
+
+    async def sync_property_address(
+        self,
+        property_id: int,
+        address_line1: str,
+        address_line2: Optional[str] = None,
+        postal_code: str = "000000",
+        country: str = "India",
+        commit: bool = True,
+    ) -> Address:
+        existing = await self.get_property_address_by_owner_id(property_id, flush=False)
+        if existing:
+            existing.address_line1 = address_line1
+            existing.address_line2 = address_line2
+            existing.postal_code = postal_code
+            existing.country = country
+            return await self.address_repository.update(existing, commit=commit)
+        else:
+            new_addr = Address(
+                owner_type="property",
+                owner_id=property_id,
+                address_line1=address_line1,
+                address_line2=address_line2,
+                postal_code=postal_code,
+                country=country,
+            )
+            return await self.address_repository.create(new_addr, commit=commit)
+

@@ -20,6 +20,7 @@ class WithRelations(TypedDict, total=False):
     property_facilities: bool
     property_amenities: bool
     property_food_options: bool
+    addresses: bool
 
 
 class PropertyRepository(BaseRepository[Property]):
@@ -32,6 +33,7 @@ class PropertyRepository(BaseRepository[Property]):
             "vendor": Property.vendor,
             "location": Property.location,
             "city": Property.city,
+            "addresses": selectinload(Property.addresses),
             "property_room_types": selectinload(Property.property_room_types).options(
                 selectinload(PropertyRoomType.room_type),
                 selectinload(PropertyRoomType.pricing_tiers),
@@ -41,6 +43,7 @@ class PropertyRepository(BaseRepository[Property]):
             "property_amenities": selectinload(Property.property_amenities).selectinload(PropertyAmenity.amenity),
             "property_food_options": selectinload(Property.property_food_options),
         }
+
 
     _filter_map = {
 

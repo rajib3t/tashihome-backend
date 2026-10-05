@@ -25,6 +25,7 @@ class PropertySerializerMixin:
             "total_reviews": 0,
             "rating_distribution": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0},
         }
+        manual_address_data, geo_data = self._serialize_address_and_geo(property_data)
         return {
             "internal_id": property_data.id,
             "id": str(property_data.public_id),
@@ -64,6 +65,9 @@ class PropertySerializerMixin:
             "price_per_night": float(property_data.price_per_night) if property_data.price_per_night is not None else None,
             "sale_per_night": float(property_data.sale_per_night) if property_data.sale_per_night is not None else None,
             "address": property_data.address,
+            "address_details": manual_address_data,
+            "manual_address": manual_address_data,
+            "geolocation": geo_data,
             "latitude": float(property_data.latitude) if property_data.latitude is not None else None,
             "longitude": float(property_data.longitude) if property_data.longitude is not None else None,
             "description": property_data.description,
@@ -151,6 +155,55 @@ class PropertySerializerMixin:
             "is_complete": len(getattr(property_data, "completed_steps", []) or []) == 7,
         }
 
+    def _serialize_address_and_geo(self, property_data: Property) -> tuple[dict | None, dict | None]:
+        address_obj = None
+        # Safely inspect __dict__ to avoid triggering lazy load queries in async context
+        addresses = property_data.__dict__.get("addresses")
+        if addresses:
+            address_obj = addresses[0]
+        elif "address_details" in property_data.__dict__:
+            address_obj = property_data.__dict__.get("address_details")
+        else:
+            try:
+                # In mock objects (tests) or non-ORM objects, getattr is safe
+                if hasattr(property_data, "addresses") and not isinstance(type(property_data).addresses, property):
+                    raw_addr = getattr(property_data, "addresses", None)
+                    if raw_addr:
+                        address_obj = raw_addr[0]
+                elif hasattr(property_data, "address_details"):
+                    address_obj = getattr(property_data, "address_details", None)
+            except Exception:
+                address_obj = None
+
+        if address_obj and hasattr(address_obj, "address_line1"):
+            manual_address_data = {
+                "id": str(address_obj.public_id) if getattr(address_obj, "public_id", None) else None,
+                "address_line1": address_obj.address_line1,
+                "address_line2": address_obj.address_line2,
+                "postal_code": address_obj.postal_code,
+                "country": address_obj.country,
+            }
+        elif property_data.address:
+            manual_address_data = {
+                "id": None,
+                "address_line1": property_data.address,
+                "address_line2": None,
+                "postal_code": None,
+                "country": "India",
+            }
+        else:
+            manual_address_data = None
+
+        geo_data = (
+            {
+                "latitude": float(property_data.latitude),
+                "longitude": float(property_data.longitude),
+            }
+            if property_data.latitude is not None and property_data.longitude is not None
+            else None
+        )
+        return manual_address_data, geo_data
+
     async def serialize_property_list_item(
         self,
         property_data: Property,
@@ -162,6 +215,7 @@ class PropertySerializerMixin:
             "total_reviews": 0,
             "rating_distribution": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0},
         }
+        manual_address_data, geo_data = self._serialize_address_and_geo(property_data)
         return {
             "internal_id": property_data.id,
             "id": str(property_data.public_id),
@@ -190,6 +244,9 @@ class PropertySerializerMixin:
             "price_per_night": float(property_data.price_per_night) if property_data.price_per_night is not None else None,
             "sale_per_night": float(property_data.sale_per_night) if property_data.sale_per_night is not None else None,
             "address": property_data.address,
+            "address_details": manual_address_data,
+            "manual_address": manual_address_data,
+            "geolocation": geo_data,
             "latitude": float(property_data.latitude) if property_data.latitude is not None else None,
             "longitude": float(property_data.longitude) if property_data.longitude is not None else None,
             "description": property_data.description,
@@ -203,6 +260,7 @@ class PropertySerializerMixin:
             "percent_complete": round(len(getattr(property_data, "completed_steps", []) or []) / 7 * 100),
             "is_complete": len(getattr(property_data, "completed_steps", []) or []) == 7,
         }
+
 
 
     async def _serialize_assets(self, assets) -> list[dict]:

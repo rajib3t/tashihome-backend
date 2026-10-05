@@ -29,6 +29,7 @@ class VendorGetPropertyUseCase(PropertySerializerMixin, BaseUseCase):
                 "city": True,
                 "location": True,
                 "vendor": True,
+                "addresses": True,
                 "property_room_types": True,
                 "property_amenities": True,
                 "property_facilities": True,

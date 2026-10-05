@@ -113,6 +113,7 @@ class PublicPropertiesUseCase(BaseUseCase, PropertySerializerMixin):
                 "city": True,
                 "location": True,
                 "property_assets": True,
+                "addresses": True,
             },
             flush=True,
         )

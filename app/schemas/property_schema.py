@@ -300,6 +300,34 @@ PropertyAmenitySchema.model_rebuild()
 PropertyFacilitySchema.model_rebuild()
 
 
+class PropertyAddressSchema(BaseModel):
+    id: UUID | str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("public_id", "id"),
+        serialization_alias="id",
+    )
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_public_id(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return str(value)
+
+
+class PropertyGeolocationSchema(BaseModel):
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PropertyBase(BaseModel):
     name: str
     slug: str
@@ -312,8 +340,12 @@ class PropertyBase(BaseModel):
     price_per_night: Optional[float] = None
     sale_per_night: Optional[float] = None
     address: Optional[str] = None
+    address_details: Optional[PropertyAddressSchema] = None
+    manual_address: Optional[PropertyAddressSchema] = None
+    geolocation: Optional[PropertyGeolocationSchema] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+
     description: Optional[str] = None
     property_room_types: Optional[list[PropertyRoomTypeSchema]] = None
     property_amenities: Optional[list[PropertyAmenitySchema]] = None

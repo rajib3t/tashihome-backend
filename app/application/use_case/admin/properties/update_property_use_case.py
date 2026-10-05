@@ -1,6 +1,6 @@
 from typing import Optional
 
-from app.application.dto.properties.property import PropertyUpdateDTO
+from app.application.dto.properties.property import PropertyUpdateDTO, extract_property_address_and_geo
 from app.application.use_case.base_use_case import BaseUseCase
 from app.application.use_case.admin.properties.property_serializer_mixin import PropertySerializerMixin
 from app.core.exceptions import AppException
@@ -11,6 +11,7 @@ from app.models.property_food_option_model import PropertyFoodOption, PropertyFo
 from app.models.property_room_type_model import PropertyRoomType
 from app.models.property_room_type_price_model import PropertyRoomTypePrice
 from app.models.property_model import Property, PropertyStatus
+from app.services.address_service import AddressService
 from app.services.amenity_service import AmenityService
 from app.services.city_service import CityService
 from app.services.facility_service import FacilityService
@@ -40,6 +41,7 @@ class UpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         property_room_type_service: PropertyRoomTypeService,
         storage_service: StorageService,
         current_user: CurrentUser,
+        address_service: Optional[AddressService] = None,
     ):
         self.property_service = property_service
         self.city_service = city_service
@@ -53,6 +55,8 @@ class UpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         self.property_room_type_service = property_room_type_service
         self.storage_service = storage_service
         self.current_user = current_user
+        self.address_service = address_service
+
 
     @staticmethod
     def _normalize_status(status_value: Optional[str]) -> PropertyStatus:
@@ -125,8 +129,14 @@ class UpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                     error_code="CITY_NOT_FOUND",
                 )
             existing_property.city_id = city.id
-        if data.address is not None:
-            existing_property.address = data.address.strip()
+        addr_str, manual_dict, lat, lon = extract_property_address_and_geo(data)
+        if addr_str is not None:
+            existing_property.address = addr_str
+        if lat is not None:
+            existing_property.latitude = lat
+        if lon is not None:
+            existing_property.longitude = lon
+
         if data.price_per_night is not None:
             existing_property.price_per_night = data.price_per_night
         if data.price is not None:
@@ -136,7 +146,9 @@ class UpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
         if data.sale_price is not None:
             existing_property.sale_per_night = data.sale_price
 
-        if data.price_per_night > 0 and data.sale_per_night is not None and data.sale_per_night > data.price_per_night:
+        eff_price = existing_property.price_per_night
+        eff_sale = existing_property.sale_per_night
+        if eff_price is not None and eff_price > 0 and eff_sale is not None and eff_sale > eff_price:
             raise AppException(
                 status_code=422,
                 message="Sale price per night cannot be greater than the regular price per night.",
@@ -145,10 +157,6 @@ class UpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             )
         if data.currency is not None:
             existing_property.currency = data.currency.upper()
-        if data.latitude is not None:
-            existing_property.latitude = data.latitude
-        if data.longitude is not None:
-            existing_property.longitude = data.longitude
         if data.is_featured is not None:
             existing_property.is_featured = data.is_featured
         if data.type is not None:
@@ -157,9 +165,20 @@ class UpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             existing_property.status = self._normalize_status(data.status)
 
         existing_property.updated_by = self.current_user.id
-        updated_property = await self.property_service.update(existing_property)
         db = getattr(getattr(self.property_service, "property_repository", None), "db", None)
         updated_property = await self.property_service.update(existing_property, commit=False if db is not None else True)
+
+        if manual_dict and self.address_service:
+            synced_addr = await self.address_service.sync_property_address(
+                property_id=updated_property.id,
+                address_line1=manual_dict["address_line1"],
+                address_line2=manual_dict.get("address_line2"),
+                postal_code=manual_dict["postal_code"],
+                country=manual_dict.get("country", "India"),
+                commit=False if db is not None else True,
+            )
+            updated_property.addresses = [synced_addr]
+
         await self._sync_child_records(updated_property.id, data)
 
         if db is not None and hasattr(db, "commit"):
@@ -171,6 +190,7 @@ class UpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
                 "vendor": True,
                 "city": True,
                 "location": True,
+                "addresses": True,
                 "property_room_types": True,
                 "property_amenities": True,
                 "property_facilities": True,
@@ -179,7 +199,12 @@ class UpdatePropertyUseCase(PropertySerializerMixin, BaseUseCase):
             },
             flush=True,
         ) or updated_property
+
+        if not getattr(full_property, "addresses", None) and getattr(updated_property, "addresses", None):
+            full_property.addresses = updated_property.addresses
+
         return await self.serialize_property(full_property)
+
 
     async def _sync_child_records(self, property_id: int, data: PropertyUpdateDTO) -> None:
         # The update DTO has `amenities: List[PropertyAmenitiesDTO]` (objects with .id)
